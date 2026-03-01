@@ -7,7 +7,7 @@ const ASSETS_TO_CACHE = [
   "./style.css",
   "./app.js",
   "./manifest.json",
-  "./assets/icon.svg",
+  "./icon.svg",
 ];
 
 // Крок 1: Встановлення (завантажуємо файли в кеш)
@@ -34,3 +34,4 @@ self.addEventListener("fetch", (event) => {
       }),
   );
 });
+
