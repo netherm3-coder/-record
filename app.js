@@ -1663,12 +1663,6 @@ if (saveWeightBtn) {
         document.getElementById(id).value = "";
       });
 
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.8 },
-        colors: ["#f59e0b", "#fbbf24"],
-      });
       document.getElementById("status").innerText = "Дані тіла оновлено ⚖️";
       setTimeout(() => {
         document.getElementById("status").innerText = "Хмара синхронізована ✅";
@@ -1960,15 +1954,24 @@ function calculateExperience() {
 // ==========================================
 let allPhotos = [];
 
-// Магія: перетворюємо звичайне посилання Google Диску у пряме посилання на картинку!
+// Магія: витягуємо ID та генеруємо безвідмовне посилання на картинку
 function getDriveDirectLink(url) {
-  let match = url.match(/\/d\/(.+?)\//);
-  if (match && match[1]) {
-    return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-  }
-  return url; // якщо формат інший, залишаємо як є
-}
+  if (!url) return "";
 
+  // Шукаємо ID файлу в будь-яких форматах посилань Google Диску
+  let match =
+    url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+    url.match(/\/d\/([a-zA-Z0-9_-]+)/) ||
+    url.match(/id=([a-zA-Z0-9_-]+)/);
+
+  if (match && match[1]) {
+    let fileId = match[1];
+    // Використовуємо офіційний сервер мініатюр Google (обходить блокування і вантажить швидше)
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+  }
+
+  return url; // якщо це посилання на інший сайт (не Диск), залишаємо як є
+}
 if (document.getElementById("photoDate")) {
   document.getElementById("photoDate").valueAsDate = new Date();
 }
@@ -1996,7 +1999,6 @@ if (document.getElementById("savePhotoBtn")) {
         });
         document.getElementById("photoUrl").value = "";
         document.getElementById("status").innerText = "Фото додано ✅";
-        confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 } });
       } catch (err) {
         if (err.code === "permission-denied") {
           alert(
@@ -2059,7 +2061,7 @@ window.deletePhoto = async (id) => {
   }
 };
 
-// Відмальовування галереї
+// Відмальовування галереї (Групування по датах)
 window.renderPhotos = () => {
   const container = document.getElementById("photoGalleryContainer");
   if (!container) return;
@@ -2070,23 +2072,52 @@ window.renderPhotos = () => {
     return;
   }
 
+  // Знімаємо клас сітки з головного контейнера, бо тепер у нас будуть групи
+  container.classList.remove("photo-grid");
+
   if (allPhotos.length === 0) {
     container.innerHTML =
       '<div class="empty-state">Ще немає жодного фото. Час додати перше!</div>';
     return;
   }
 
-  let html = "";
+  // 1. Групуємо всі фотографії по їхніх датах
+  const photosByDate = {};
+  const sortedDates = []; // Щоб зберегти правильний порядок від найновіших
+
   allPhotos.forEach((p) => {
-    let directUrl = getDriveDirectLink(p.url);
-    html += `
-            <div class="photo-card">
-                <img src="${directUrl}" alt="Progress Photo" loading="lazy" onclick="window.open('${p.url}', '_blank')" title="Відкрити оригінал на Диску">
-                <button class="photo-del-btn" onclick="deletePhoto('${p.id}')" title="Видалити">✖</button>
-                <div class="photo-date">${formatDate(p.date)}</div>
-            </div>
-        `;
+    if (!photosByDate[p.date]) {
+      photosByDate[p.date] = [];
+      sortedDates.push(p.date);
+    }
+    photosByDate[p.date].push(p);
   });
+
+  // 2. Будуємо HTML-код: Заголовок дати -> Сітка фотографій цієї дати
+  let html = "";
+  sortedDates.forEach((dateStr) => {
+    html += `
+      <div class="photo-date-group">
+          <div class="photo-date-header">
+              🗓️ ${formatDate(dateStr)}
+          </div>
+          <div class="photo-grid">`;
+
+    // Вставляємо всі фото, які належать до цієї дати
+    photosByDate[dateStr].forEach((p) => {
+      let directUrl = getDriveDirectLink(p.url);
+      html += `
+              <div class="photo-card">
+                  <img src="${directUrl}" alt="Progress Photo" loading="lazy" onclick="window.open('${p.url}', '_blank')" title="Відкрити оригінал на Диску">
+                  <button class="photo-del-btn" onclick="deletePhoto('${p.id}')" title="Видалити">✖</button>
+              </div>`;
+    });
+
+    html += `
+          </div>
+      </div>`;
+  });
+
   container.innerHTML = html;
 };
 function renderBodyMap() {
