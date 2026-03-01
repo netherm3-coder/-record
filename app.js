@@ -23,6 +23,8 @@ import {
   signInWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
+  setPersistence,
+  browserLocalPersistence,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 // === ЛОГІКА ПЕРЕМИКАННЯ ВКЛАДОК (Сучасний підхід) ===
@@ -58,6 +60,10 @@ const db = initializeFirestore(app, {
 });
 
 const auth = getAuth(app); // Підключаємо Auth
+
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error("Помилка збереження сесії:", error);
+});
 const colRef = collection(db, "workouts");
 
 let isAdmin = false; // Глобальна змінна для перевірки власника
