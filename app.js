@@ -783,13 +783,15 @@ function updateChart(workouts, filterValue) {
   const chartCard = canvas.parentElement.parentElement;
   const container = canvas.parentElement;
 
-  // Створюємо преміальну текстову підказку, якщо її ще немає
+  // Створюємо преміальну текстову підказку
   let hint = document.getElementById("chartHint");
   if (!hint) {
     hint = document.createElement("div");
     hint.id = "chartHint";
-    hint.style.cssText = `display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 20px; background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(16, 185, 129, 0.05)); border: 2px dashed rgba(99, 102, 241, 0.3); border-radius: 20px; margin: 10px 0; pointer-events: none; user-select: none; -webkit-user-select: none; display: none;`;
-    hint.innerHTML = `<div style="font-size: 4rem; filter: drop-shadow(0 10px 15px rgba(99,102,241,0.3)); margin-bottom: 15px; transform: translateY(-5px);">📊</div><div style="color: var(--text-main); font-size: 1.3rem; font-weight: 900; letter-spacing: 0.5px; margin-bottom: 12px;">Загальний графік відпочиває</div><div style="color: var(--text-muted); font-size: 1rem; line-height: 1.8; max-width: 90%;">Обери щось одне (наприклад, <span style="display: inline-block; color: var(--highlight); font-weight: 800; background: rgba(245, 158, 11, 0.15); padding: 4px 12px; border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.3); margin: 0 4px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.1);">🦍 Підтягування</span>),<br>щоб побачити динаміку рекордів!</div>`;
+    hint.style.cssText = `position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 15px; background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(16, 185, 129, 0.05)); border: 2px dashed rgba(99, 102, 241, 0.3); border-radius: 20px; pointer-events: none; user-select: none; -webkit-user-select: none; display: none;`;
+
+    hint.innerHTML = `<div style="font-size: 3rem; filter: drop-shadow(0 10px 15px rgba(99,102,241,0.3)); margin-bottom: 10px;">📊</div><div style="color: var(--text-main); font-size: 1.1rem; font-weight: 900; letter-spacing: 0.5px; margin-bottom: 10px;">Загальний графік відпочиває</div><div style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5; max-width: 100%;">Обери щось одне (наприклад, <span style="display: inline-block; color: var(--highlight); font-weight: 800; background: rgba(245, 158, 11, 0.15); padding: 2px 8px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.3); margin: 0 4px;">🦍 Підтягування</span>), щоб побачити динаміку!</div>`;
+
     container.appendChild(hint);
   }
 
