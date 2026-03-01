@@ -1567,10 +1567,12 @@ function calculateSobriety() {
   const smk = getDiff(smokingStart);
 
   document.getElementById("soberAlcohol").innerText = alc.detailed;
-  document.getElementById("soberAlcoholDays").innerText = `(Всього: ${alc.total} дн)`;
-  
+  document.getElementById("soberAlcoholDays").innerText =
+    `(Всього: ${alc.total} дн)`;
+
   document.getElementById("soberSmoking").innerText = smk.detailed;
-  document.getElementById("soberSmokingDays").innerText = `(Всього: ${smk.total} дн)`;
+  document.getElementById("soberSmokingDays").innerText =
+    `(Всього: ${smk.total} дн)`;
 }
 
 calculateExperience();
