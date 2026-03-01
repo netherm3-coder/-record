@@ -209,7 +209,18 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
     loginBtn.innerText = "Увійти";
   }
 });
-
+// === Кнопка Вийти ===
+const logoutBtn = document.getElementById("logoutBtn");
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      location.reload(); // Перезавантажуємо сторінку, щоб точно скинути адмін-режим
+    } catch (error) {
+      console.error("Помилка при виході:", error);
+    }
+  });
+}
 // === СЛОВНИК ВПРАВ (Єдине джерело правди) ===
 const EX = {
   PULLUPS: "Підтягування",
