@@ -495,7 +495,8 @@ window.formatDate = (dateStr) => {
 // НОВЕ: Функції для підрахунку "Життя рекорду"
 window.getDaysAgo = (dateStr) => {
   if (!dateStr) return 0;
-  const past = new Date(dateStr);
+  const parts = dateStr.split("-");
+  const past = new Date(parts[0], parts[1] - 1, parts[2]);
   const today = new Date();
   past.setHours(0, 0, 0, 0);
   today.setHours(0, 0, 0, 0);
@@ -1353,6 +1354,7 @@ async function processWorkoutDB(workoutData, currentEditId) {
 
   // 3. Відправляємо весь пакет на сервер ОДНИМ запитом
   await batch.commit();
+  syncGlobalStats();
 }
 
 // === 3. THE CONTROLLER: Логіка кліку на кнопку збереження ===
