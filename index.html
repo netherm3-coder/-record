@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Кімната Рекордів</title>
+
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏆</text></svg>"
+    />
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"
+    ></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="header-box">
+        <div class="header-controls-left" style="display: flex; gap: 10px">
+          <button id="infoBtn" class="theme-btn" data-label="Функціонал">
+            💡
+          </button>
+          <button id="donateBtn" class="theme-btn" data-label="Підтримати">
+            ☕
+          </button>
+        </div>
+
+        <h1>
+          Кімната
+          <span
+            id="secretDoor"
+            style="cursor: pointer; position: relative"
+            data-label="Вхід для власника"
+            >🏆</span
+          >
+        </h1>
+        <button id="themeToggle" class="theme-btn">☀️</button>
+      </div>
+
+      <div id="loginSection" class="card login-card" style="display: none">
+        <div class="section-title login-title">Вхід адміністратора</div>
+        <input type="email" id="loginEmail" placeholder="Ваш Email" />
+        <input
+          type="password"
+          id="loginPass"
+          placeholder="Пароль"
+          class="login-input-mt"
+        />
+        <button id="loginBtn" class="primary-btn login-btn">Увійти</button>
+        <div id="loginError" class="login-error"></div>
+      </div>
+
+      <div style="position: relative; margin-bottom: 20px; min-height: 40px">
+        <div
+          id="status"
+          class="status-bar"
+          style="
+            margin: 0;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+          "
+        >
+          Підключення...
+        </div>
+        <button
+          id="logoutBtn"
+          class="btn-del"
+          style="
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 0;
+            border-color: var(--border);
+            color: var(--text-muted);
+          "
+        >
+          Вийти
+        </button>
+      </div>
+      <div id="tab-dashboard" class="tab-content active">
+        <div class="card experience-card">
+          <div class="experience-title">🔥 Тренуюсь вже:</div>
+          <div class="experience-detailed" id="expDetailed">Рахуємо...</div>
+          <div class="experience-total" id="expTotalDays"></div>
+        </div>
+
+        <div
+          class="card status-card"
+          id="sportStatusCard"
+          style="display: none"
+        >
+          <div class="status-title">🎖️ Спортивний статус (Відносна сила)</div>
+          <div class="status-level" id="statusLevelName">Новачок</div>
+          <div class="status-coef" id="statusCoefValue">Коефіцієнт: 0.0</div>
+          <div class="status-bar-bg">
+            <div class="status-bar-fill" id="statusBarFill"></div>
+          </div>
+          <div class="status-hint" id="statusHint">Завантаження...</div>
+        </div>
+        <div class="section-title">🏆 Абсолютні рекорди</div>
+        <div id="pedestalContainer" class="pedestal-grid"></div>
+
+        <div class="section-title">🌍 Зал Слави</div>
+        <div id="globalStatsContainer" class="stats-grid"></div>
+        <div class="sober-section" style="margin-top: 30px; text-align: center">
+          <div class="section-title">🛡️ Чистий</div>
+          <div
+            class="stats-grid"
+            style="
+              display: flex;
+              justify-content: center;
+              flex-wrap: wrap;
+              gap: 15px;
+            "
+          >
+            <div class="stat-card" style="min-width: 160px; flex: 0 1 auto">
+              <div class="stat-title">🚫 Без алкоголю</div>
+              <div
+                id="soberAlcohol"
+                class="stat-value"
+                style="font-size: 1.3rem"
+              >
+                Рахуємо...
+              </div>
+              <div
+                id="soberAlcoholDays"
+                class="stat-title"
+                style="
+                  font-size: 0.7rem;
+                  margin-top: 5px;
+                  color: var(--success);
+                "
+              ></div>
+            </div>
+            <div class="stat-card" style="min-width: 160px; flex: 0 1 auto">
+              <div class="stat-title">🚭 Без куріння</div>
+              <div
+                id="soberSmoking"
+                class="stat-value"
+                style="font-size: 1.3rem"
+              >
+                Рахуємо...
+              </div>
+              <div
+                id="soberSmokingDays"
+                class="stat-title"
+                style="
+                  font-size: 0.7rem;
+                  margin-top: 5px;
+                  color: var(--success);
+                "
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-history" class="tab-content">
+        <div class="card" id="adminPanel" style="display: none">
+          <div class="section-title" style="margin-bottom: 0">
+            ⚡ Додати новий рекорд
+          </div>
+
+          <label>Вправа</label>
+          <select id="exSelect" onchange="uiLogic()">
+            <option value="Підтягування">Підтягування</option>
+            <option value="Віджимання">Віджимання</option>
+            <option value="Бруси">Бруси</option>
+            <option value="Біг">Біг (км)</option>
+            <option value="Спринт">Спринт (м)</option>
+            <option value="Човниковий біг">Човниковий біг</option>
+            <option value="custom">Інше...</option>
+          </select>
+
+          <input
+            type="text"
+            id="customEx"
+            placeholder="Введіть назву вправи"
+            style="display: none; margin-top: 15px"
+          />
+
+          <label>Дата</label>
+          <input type="date" id="workoutDate" />
+
+          <div id="countContainer">
+            <label>Результат (кількість)</label>
+            <input
+              type="number"
+              id="workoutCount"
+              placeholder="0"
+              min="0"
+              oninput="update1RM()"
+            />
+
+            <label>Додаткова вага (кг, необов'язково)</label>
+            <input
+              type="number"
+              id="addWeight"
+              placeholder="0"
+              min="0"
+              step="0.5"
+              oninput="update1RM()"
+            />
+
+            <div
+              id="oneRmContainer"
+              style="
+                display: none;
+                margin-top: 15px;
+                padding: 12px;
+                background: rgba(16, 185, 129, 0.15);
+                border: 1px dashed var(--success);
+                border-radius: 12px;
+                color: var(--success);
+                font-weight: 800;
+                font-size: 0.95rem;
+                text-align: center;
+                box-shadow: 0 4px 15px rgba(16, 185, 129, 0.1);
+              "
+            >
+              💡 Теоретичний максимум (1ПМ): <span id="oneRmValue">0</span> кг
+            </div>
+
+            <label>Час виконання (необов'язково)</label>
+            <div class="time-inputs">
+              <input type="number" id="exMin" placeholder="Хв" min="0" />
+              <input
+                type="number"
+                id="exSec"
+                placeholder="Сек"
+                min="0"
+                max="59"
+              />
+            </div>
+          </div>
+
+          <div id="timeContainer" style="display: none">
+            <label>Відстань (км)</label>
+            <input
+              type="number"
+              id="runDistance"
+              placeholder="0"
+              min="0"
+              step="0.1"
+            />
+            <label>Час (хв:сек)</label>
+            <div class="time-inputs">
+              <input type="number" id="runMin" placeholder="Хв" min="0" />
+              <input
+                type="number"
+                id="runSec"
+                placeholder="Сек"
+                min="0"
+                max="59"
+              />
+            </div>
+          </div>
+          <div id="sprintContainer" style="display: none; margin-top: 15px">
+            <label>Дистанція Спринту (метри)</label>
+            <input
+              type="number"
+              id="sprintDistance"
+              placeholder="Напр. 100"
+              min="0"
+            />
+            <label>Час (секунди з мілісекундами)</label>
+            <input
+              type="number"
+              id="sprintSec"
+              placeholder="Напр. 12.5"
+              min="0"
+              step="0.1"
+            />
+          </div>
+
+          <div id="shuttleContainer" style="display: none; margin-top: 15px">
+            <label>Схема відрізків (напр. 10х10)</label>
+            <input type="text" id="shuttleScheme" placeholder="10х10" />
+            <label>Час (секунди з мілісекундами)</label>
+            <input
+              type="number"
+              id="shuttleSec"
+              placeholder="Напр. 24.5"
+              min="0"
+              step="0.1"
+            />
+          </div>
+          <div id="customResultContainer" style="display: none">
+            <label>Результат</label>
+            <input
+              type="text"
+              id="customResultStr"
+              placeholder="Ваш результат"
+            />
+            <label>Час виконання (необов'язково)</label>
+            <div class="time-inputs">
+              <input type="number" id="customMin" placeholder="Хв" min="0" />
+              <input
+                type="number"
+                id="customSec"
+                placeholder="Сек"
+                min="0"
+                max="59"
+              />
+            </div>
+          </div>
+
+          <button id="saveBtn" class="primary-btn">Зберегти рекорд</button>
+
+          <button
+            id="cancelEditBtn"
+            class="primary-btn btn-outline-danger"
+            style="display: none"
+          >
+            ❌ Скасувати редагування
+          </button>
+
+          <div id="noteContainer" style="margin-top: 15px">
+            <label>📝 Нотатка (самопочуття, погода...)</label>
+            <input
+              type="text"
+              id="workoutNote"
+              placeholder="Напр.: Після наряду"
+            />
+          </div>
+          <div id="videoContainer" style="margin-top: 15px">
+            <label>🎥 Посилання на відео-доказ (необов'язково)</label>
+            <input
+              type="url"
+              id="workoutVideoUrl"
+              placeholder="Напр.: https://youtu.be/..."
+            />
+          </div>
+
+          <button id="exportBtn" class="btn-outline-accent">
+            💾 Завантажити резервну копію (CSV)
+          </button>
+        </div>
+
+        <div class="card filter-section">
+          <label>Історія:</label>
+          <select id="filterSelect" onchange="renderUI()">
+            <option value="all">Усі рекорди</option>
+          </select>
+        </div>
+        <div class="card">
+          <div class="chart-container">
+            <canvas id="progressChart"></canvas>
+          </div>
+        </div>
+        <div id="timelineContainer" class="timeline-container"></div>
+        <button
+          id="loadMoreBtn"
+          class="primary-btn"
+          style="
+            display: none;
+            margin: 0 auto 30px auto;
+            width: auto;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+          "
+          onclick="loadMoreWorkouts()"
+        >
+          🔽 Завантажити старіші
+        </button>
+      </div>
+
+      <div id="tab-weight" class="tab-content">
+        <div class="card" id="weightAdminPanel" style="display: none">
+          <div class="section-title" style="margin-bottom: 0">
+            ⚖️ Тіло та Вага
+          </div>
+
+          <label>Дата зважування та замірів</label>
+          <input type="date" id="weightDate" />
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px">
+            <div>
+              <label>Вага (кг)</label>
+              <input
+                type="number"
+                id="weightValue"
+                placeholder="0"
+                min="0"
+                step="0.1"
+              />
+            </div>
+            <div>
+              <label>Зріст (см)</label>
+              <input type="number" id="userHeight" placeholder="180" min="0" />
+            </div>
+          </div>
+
+          <div
+            style="
+              margin-top: 15px;
+              padding: 15px;
+              background: rgba(99, 102, 241, 0.05);
+              border-radius: 16px;
+              border: 1px dashed var(--border);
+            "
+          >
+            <div
+              style="
+                font-size: 0.85rem;
+                font-weight: 800;
+                color: var(--accent);
+                margin-bottom: 10px;
+                text-transform: uppercase;
+              "
+            >
+              📏 Заміри тіла (см)
+            </div>
+            <div
+              style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px"
+            >
+              <input
+                type="number"
+                id="mNeck"
+                placeholder="Шия"
+                min="0"
+                step="0.1"
+              />
+              <input
+                type="number"
+                id="mShoulders"
+                placeholder="Плечі"
+                min="0"
+                step="0.1"
+              />
+              <input
+                type="number"
+                id="mChest"
+                placeholder="Груди"
+                min="0"
+                step="0.1"
+              />
+              <input
+                type="number"
+                id="mWaist"
+                placeholder="Талія"
+                min="0"
+                step="0.1"
+              />
+              <input
+                type="number"
+                id="mBicep"
+                placeholder="Біцепс"
+                min="0"
+                step="0.1"
+              />
+              <input
+                type="number"
+                id="mThigh"
+                placeholder="Стегно"
+                min="0"
+                step="0.1"
+              />
+              <input
+                type="number"
+                id="mCalf"
+                placeholder="Гомілка"
+                min="0"
+                step="0.1"
+              />
+              <input
+                type="number"
+                id="mForearm"
+                placeholder="Передпліччя"
+                min="0"
+                step="0.1"
+              />
+            </div>
+          </div>
+
+          <button
+            id="saveWeightBtn"
+            class="primary-btn"
+            style="
+              background: linear-gradient(135deg, var(--highlight), #d97706);
+            "
+          >
+            Зберегти дані тіла
+          </button>
+        </div>
+
+        <div
+          class="card"
+          id="bodyMapCard"
+          style="
+            padding: 15px;
+            display: none;
+            background: rgba(30, 41, 59, 0.4);
+          "
+        >
+          <div class="section-title" style="font-size: 1rem">
+            🗺️ Карта пропорцій
+          </div>
+          <div
+            style="
+              position: relative;
+              width: 100%;
+              max-width: 220px;
+              margin: 0 auto;
+            "
+          >
+            <svg
+              viewBox="0 0 200 380"
+              xmlns="http://www.w3.org/2000/svg"
+              style="
+                width: 100%;
+                height: auto;
+                filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.2));
+              "
+            >
+              <path
+                d="M100,10 c12,0 16,8 16,18 c0,12 -6,18 -16,18 c-10,0 -16,-6 -16,-18 c0,-10 4,-18 16,-18 Z"
+                fill="rgba(99, 102, 241, 0.15)"
+                stroke="var(--accent)"
+                stroke-width="2.5"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M90,45 C75,45 55,55 45,75 C40,90 30,150 25,185 C23,205 45,205 45,185 C45,150 55,110 65,95 C70,120 75,150 70,190 C65,220 60,280 65,340 C65,360 85,360 85,340 C85,280 95,250 95,230 C97,215 103,215 105,230 C105,250 115,280 115,340 C115,360 135,360 135,340 C140,280 135,220 130,190 C125,150 130,120 135,95 C145,110 155,150 155,185 C155,205 177,205 175,185 C170,150 160,90 155,75 C145,55 125,45 110,45 Z"
+                fill="rgba(99, 102, 241, 0.1)"
+                stroke="var(--accent)"
+                stroke-width="2.5"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <div
+              id="bodyMarkersContainer"
+              style="
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+              "
+            ></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="chart-container">
+            <canvas id="weightChart"></canvas>
+          </div>
+        </div>
+        <div
+          id="bmiContainer"
+          style="text-align: center; margin-top: 15px; margin-bottom: 20px"
+        ></div>
+        <div class="section-title">📅 Історія зважувань</div>
+        <div id="weightTimelineContainer" class="timeline-container"></div>
+        <button
+          id="loadMoreWeightBtn"
+          class="primary-btn"
+          style="
+            display: none;
+            margin: 0 auto 30px auto;
+            width: auto;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+          "
+          onclick="loadMoreWeight()"
+        >
+          🔽 Завантажити старіші
+        </button>
+      </div>
+      <div id="tab-photos" class="tab-content">
+        <div class="card" id="photoAdminPanel">
+          <div class="section-title" style="margin-bottom: 0">
+            📸 Додати прогрес-фото
+          </div>
+
+          <label>Дата фото</label>
+          <input type="date" id="photoDate" />
+
+          <label>Посилання на Google Диск</label>
+          <div
+            style="
+              font-size: 0.8rem;
+              color: var(--highlight);
+              margin-bottom: 10px;
+            "
+          >
+            ⚠️ Увага: у налаштуваннях доступу фотографії на Диску має бути
+            ввімкнено <b>"Усі, хто має посилання"</b>.
+          </div>
+          <input
+            type="url"
+            id="photoUrl"
+            placeholder="https://drive.google.com/file/d/.../view"
+          />
+
+          <button id="savePhotoBtn" class="primary-btn">
+            Додати в галерею
+          </button>
+        </div>
+
+        <div class="section-title">📅 Візуальний щоденник</div>
+        <div id="photoGalleryContainer" class="photo-grid"></div>
+        <button
+          id="loadMorePhotosBtn"
+          class="primary-btn"
+          style="
+            display: none;
+            margin: 0 auto 30px auto;
+            width: auto;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+          "
+          onclick="loadMorePhotos()"
+        >
+          🔽 Завантажити старіші
+        </button>
+      </div>
+      <nav class="bottom-nav">
+        <button class="nav-btn active" data-tab="tab-dashboard">
+          🏆<span>Головна</span>
+        </button>
+        <button class="nav-btn" data-tab="tab-history">
+          ⚡<span>Тренування</span>
+        </button>
+        <button class="nav-btn" data-tab="tab-weight">
+          ⚖️<span>Вага</span>
+        </button>
+        <button
+          class="nav-btn"
+          id="nav-photos"
+          data-tab="tab-photos"
+          style="display: none"
+        >
+          📸<span>Фото</span>
+        </button>
+      </nav>
+
+      <div id="infoModal" class="modal-overlay">
+        <div class="card modal-content">
+          <div class="modal-header">
+            <div class="section-title">🛠 Як це працює?</div>
+            <button id="closeInfoBtn" class="btn-del modal-close-btn">✖</button>
+          </div>
+          <div
+            class="modal-body"
+            style="
+              color: var(--text-main);
+              font-size: 0.95rem;
+              line-height: 1.6;
+              text-align: left;
+            "
+          >
+            <div
+              style="
+                background: rgba(99, 102, 241, 0.1);
+                border-left: 3px solid var(--accent);
+                padding: 10px;
+                border-radius: 0 8px 8px 0;
+                margin-bottom: 20px;
+              "
+            >
+              Цей додаток — не просто блокнот. Це аналітична система, яка
+              самостійно вираховує твій прогрес, порівнює результати та оцінює
+              рівень підготовки.
+            </div>
+
+            <h3
+              style="
+                color: var(--highlight);
+                margin-bottom: 10px;
+                font-size: 1.1rem;
+              "
+            >
+              🔐 Секретний доступ
+            </h3>
+            <ul
+              style="
+                padding-left: 20px;
+                margin-bottom: 20px;
+                color: var(--text-muted);
+              "
+            >
+              <li>
+                <b>Для гостей:</b> Додаток працює в режимі вітрини. Можна
+                переглядати рекорди, графіки та Зал Слави.
+              </li>
+              <li>
+                <b>Для власника:</b> Натисни на 🏆 біля заголовка "Кімната", щоб
+                відкрити панель авторизації. Тільки адмін може додавати записи,
+                бачити Карту тіла та Галерею фото.
+              </li>
+            </ul>
+
+            <h3
+              style="
+                color: var(--highlight);
+                margin-bottom: 10px;
+                font-size: 1.1rem;
+              "
+            >
+              🧮 Математика сили (1ПМ та Статус)
+            </h3>
+            <ul
+              style="
+                padding-left: 20px;
+                margin-bottom: 20px;
+                color: var(--text-muted);
+              "
+            >
+              <li>
+                <b>1ПМ (Теоретичний максимум):</b> Додаток використовує класичну
+                формулу Еплі. Він аналізує твою вагу тіла, додаткову вагу та
+                кількість повторень, щоб розрахувати, яку максимальну вагу ти
+                міг би підняти на 1 раз.
+              </li>
+              <li>
+                <b>Спортивний статус:</b> Рахується відносна сила (1ПМ / Вага
+                тіла). На основі цього коефіцієнта ти отримуєш звання: Рекрут
+                (до 1.2), Атлет (до 1.5), КМС (до 1.8) або Еліта (2.0+).
+              </li>
+            </ul>
+
+            <h3
+              style="
+                color: var(--highlight);
+                margin-bottom: 10px;
+                font-size: 1.1rem;
+              "
+            >
+              🏆 Розумні рекорди та Таймлайн
+            </h3>
+            <ul
+              style="
+                padding-left: 20px;
+                margin-bottom: 20px;
+                color: var(--text-muted);
+              "
+            >
+              <li>
+                <b>Силовий Індекс:</b> Додаток розуміє, що 10 підтягувань з +16
+                кг — це крутіше, ніж 15 без ваги. Коронка 👑 в історії дається
+                за найкращий результат саме за <i>Індексом</i>, а не просто за
+                кількістю.
+              </li>
+              <li>
+                <b>Динаміка:</b> Зелені та червоні бейджі в історії показують
+                різницю між поточним та попереднім тренуванням.
+              </li>
+              <li>
+                <b>Цілі:</b> Натисни "+ Задати ціль" на П'єдесталі, щоб з'явився
+                прогрес-бар до твоєї мрії.
+              </li>
+            </ul>
+
+            <h3
+              style="
+                color: var(--highlight);
+                margin-bottom: 10px;
+                font-size: 1.1rem;
+              "
+            >
+              🗺️ Аналітика тіла та ІМТ
+            </h3>
+            <ul
+              style="
+                padding-left: 20px;
+                margin-bottom: 20px;
+                color: var(--text-muted);
+              "
+            >
+              <li>Зріст зберігається автоматично (не треба вводити щоразу).</li>
+              <li>
+                Додаток автоматично рахує Індекс Маси Тіла (ІМТ) і показує
+                категорію (Норма, Зайва вага тощо).
+              </li>
+              <li>
+                <b>Карта пропорцій:</b> Введи заміри м'язів, і додаток намалює
+                інтерактивний силует. При наведенні на мітки ти побачиш точні
+                цифри та різницю з минулим виміром (▲ або ▼).
+              </li>
+            </ul>
+
+            <h3
+              style="
+                color: var(--highlight);
+                margin-bottom: 10px;
+                font-size: 1.1rem;
+              "
+            >
+              📸 Галерея та Бекапи
+            </h3>
+            <ul
+              style="
+                padding-left: 20px;
+                margin-bottom: 20px;
+                color: var(--text-muted);
+              "
+            >
+              <li>
+                <b>Фотографії:</b> Щоб додати фото, завантаж його на свій Google
+                Диск, увімкни "Доступ для всіх, хто має посилання" і встав лінк
+                сюди. Додаток сам перетворить його на картинку.
+              </li>
+              <li>
+                <b>Бекап:</b> У вкладці тренувань є кнопка завантаження
+                CSV-файлу, щоб ти завжди мав офлайн-копію своїх рекордів.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div id="donateModal" class="modal-overlay">
+        <div
+          class="card modal-content"
+          style="max-width: 400px; text-align: center"
+        >
+          <div class="modal-header">
+            <div class="section-title">🤝 Підтримати автора</div>
+            <button id="closeDonateBtn" class="btn-del modal-close-btn">
+              ✖
+            </button>
+          </div>
+
+          <div
+            style="
+              font-size: 0.95rem;
+              color: var(--text-muted);
+              margin-bottom: 25px;
+              line-height: 1.6;
+            "
+          >
+            На сервери💻
+          </div>
+
+          <a
+            href="https://donatello.to/RonziBi"
+            target="_blank"
+            class="primary-btn"
+            style="
+              display: block;
+              text-decoration: none;
+              box-sizing: border-box;
+              width: 100%;
+              background: linear-gradient(135deg, #f59e0b, #d97706);
+            "
+          >
+            🍕 Підтримати через Donatello
+          </a>
+        </div>
+      </div>
+
+      <div id="goalModal" class="modal-overlay">
+        <div
+          class="card modal-content"
+          style="max-width: 350px; text-align: center"
+        >
+          <div class="modal-header">
+            <div class="section-title" id="goalModalTitle">🎯 Задати ціль</div>
+            <button id="closeGoalBtn" class="btn-del modal-close-btn">✖</button>
+          </div>
+
+          <div
+            style="
+              font-size: 0.9rem;
+              color: var(--text-muted);
+              margin-bottom: 15px;
+              line-height: 1.5;
+            "
+          >
+            Введіть бажану кількість. Залиште поле порожнім, щоб повністю
+            видалити ціль.
+          </div>
+
+          <input
+            type="number"
+            id="goalInput"
+            placeholder="Наприклад: 50"
+            style="
+              margin-bottom: 15px;
+              text-align: center;
+              font-size: 1.5rem;
+              font-weight: 800;
+              padding: 10px;
+            "
+          />
+
+          <button
+            id="saveGoalBtn"
+            class="primary-btn"
+            style="
+              margin-top: 0;
+              background: linear-gradient(135deg, var(--success), #059669);
+            "
+          >
+            Зберегти ціль
+          </button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
