@@ -117,7 +117,7 @@ h1 span {
 }
 
 .theme-btn {
-  background: var(--card-bg); 
+  background: var(--card-bg);
   border: 1px solid var(--border);
   color: var(--text-main);
   font-size: 1.3rem;
@@ -154,6 +154,7 @@ h1 span {
   user-select: none;
   -webkit-user-select: none;
   pointer-events: none;
+  white-space: nowrap;
 }
 
 .card {
@@ -1196,22 +1197,22 @@ body {
   .container {
     max-width: 900px;
   }
-  
+
   /* П'єдестал: 3 колонки замість 2 */
   .pedestal-grid {
     grid-template-columns: repeat(3, 1fr);
   }
-  
+
   /* Зал Слави: 4 колонки в ряд, щоб виглядати солідніше */
   .stats-grid {
     grid-template-columns: repeat(4, 1fr);
   }
-  
+
   /* Фотогалерея: Більше фотографій в одному ряду */
   .photo-grid {
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   }
-  
+
   /* Таймлайн трохи стискаємо до центру, щоб він не розтягувався на весь екран і його було зручно читати */
   .timeline-container {
     max-width: 600px;
