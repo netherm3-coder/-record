@@ -1,4 +1,3 @@
-
 /* Змінні для Темної теми */
 :root {
   --bg-color: #0f172a;
@@ -1692,4 +1691,12 @@ body {
 .tab-content.active {
   display: block !important;
   animation: fadeIn 0.3s ease-out;
+}
+/* --- КНОПКА СИНХРОНІЗАЦІЇ РЕКОРДІВ --- */
+.sync-stats-btn {
+  display: none;
+  width: fit-content !important;
+  padding: 6px 16px !important;
+  font-size: 1.05rem !important;
+  margin: -5px auto 15px auto !important;
 }

@@ -152,6 +152,10 @@ onAuthStateChanged(auth, (user) => {
     if (weightPanel) weightPanel.style.display = "block";
     if (navPhotos) navPhotos.style.display = "flex";
 
+    // --- ДОДАНО: Показуємо кнопку синхронізації адміну ---
+    const syncBtn = document.getElementById("syncStatsBtn");
+    if (syncBtn) syncBtn.style.display = "block";
+
     // --- ВИМИКАЄМО КУБОК ДЛЯ АДМІНА ---
     if (secretDoor) {
       secretDoor.classList.add("admin-mode");
@@ -162,6 +166,9 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("adminPanel").style.display = "none";
     document.getElementById("logoutBtn").style.display = "none";
     if (weightPanel) weightPanel.style.display = "none";
+
+const syncBtn = document.getElementById("syncStatsBtn");
+    if (syncBtn) syncBtn.style.display = "none";
 
     // --- ВМИКАЄМО КУБОК ДЛЯ ГОСТЕЙ ---
     if (secretDoor) {
