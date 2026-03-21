@@ -1,627 +1,1264 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="uk">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Кімната Рекордів</title>
-
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏆</text></svg>"
-    />
-    <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"
-    ></script>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="manifest" href="manifest.json" />
-    <link rel="stylesheet" href="style.css" />
-  </head>
-
-  <body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Програма тренувань - 12 тижнів</title>
+    <link rel="stylesheet" href="design.css">
+</head>
+<body>
     <div class="container">
-      <div class="header-box">
-        <div class="header-controls-left">
-          <button id="infoBtn" class="theme-btn" data-label="Функціонал">
-            💡
-          </button>
-          <button id="donateBtn" class="theme-btn" data-label="Підтримати">
-            ☕
-          </button>
+        <header>
+            <h1>🏋️ Програма тренувань</h1>
+            <p class="subtitle">12-тижневий план підготовки (Калістеніка + Біг)</p>
+        </header>
+
+        <!-- Таби для навігації між місяцями -->
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab('month1')">Місяць 1<br><span class="tab-weeks">Тижні 1-4</span></button>
+            <button class="tab-button" onclick="openTab('month2')">Місяць 2<br><span class="tab-weeks">Тижні 5-8</span></button>
+            <button class="tab-button" onclick="openTab('month3')">Місяць 3<br><span class="tab-weeks">Тижні 9-12</span></button>
         </div>
 
-        <h1>
-          Кімната <span id="secretDoor" data-label="Вхід для власника">🏆</span>
-        </h1>
-        <div class="status-container">
-          <div id="status" class="status-bar">Підключення...</div>
-        </div>
-
-        <div class="header-controls-right">
-          <button id="themeToggle" class="theme-btn">☀️</button>
-          <button id="logoutBtn" class="btn-del" style="display: none">
-            Вийти
-          </button>
-        </div>
-      </div>
-
-      <div id="loginSection" class="card login-card" style="display: none">
-        <div class="section-title login-title">Вхід адміністратора</div>
-        <input type="email" id="loginEmail" placeholder="Ваш Email" />
-        <input
-          type="password"
-          id="loginPass"
-          placeholder="Пароль"
-          class="login-input-mt"
-        />
-        <button id="loginBtn" class="primary-btn login-btn">Увійти</button>
-        <div id="loginError" class="login-error"></div>
-      </div>
-      <div id="tab-dashboard" class="tab-content active">
-        <div class="card experience-card">
-          <div class="experience-title">🔥 Тренуюсь вже:</div>
-          <div class="experience-detailed" id="expDetailed">Рахуємо...</div>
-          <div class="experience-total" id="expTotalDays"></div>
-        </div>
-
-        <div
-          class="card status-card"
-          id="sportStatusCard"
-          style="display: none"
-        >
-          <div class="status-title">🎖️ Спортивний статус (Відносна сила)</div>
-          <div class="status-level" id="statusLevelName">Новачок</div>
-          <div class="status-coef" id="statusCoefValue">Коефіцієнт: 0.0</div>
-          <div class="status-bar-bg">
-            <div class="status-bar-fill" id="statusBarFill"></div>
-          </div>
-          <div class="status-hint" id="statusHint">Завантаження...</div>
-        </div>
-      <div class="section-title">🏆 Абсолютні рекорди</div>
-        <button id="syncStatsBtn" onclick="syncGlobalStats()" class="btn-outline-accent sync-stats-btn">
-          🔄 Перерахувати рекорди
-        </button>
-        <div id="pedestalContainer" class="pedestal-grid"></div>
-
-        <div class="section-title">🌍 Зал Слави</div>
-        <div id="globalStatsContainer" class="stats-grid"></div>
-
-        <div class="sober-section">
-          <div class="section-title">🛡️ Чистий</div>
-          <div class="sober-grid">
-            <div class="stat-card sober-card">
-              <div class="stat-title">🚫 Без алкоголю</div>
-              <div id="soberAlcohol" class="stat-value sober-value">
-                Рахуємо...
-              </div>
-              <div id="soberAlcoholDays" class="stat-title sober-days"></div>
+        <!-- Місяць 1: Тижні 1-4 -->
+        <div id="month1" class="tab-content active">
+            <h2>Місяць 1: Адаптація та Базовий Обсяг</h2>
+            
+            <!-- Тиждень 1 -->
+            <div class="week-section">
+                <h3>Тиждень 1: Адаптація та базовий обсяг</h3>
+                <table class="training-table">
+                    <thead>
+                        <tr>
+                            <th>День</th>
+                            <th>Час</th>
+                            <th>Місце</th>
+                            <th>Вправи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="day-number">1</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка</li>
+                                    <li>Стійка на руках (5 хв практики)</li>
+                                    <li>Tuck Planche: 5 підходів по 5–6 сек</li>
+                                    <li>Підтягування: 3×12</li>
+                                    <li>Віджимання на брусах: 3×20</li>
+                                    <li>Австралійські підтягування: 3×12</li>
+                                    <li>PPPU: 3×8</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">2</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Ранок - вулиця / Вечір - вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Легка пробіжка (ранок)</li>
+                                    <li>Присідання зі штангою/гирями: 3×8 (вечір)</li>
+                                    <li>Махи гирею: 3×12</li>
+                                    <li>L-Sit на підлозі: 3×15 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">3</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка на руках (5-10 хв балансу)</li>
+                                    <li>Вечір: Відпочинок, розтяжка плечей та ніг</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">4</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка на руках (5 хв)</li>
+                                    <li>Tuck Planche: 5×6-7 сек</li>
+                                    <li>Підтягування: 3×13</li>
+                                    <li>Бруси: 3×22</li>
+                                    <li>Австралійські: 3×13</li>
+                                    <li>PPPU: 3×9</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">5</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Фронтальні присідання: 3×9</li>
+                                    <li>L-Sit: 3×15 сек</li>
+                                    <li>Згинання на біцепс: 3×12</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">6</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>Тривалий біг (підготовка до 10 км) + Глибока розтяжка</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">7</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок. Пасивне відновлення.</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
-            <div class="stat-card sober-card">
-              <div class="stat-title">🚭 Без куріння</div>
-              <div id="soberSmoking" class="stat-value sober-value">
-                Рахуємо...
-              </div>
-              <div id="soberSmokingDays" class="stat-title sober-days"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div id="tab-history" class="tab-content">
-        <div class="card" id="adminPanel" style="display: none">
-          <div class="section-title" style="margin-bottom: 0">
-            ⚡ Додати новий рекорд
-          </div>
-
-          <label>Вправа</label>
-          <select id="exSelect" onchange="uiLogic()">
-            <option value="Підтягування">Підтягування</option>
-            <option value="Віджимання">Віджимання</option>
-            <option value="Бруси">Бруси</option>
-            <option value="Біг">Біг (км)</option>
-            <option value="Спринт">Спринт (м)</option>
-            <option value="Човниковий біг">Човниковий біг</option>
-            <option value="custom">Інше...</option>
-          </select>
-
-          <input
-            type="text"
-            id="customEx"
-            placeholder="Введіть назву вправи"
-            style="display: none; margin-top: 15px"
-          />
-
-          <label>Дата</label>
-          <input type="date" id="workoutDate" />
-
-          <div id="countContainer">
-            <label>Результат (кількість)</label>
-            <input
-              type="number"
-              id="workoutCount"
-              placeholder="0"
-              min="0"
-              oninput="update1RM()"
-            />
-
-            <label>Додаткова вага (кг, необов'язково)</label>
-            <input
-              type="number"
-              id="addWeight"
-              placeholder="0"
-              min="0"
-              step="0.5"
-              oninput="update1RM()"
-            />
-
-            <div id="oneRmContainer">
-              💡 Теоретичний максимум (1ПМ): <span id="oneRmValue">0</span> кг
-            </div>
-
-            <label>Час виконання (необов'язково)</label>
-            <div class="time-inputs">
-              <input type="number" id="exMin" placeholder="Хв" min="0" />
-              <input
-                type="number"
-                id="exSec"
-                placeholder="Сек"
-                min="0"
-                max="59"
-              />
-            </div>
-          </div>
-
-          <div id="timeContainer" style="display: none">
-            <label>Відстань (км)</label>
-            <input
-              type="number"
-              id="runDistance"
-              placeholder="0"
-              min="0"
-              step="0.1"
-            />
-            <label>Час (год:хв:сек)</label>
-            <div class="time-inputs">
-              <input type="number" id="runHr" placeholder="Год" min="0" />
-              <input type="number" id="runMin" placeholder="Хв" min="0" />
-              <input
-                type="number"
-                id="runSec"
-                placeholder="Сек"
-                min="0"
-                max="59"
-              />
-            </div>
-          </div>
-          <div id="sprintContainer" style="display: none; margin-top: 15px">
-            <label>Дистанція Спринту (метри)</label>
-            <input
-              type="number"
-              id="sprintDistance"
-              placeholder="Напр. 100"
-              min="0"
-            />
-            <label>Час (секунди з мілісекундами)</label>
-            <input
-              type="number"
-              id="sprintSec"
-              placeholder="Напр. 12.5"
-              min="0"
-              step="0.1"
-            />
-          </div>
-
-          <div id="shuttleContainer" style="display: none; margin-top: 15px">
-            <label>Схема відрізків (напр. 10х10)</label>
-            <input type="text" id="shuttleScheme" placeholder="10х10" />
-            <label>Час (секунди з мілісекундами)</label>
-            <input
-              type="number"
-              id="shuttleSec"
-              placeholder="Напр. 24.5"
-              min="0"
-              step="0.1"
-            />
-          </div>
-          <div id="customResultContainer" style="display: none">
-            <label>Результат</label>
-            <input
-              type="text"
-              id="customResultStr"
-              placeholder="Ваш результат"
-            />
-            <label>Час виконання (необов'язково)</label>
-            <div class="time-inputs">
-              <input type="number" id="customMin" placeholder="Хв" min="0" />
-              <input
-                type="number"
-                id="customSec"
-                placeholder="Сек"
-                min="0"
-                max="59"
-              />
-            </div>
-          </div>
-
-          <button id="saveBtn" class="primary-btn">Зберегти рекорд</button>
-
-          <button
-            id="cancelEditBtn"
-            class="primary-btn btn-outline-danger"
-            style="display: none"
-          >
-            ❌ Скасувати редагування
-          </button>
-
-          <div id="noteContainer" style="margin-top: 15px">
-            <label>📝 Нотатка (самопочуття, погода...)</label>
-            <input
-              type="text"
-              id="workoutNote"
-              placeholder="Напр.: Після наряду"
-            />
-          </div>
-          <div id="videoContainer" style="margin-top: 15px">
-            <label>🎥 Посилання на відео-доказ (необов'язково)</label>
-            <input
-              type="url"
-              id="workoutVideoUrl"
-              placeholder="Напр.: https://youtu.be/..."
-            />
-          </div>
-
-          <button id="exportBtn" class="btn-outline-accent">
-            💾 Завантажити резервну копію (CSV)
-          </button>
-        </div>
-
-        <div class="card filter-section">
-          <label>Історія:</label>
-          <select id="filterSelect" onchange="renderUI()">
-            <option value="all">Усі рекорди</option>
-          </select>
-        </div>
-        <div class="card">
-          <div class="chart-container">
-            <canvas id="progressChart"></canvas>
-          </div>
-        </div>
-        <div id="timelineContainer" class="timeline-container"></div>
-        <button
-          id="loadMoreBtn"
-          class="primary-btn"
-          onclick="loadMoreWorkouts()"
-        >
-          🔽 Завантажити старіші
-        </button>
-      </div>
-
-      <div id="tab-weight" class="tab-content">
-        <div class="card" id="weightAdminPanel" style="display: none">
-          <div class="section-title" style="margin-bottom: 0">
-            ⚖️ Тіло та Вага
-          </div>
-
-          <label>Дата зважування та замірів</label>
-          <input type="date" id="weightDate" />
-
-          <div class="input-grid">
-            <div>
-              <label>Вага (кг)</label>
-              <input
-                type="number"
-                id="weightValue"
-                placeholder="0"
-                min="0"
-                step="0.1"
-              />
-            </div>
-            <div>
-              <label>Зріст (см)</label>
-              <input type="number" id="userHeight" placeholder="180" min="0" />
-            </div>
-          </div>
-
-          <div class="measurements-box">
-            <div class="measurements-title">📏 Заміри тіла (см)</div>
-            <div class="input-grid gap-sm">
-              <input
-                type="number"
-                id="mNeck"
-                placeholder="Шия"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mShoulders"
-                placeholder="Плечі"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mChest"
-                placeholder="Груди"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mWaist"
-                placeholder="Талія"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mBicep"
-                placeholder="Біцепс"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mThigh"
-                placeholder="Стегно"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mCalf"
-                placeholder="Гомілка"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mForearm"
-                placeholder="Передпліччя"
-                min="0"
-                step="0.1"
-              />
-            </div>
-          </div>
-
-          <button id="saveWeightBtn" class="primary-btn">
-            Зберегти дані тіла
-          </button>
-        </div>
-
-        <div class="card" id="bodyMapCard">
-          <div class="section-title body-map-title">🗺️ Карта пропорцій</div>
-          <div class="body-map-wrapper">
-            <svg
-              class="body-map-svg"
-              viewBox="0 0 200 380"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M100,10 c12,0 16,8 16,18 c0,12 -6,18 -16,18 c-10,0 -16,-6 -16,-18 c0,-10 4,-18 16,-18 Z"
-                fill="rgba(99, 102, 241, 0.15)"
-                stroke="var(--accent)"
-                stroke-width="2.5"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M90,45 C75,45 55,55 45,75 C40,90 30,150 25,185 C23,205 45,205 45,185 C45,150 55,110 65,95 C70,120 75,150 70,190 C65,220 60,280 65,340 C65,360 85,360 85,340 C85,280 95,250 95,230 C97,215 103,215 105,230 C105,250 115,280 115,340 C115,360 135,360 135,340 C140,280 135,220 130,190 C125,150 130,120 135,95 C145,110 155,150 155,185 C155,205 177,205 175,185 C170,150 160,90 155,75 C145,55 125,45 110,45 Z"
-                fill="rgba(99, 102, 241, 0.1)"
-                stroke="var(--accent)"
-                stroke-width="2.5"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <div id="bodyMarkersContainer"></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="chart-container">
-            <canvas id="weightChart"></canvas>
-          </div>
-        </div>
-
-        <div id="bmiContainer"></div>
-
-        <div class="section-title">📅 Історія зважувань</div>
-        <div id="weightTimelineContainer" class="timeline-container"></div>
-
-        <button
-          id="loadMoreWeightBtn"
-          class="primary-btn"
-          onclick="loadMoreWeight()"
-        >
-          🔽 Завантажити старіші
-        </button>
-      </div>
-
-      <div id="tab-photos" class="tab-content">
-        <div class="card" id="photoAdminPanel">
-          <div class="section-title mb-0">📸 Додати прогрес-фото</div>
-
-          <label>Дата фото</label>
-          <input type="date" id="photoDate" />
-
-          <label>Посилання на Google Диск</label>
-          <div class="warning-text">
-            ⚠️ Увага: у налаштуваннях доступу фотографії на Диску має бути
-            ввімкнено <b>"Усі, хто має посилання"</b>.
-          </div>
-
-          <input
-            type="url"
-            id="photoUrl"
-            placeholder="https://drive.google.com/file/d/.../view"
-          />
-
-          <button id="savePhotoBtn" class="primary-btn">
-            Додати в галерею
-          </button>
-        </div>
-
-        <div class="section-title">📅 Візуальний щоденник</div>
-        <div id="photoGalleryContainer" class="photo-grid"></div>
-
-        <button
-          id="loadMorePhotosBtn"
-          class="primary-btn"
-          onclick="loadMorePhotos()"
-        >
-          🔽 Завантажити старіші
-        </button>
-      </div>
-      <nav class="bottom-nav">
-        <button class="nav-btn active" data-tab="tab-dashboard">
-          🏆<span>Головна</span>
-        </button>
-        <button class="nav-btn" data-tab="tab-history">
-          ⚡<span>Тренування</span>
-        </button>
-        <button class="nav-btn" data-tab="tab-weight">
-          ⚖️<span>Вага</span>
-        </button>
-        <button
-          class="nav-btn"
-          id="nav-photos"
-          data-tab="tab-photos"
-          style="display: none"
-        >
-          📸<span>Фото</span>
-        </button>
-      </nav>
-
-      <div id="infoModal" class="modal-overlay">
-        <div class="card modal-content">
-          <div class="modal-header">
-            <div class="section-title">🛠 Як це працює?</div>
-            <button id="closeInfoBtn" class="btn-del modal-close-btn">✖</button>
-          </div>
-          <div class="modal-body">
-            <div class="modal-intro-box">
-              Цей додаток — не просто блокнот. Це аналітична система, яка
-              самостійно вираховує твій прогрес, порівнює результати та оцінює
-              рівень підготовки.
+            <!-- Тиждень 2 -->
+            <div class="week-section">
+                <h3>Тиждень 2: Лінійна прогресія</h3>
+                <table class="training-table">
+                    <thead>
+                        <tr>
+                            <th>День</th>
+                            <th>Час</th>
+                            <th>Місце</th>
+                            <th>Вправи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="day-number">8</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка (5 хв)</li>
+                                    <li>Tuck Planche: 5×7-8 сек</li>
+                                    <li>Підтягування: 3×14</li>
+                                    <li>Бруси: 3×24</li>
+                                    <li>Австралійські: 3×14</li>
+                                    <li>PPPU: 3×10</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">9</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Присідання: 3×10</li>
+                                    <li>Махи гирею: 3×15</li>
+                                    <li>L-Sit: 3×20 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">10</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>Пробіжка + Стійка (5-10 хв) / Відпочинок, розтяжка</td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">11</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка (5 хв)</li>
+                                    <li>Tuck Planche: 5×8-9 сек</li>
+                                    <li>Підтягування: 3×15</li>
+                                    <li>Бруси: 3×25</li>
+                                    <li>Австралійські: 3×15</li>
+                                    <li>PPPU: 3×10</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">12</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Присідання: 3×10</li>
+                                    <li>L-Sit: 3×20 сек</li>
+                                    <li>Біцепс: 3×15</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">13</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>Тривалий цільовий біг + Розтяжка</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">14</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
-            <h3>🔐 Секретний доступ</h3>
-            <ul>
-              <li>
-                <b>Для гостей:</b> Додаток працює в режимі вітрини. Можна
-                переглядати рекорди, графіки та Зал Слави.
-              </li>
-              <li>
-                <b>Для власника:</b> Натисни на 🏆 біля заголовка "Кімната", щоб
-                відкрити панель авторизації. Тільки адмін може додавати записи,
-                бачити Карту тіла та Галерею фото.
-              </li>
-            </ul>
+            <!-- Тиждень 3 -->
+            <div class="week-section">
+                <h3>Тиждень 3: Пікове навантаження</h3>
+                <table class="training-table">
+                    <thead>
+                        <tr>
+                            <th>День</th>
+                            <th>Час</th>
+                            <th>Місце</th>
+                            <th>Вправи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="day-number">15</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка (5 хв)</li>
+                                    <li>Tuck Planche: 5×9-10 сек</li>
+                                    <li>Підтягування: 3×16</li>
+                                    <li>Бруси: 3×26</li>
+                                    <li>Австралійські: 3×16</li>
+                                    <li>PPPU: 3×11</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">16</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка</li>
+                                    <li>Присідання (збільшити вагу): 3×8</li>
+                                    <li>Румунська тяга: 3×10</li>
+                                    <li>L-Sit: 3×25 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">17</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>Пробіжка + Стійка (5-10 хв) / Відпочинок, розтяжка</td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">18</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка</li>
+                                    <li>Tuck Planche: 5×10-11 сек</li>
+                                    <li>Підтягування: 3×17</li>
+                                    <li>Бруси: 3×28</li>
+                                    <li>Австралійські: 3×17</li>
+                                    <li>PPPU: 3×12</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">19</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка</li>
+                                    <li>Присідання: 3×9</li>
+                                    <li>L-Sit: 3×25 сек</li>
+                                    <li>Біцепс: 3×15</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">20</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>Тривалий біг + Розтяжка</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">21</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-            <h3>🧮 Математика сили (1ПМ та Статус)</h3>
-            <ul>
-              <li>
-                <b>1ПМ (Теоретичний максимум):</b> Додаток використовує класичну
-                формулу Еплі. Він аналізує твою вагу тіла, додаткову вагу та
-                кількість повторень, щоб розрахувати, яку максимальну вагу ти
-                міг би підняти на 1 раз.
-              </li>
-              <li>
-                <b>Спортивний статус:</b> Рахується відносна сила (1ПМ / Вага
-                тіла). На основі цього коефіцієнта ти отримуєш звання: Рекрут
-                (до 1.2), Атлет (до 1.5), КМС (до 1.8) або Еліта (2.0+).
-              </li>
-            </ul>
-
-            <h3>🏆 Розумні рекорди та Таймлайн</h3>
-            <ul>
-              <li>
-                <b>Силовий Індекс:</b> Додаток розуміє, що 10 підтягувань з +16
-                кг — це крутіше, ніж 15 без ваги. Коронка 👑 в історії дається
-                за найкращий результат саме за <i>Індексом</i>, а не просто за
-                кількістю.
-              </li>
-              <li>
-                <b>Динаміка:</b> Зелені та червоні бейджі в історії показують
-                різницю між поточним та попереднім тренуванням.
-              </li>
-              <li>
-                <b>Цілі:</b> Натисни "+ Задати ціль" на П'єдесталі, щоб з'явився
-                прогрес-бар до твоєї мрії.
-              </li>
-            </ul>
-
-            <h3>🗺️ Аналітика тіла та ІМТ</h3>
-            <ul>
-              <li>Зріст зберігається автоматично (не треба вводити щоразу).</li>
-              <li>
-                Додаток автоматично рахує Індекс Маси Тіла (ІМТ) і показує
-                категорію (Норма, Зайва вага тощо).
-              </li>
-              <li>
-                <b>Карта пропорцій:</b> Введи заміри м'язів, і додаток намалює
-                інтерактивний силует. При наведенні на мітки ти побачиш точні
-                цифри та різницю з минулим виміром (▲ або ▼).
-              </li>
-            </ul>
-
-            <h3>📸 Галерея та Бекапи</h3>
-            <ul>
-              <li>
-                <b>Фотографії:</b> Щоб додати фото, завантаж його на свій Google
-                Диск, увімкни "Доступ для всіх, хто має посилання" і встав лінк
-                сюди. Додаток сам перетворить його на картинку.
-              </li>
-              <li>
-                <b>Бекап:</b> У вкладці тренувань є кнопка завантаження
-                CSV-файлу, щоб ти завжди мав офлайн-копію своїх рекордів.
-              </li>
-            </ul>
-          </div>
+            <!-- Тиждень 4 -->
+            <div class="week-section">
+                <h3>Тиждень 4: Розвантаження (Deload) та Тестування</h3>
+                <div class="week-description">
+                    <p>⚡ Критично необхідний тиждень для зняття накопиченої втоми з ЦНС та суглобів. Обсяг силової роботи зменшується вдвічі.</p>
+                </div>
+                <table class="training-table">
+                    <thead>
+                        <tr>
+                            <th>День</th>
+                            <th>Час</th>
+                            <th>Місце</th>
+                            <th>Вправи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="deload-day">
+                            <td class="day-number">22</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка (легко)</li>
+                                    <li>Tuck Planche: 3×5 сек (не до відмови)</li>
+                                    <li>Підтягування: 2×10</li>
+                                    <li>Бруси: 2×15</li>
+                                    <li>Австралійські: 2×10</li>
+                                    <li>PPPU: 2×6</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="deload-day">
+                            <td class="day-number">23</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка</li>
+                                    <li>Присідання (легка вага): 2×8</li>
+                                    <li>L-Sit: 2×10 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">24</td>
+                            <td>-</td>
+                            <td>Вдома</td>
+                            <td>Повний відпочинок, розтяжка</td>
+                        </tr>
+                        <tr class="deload-day">
+                            <td class="day-number">25</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка</li>
+                                    <li>Tuck Planche: 3×6 сек</li>
+                                    <li>Підтягування: 2×10</li>
+                                    <li>Бруси: 2×15</li>
+                                    <li>Австралійські: 2×10</li>
+                                    <li>PPPU: 2×6</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="deload-day">
+                            <td class="day-number">26</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка</li>
+                                    <li>Присідання: 2×8</li>
+                                    <li>L-Sit: 2×15 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">27</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>Відновлювальний біг (30 хв) + Розтяжка</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">28</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок</td>
+                        </tr>
+                        <tr class="test-day">
+                            <td class="day-number">29</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <strong>🎯 ТЕСТУВАННЯ:</strong>
+                                <ul>
+                                    <li>Якісна розминка зап'ясть</li>
+                                    <li>Тест: Максимальний час Tuck Planche (1 підхід до відмови)</li>
+                                    <li>Відпочинок 5 хв → Макс. підтягувань за 1 підхід</li>
+                                    <li>Відпочинок 5 хв → Макс. брусів</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="analysis-day">
+                            <td class="day-number">30</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Легкий біг</li>
+                                    <li>Присідання 3×8 (легке тренування)</li>
+                                    <li><strong>Аналіз рекордів</strong> для планування наступного місяця</li>
+                                </ul>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-      </div>
 
-      <div id="donateModal" class="modal-overlay">
-        <div class="card modal-content donate-modal">
-          <div class="modal-header">
-            <div class="section-title">🤝 Підтримати автора</div>
-            <button id="closeDonateBtn" class="btn-del modal-close-btn">
-              ✖
-            </button>
-          </div>
+        <!-- Місяць 2: Тижні 5-8 -->
+        <div id="month2" class="tab-content">
+            <h2>Місяць 2: Гібридні підходи та Нарощування</h2>
+            
+            <!-- Тиждень 5 -->
+            <div class="week-section">
+                <h3>Тиждень 5: Введення гібридних підходів</h3>
+                <table class="training-table">
+                    <thead>
+                        <tr>
+                            <th>День</th>
+                            <th>Час</th>
+                            <th>Місце</th>
+                            <th>Вправи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="day-number">31</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка (5 хв)</li>
+                                    <li><strong>Гібридний планш:</strong> 4 підходи (2-3 сек Adv. Tuck + 5-6 сек Tuck)</li>
+                                    <li>Підтягування: 3×14-16 (або +2-4 кг)</li>
+                                    <li>Бруси: 3×22-26</li>
+                                    <li>Австралійські: 3×14-16</li>
+                                    <li>PPPU: 3×9-11</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">32</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Присідання (збільшити вагу): 3×8-10</li>
+                                    <li>Махи гирею: 3×12-15</li>
+                                    <li>L-Sit: 3×20 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">33</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>Пробіжка + Стійка (5-10 хв) / Відпочинок, розтяжка</td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">34</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка (5 хв)</li>
+                                    <li>Гібридний планш: 4 підходи (2-3 сек Adv. + 6 сек Tuck)</li>
+                                    <li>Підтягування: 3×15-17</li>
+                                    <li>Бруси: 3×24-28</li>
+                                    <li>Австралійські: 3×15-17</li>
+                                    <li>PPPU: 3×10-12</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">35</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Фронтальні присідання: 3×9-11</li>
+                                    <li>L-Sit: 3×20 сек</li>
+                                    <li>Біцепс: 3×15</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">36</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>Тривалий біг (10 км) + Глибока розтяжка</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">37</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-          <div class="donate-text">На сервери💻</div>
+            <!-- Тиждень 6 -->
+            <div class="week-section">
+                <h3>Тиждень 6: Нарощування часу в складній позиції</h3>
+                <table class="training-table">
+                    <thead>
+                        <tr>
+                            <th>День</th>
+                            <th>Час</th>
+                            <th>Місце</th>
+                            <th>Вправи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="day-number">38</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка (5 хв)</li>
+                                    <li>Гібридний планш: 4 підходи (3-4 сек Adv. + 4-5 сек Tuck)</li>
+                                    <li>Підтягування: 3×16-18</li>
+                                    <li>Бруси: 3×26-30</li>
+                                    <li>Австралійські: 3×16-18</li>
+                                    <li>PPPU: 3×11-13</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">39</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Присідання: 3×10-12</li>
+                                    <li>Румунська тяга (прямі ноги): 3×10-12</li>
+                                    <li>L-Sit: 3×25 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">40</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>Пробіжка + Стійка (5-10 хв) / Відпочинок, розтяжка</td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">41</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка (5 хв)</li>
+                                    <li>Гібридний планш: 4 підходи (3-4 сек Adv. + 5 сек Tuck)</li>
+                                    <li>Підтягування: 3×17-19</li>
+                                    <li>Бруси: 3×28-32</li>
+                                    <li>Австралійські: 3×17-19</li>
+                                    <li>PPPU: 3×12-14</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">42</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Присідання: 3×10-12</li>
+                                    <li>L-Sit: 3×25 сек</li>
+                                    <li>Біцепс: 3×15</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">43</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>Тривалий біг + Розтяжка</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">44</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-          <a
-            href="https://donatello.to/RonziBi"
-            target="_blank"
-            class="primary-btn donate-btn"
-          >
-            🍕 Підтримати через Donatello
-          </a>
+            <!-- Тиждень 7 -->
+            <div class="week-section">
+                <h3>Тиждень 7: Пікове навантаження гібридних підходів</h3>
+                <table class="training-table">
+                    <thead>
+                        <tr>
+                            <th>День</th>
+                            <th>Час</th>
+                            <th>Місце</th>
+                            <th>Вправи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="day-number">45</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка</li>
+                                    <li>Гібридний планш: 5 підходів (4-5 сек Adv. + 3-4 сек Tuck)</li>
+                                    <li>Підтягування: 3×18-20 (або збільшити вагу)</li>
+                                    <li>Бруси: 3×30-34</li>
+                                    <li>Австралійські: 3×18-20</li>
+                                    <li>PPPU: 3×13-15</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">46</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка</li>
+                                    <li>Присідання (макс. робоча вага): 3×8-10</li>
+                                    <li>Махи гирею: 3×15</li>
+                                    <li>L-Sit: 3×30 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">47</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>Пробіжка + Стійка / Відпочинок, розтяжка</td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">48</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка</li>
+                                    <li>Гібридний планш: 5 підходів (5 сек Adv. + 3 сек Tuck)</li>
+                                    <li>Підтягування: 3×19-21</li>
+                                    <li>Бруси: 3×32-36</li>
+                                    <li>Австралійські: 3×19-21</li>
+                                    <li>PPPU: 3×14-16</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="day-number">49</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Присідання: 3×10</li>
+                                    <li>L-Sit: 3×30 сек</li>
+                                    <li>Біцепс: 3×15</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">50</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>Тривалий біг (10 км) + Розтяжка</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">51</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Тиждень 8 -->
+            <div class="week-section">
+                <h3>Тиждень 8: Розвантаження та Тестування</h3>
+                <div class="week-description">
+                    <p>⚡ Необхідний для суперкомпенсації — різкого стрибка сили після відпочинку. Обсяг зменшується вдвічі.</p>
+                </div>
+                <table class="training-table">
+                    <thead>
+                        <tr>
+                            <th>День</th>
+                            <th>Час</th>
+                            <th>Місце</th>
+                            <th>Вправи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="deload-day">
+                            <td class="day-number">52</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка (легко)</li>
+                                    <li>Гібридний планш: 2 підходи (3 сек Adv. + 3 сек Tuck, не до відмови)</li>
+                                    <li>Підтягування: 2×10</li>
+                                    <li>Бруси: 2×15</li>
+                                    <li>Австралійські: 2×10</li>
+                                    <li>PPPU: 2×8</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="deload-day">
+                            <td class="day-number">53</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка</li>
+                                    <li>Присідання (легка вага): 2×8</li>
+                                    <li>L-Sit: 2×15 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">54</td>
+                            <td>-</td>
+                            <td>Вдома</td>
+                            <td>Повний відпочинок, розтяжка</td>
+                        </tr>
+                        <tr class="deload-day">
+                            <td class="day-number">55</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка</li>
+                                    <li>Гібридний планш: 2 підходи (3 сек Adv. + 3 сек Tuck)</li>
+                                    <li>Підтягування: 2×10</li>
+                                    <li>Бруси: 2×15</li>
+                                    <li>Австралійські: 2×10</li>
+                                    <li>PPPU: 2×8</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="deload-day">
+                            <td class="day-number">56</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка</li>
+                                    <li>Присідання: 2×8</li>
+                                    <li>L-Sit: 2×15 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">57</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>Відновлювальний біг (30-40 хв) + Розтяжка</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">58</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок</td>
+                        </tr>
+                        <tr class="test-day">
+                            <td class="day-number">59</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <strong>🎯 ТЕСТУВАННЯ:</strong>
+                                <ul>
+                                    <li>Якісна розминка зап'ясть</li>
+                                    <li>Тест: Макс. час Advanced Tuck Planche (1 підхід до відмови)</li>
+                                    <li>Відпочинок 5 хв → Макс. підтягувань</li>
+                                    <li>Відпочинок 5 хв → Макс. брусів</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="analysis-day">
+                            <td class="day-number">60</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Легкий біг</li>
+                                    <li>Присідання 3×8 (легке тренування)</li>
+                                    <li><strong>Аналіз рекордів</strong> для переходу в 3-й місяць</li>
+                                </ul>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-      </div>
 
-      <div id="goalModal" class="modal-overlay">
-        <div class="card modal-content goal-modal-custom">
-          <div class="modal-header">
-            <div class="section-title" id="goalModalTitle">🎯 Задати ціль</div>
-            <button id="closeGoalBtn" class="btn-del modal-close-btn">✖</button>
-          </div>
+        <!-- Місяць 3: Тижні 9-12 -->
+        <div id="month3" class="tab-content">
+            <h2>Місяць 3: Періодизація Light/Heavy та Максимуми</h2>
+            
+            <!-- Тиждень 9 -->
+            <div class="week-section">
+                <h3>Тиждень 9: Введення періодизації Light/Heavy</h3>
+                <table class="training-table">
+                    <thead>
+                        <tr>
+                            <th>День</th>
+                            <th>Тип</th>
+                            <th>Час</th>
+                            <th>Місце</th>
+                            <th>Вправи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="heavy-day">
+                            <td class="day-number">61</td>
+                            <td><span class="badge heavy">ВАЖКИЙ</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <strong>ВЕРХ:</strong>
+                                <ul>
+                                    <li>Пробіжка + Стійка (5 хв)</li>
+                                    <li>Advanced Tuck Planche: 5-6×3-4 сек</li>
+                                    <li>Підтягування з макс. гирею: 3×4-5</li>
+                                    <li>Бруси з гирею: 3×4-5</li>
+                                    <li>Тяга штанги (важка): 3×5</li>
+                                    <li>PPPU: 3×5 (макс. амплітуда)</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="heavy-day">
+                            <td class="day-number">62</td>
+                            <td><span class="badge heavy">ВАЖКИЙ</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <strong>НИЗ:</strong>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Присідання (важкі): 3×5</li>
+                                    <li>Махи важкою гирею: 3×8</li>
+                                    <li>L-Sit: 3×15 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">63</td>
+                            <td>-</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>Пробіжка + Стійка (легка) / Відпочинок, розтяжка</td>
+                        </tr>
+                        <tr class="light-day">
+                            <td class="day-number">64</td>
+                            <td><span class="badge light">ЛЕГКИЙ</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <strong>ВЕРХ (гіпертрофія):</strong>
+                                <ul>
+                                    <li>Пробіжка + Стійка (5 хв)</li>
+                                    <li>Tuck Planche (згрупований): 4×10-12 сек</li>
+                                    <li>Підтягування (без ваги): 3×10-12</li>
+                                    <li>Бруси (без ваги): 3×15-20</li>
+                                    <li>Австралійські: 3×12-15</li>
+                                    <li>PPPU (без нахилу): 3×10</li>
+                                    <li>Біцепс: 3×15</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="light-day">
+                            <td class="day-number">65</td>
+                            <td><span class="badge light">ЛЕГКИЙ</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <strong>НИЗ:</strong>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Присідання (легкі гирі): 3×12</li>
+                                    <li>L-Sit: 3×20 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">66</td>
+                            <td>-</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>Тривалий біг (10 км) + Глибока розтяжка</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">67</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-          <div class="goal-modal-hint">
-            Введіть кількість (напр. <b>50</b>) або час (<b>25:00</b>,
-            <b>1:30:00</b> чи <b>12.5 с</b>). Залиште порожнім для видалення.
-          </div>
+            <!-- Тиждень 10 -->
+            <div class="week-section">
+                <h3>Тиждень 10: Збільшення робочої ваги (Інтенсифікація)</h3>
+                <table class="training-table">
+                    <thead>
+                        <tr>
+                            <th>День</th>
+                            <th>Тип</th>
+                            <th>Час</th>
+                            <th>Місце</th>
+                            <th>Вправи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="heavy-day">
+                            <td class="day-number">68</td>
+                            <td><span class="badge heavy">ВАЖКИЙ</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <strong>ВЕРХ:</strong>
+                                <ul>
+                                    <li>Пробіжка + Стійка</li>
+                                    <li>Advanced Tuck Planche: 5-6×4 сек</li>
+                                    <li>Підтягування з гирею (+вага): 3×4-5</li>
+                                    <li>Бруси з гирею: 3×4-5</li>
+                                    <li>Тяга штанги: 3×5</li>
+                                    <li>PPPU: 3×5</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="heavy-day">
+                            <td class="day-number">69</td>
+                            <td><span class="badge heavy">ВАЖКИЙ</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <strong>НИЗ:</strong>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Присідання (+2-5 кг): 3×5</li>
+                                    <li>Махи гирею: 3×8</li>
+                                    <li>L-Sit: 3×15 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">70</td>
+                            <td>-</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>Пробіжка + Стійка / Відпочинок, розтяжка</td>
+                        </tr>
+                        <tr class="light-day">
+                            <td class="day-number">71</td>
+                            <td><span class="badge light">ЛЕГКИЙ</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <strong>ВЕРХ:</strong>
+                                <ul>
+                                    <li>Пробіжка + Стійка</li>
+                                    <li>Tuck Planche: 4×12-15 сек</li>
+                                    <li>Підтягування (без ваги): 3×12</li>
+                                    <li>Бруси: 3×18-20</li>
+                                    <li>Австралійські: 3×15</li>
+                                    <li>PPPU: 3×10-12</li>
+                                    <li>Біцепс: 3×15</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="light-day">
+                            <td class="day-number">72</td>
+                            <td><span class="badge light">ЛЕГКИЙ</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <strong>НИЗ:</strong>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Присідання з гирями: 3×12-15</li>
+                                    <li>L-Sit: 3×25 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">73</td>
+                            <td>-</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>Тривалий біг (10 км) + Розтяжка</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">74</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-          <input type="text" id="goalInput" placeholder="50 або 25:00" />
-          <button id="saveGoalBtn" class="primary-btn">Зберегти ціль</button>
+            <!-- Тиждень 11 -->
+            <div class="week-section">
+                <h3>Тиждень 11: Піковий тиждень мезоциклу</h3>
+                <div class="week-description">
+                    <p>🔥 Максимальне викладення у Важкі дні перед розвантаженням!</p>
+                </div>
+                <table class="training-table">
+                    <thead>
+                        <tr>
+                            <th>День</th>
+                            <th>Тип</th>
+                            <th>Час</th>
+                            <th>Місце</th>
+                            <th>Вправи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="heavy-day peak">
+                            <td class="day-number">75</td>
+                            <td><span class="badge heavy">ВАЖКИЙ 🔥</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <strong>ВЕРХ - МАКСИМУМ:</strong>
+                                <ul>
+                                    <li>Пробіжка + Стійка</li>
+                                    <li>Advanced Tuck Planche: 6×4-5 сек</li>
+                                    <li>Підтягування з макс. гирею: 3×3-5</li>
+                                    <li>Бруси з макс. гирею: 3×3-5</li>
+                                    <li>Тяга штанги: 3×5</li>
+                                    <li>PPPU (сильний нахил): 3×5</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="heavy-day peak">
+                            <td class="day-number">76</td>
+                            <td><span class="badge heavy">ВАЖКИЙ 🔥</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <strong>НИЗ - МАКСИМУМ:</strong>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Присідання: 3×3-5</li>
+                                    <li>Румунська тяга: 3×8</li>
+                                    <li>L-Sit: 3×15-20 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">77</td>
+                            <td>-</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>Пробіжка + Стійка / Відпочинок</td>
+                        </tr>
+                        <tr class="light-day">
+                            <td class="day-number">78</td>
+                            <td><span class="badge light">ЛЕГКИЙ</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <strong>ВЕРХ:</strong>
+                                <ul>
+                                    <li>Пробіжка + Стійка</li>
+                                    <li>Tuck Planche: 4×15 сек</li>
+                                    <li>Підтягування: 3×12-15</li>
+                                    <li>Бруси: 3×20+</li>
+                                    <li>Австралійські: 3×15-18</li>
+                                    <li>PPPU: 3×12</li>
+                                    <li>Біцепс: 3×15</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="light-day">
+                            <td class="day-number">79</td>
+                            <td><span class="badge light">ЛЕГКИЙ</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <strong>НИЗ:</strong>
+                                <ul>
+                                    <li>Легка пробіжка</li>
+                                    <li>Присідання (швидкий темп): 3×15</li>
+                                    <li>L-Sit: 3×30 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">80</td>
+                            <td>-</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>Тривалий біг (10 км+) + Розтяжка</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">81</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Тиждень 12 -->
+            <div class="week-section">
+                <h3>Тиждень 12: Розвантаження (Deload) та Фінальне Тестування</h3>
+                <div class="week-description">
+                    <p>⚡ Зниження обсягу вдвічі для розсіяння втоми, зміцнення сухожиль та підготовки до нових рекордів.</p>
+                </div>
+                <table class="training-table">
+                    <thead>
+                        <tr>
+                            <th>День</th>
+                            <th>Тип</th>
+                            <th>Час</th>
+                            <th>Місце</th>
+                            <th>Вправи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="deload-day">
+                            <td class="day-number">82</td>
+                            <td><span class="badge deload">РОЗВ.</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка (легко)</li>
+                                    <li>Advanced Tuck Planche: 3×2 сек (дуже легко)</li>
+                                    <li>Підтягування: 2×5 (без ваги)</li>
+                                    <li>Бруси: 2×8</li>
+                                    <li>Австралійські: 2×8</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="deload-day">
+                            <td class="day-number">83</td>
+                            <td><span class="badge deload">РОЗВ.</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка</li>
+                                    <li>Присідання (дуже легкі): 2×5</li>
+                                    <li>L-Sit: 2×10 сек</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">84</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок</td>
+                        </tr>
+                        <tr class="deload-day">
+                            <td class="day-number">85</td>
+                            <td><span class="badge deload">РОЗВ.</span></td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Пробіжка + Стійка</li>
+                                    <li>Tuck Planche: 2×5 сек</li>
+                                    <li>Підтягування: 2×8</li>
+                                    <li>Бруси: 2×10</li>
+                                    <li>Австралійські: 2×8</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">86</td>
+                            <td>-</td>
+                            <td>Ранок / Вечір</td>
+                            <td>Вулиця / Вдома</td>
+                            <td>Пробіжка / Відпочинок</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">87</td>
+                            <td>-</td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>Короткий легкий біг (3-5 км)</td>
+                        </tr>
+                        <tr class="rest-day">
+                            <td class="day-number">88</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>Повний відпочинок перед тестуванням</td>
+                        </tr>
+                        <tr class="test-day final-test">
+                            <td class="day-number">89</td>
+                            <td><span class="badge test">🏆 ТЕСТ</span></td>
+                            <td>Ранок/Вечір</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <strong>🎯 ФІНАЛЬНЕ ТЕСТУВАННЯ МАКСИМУМІВ:</strong>
+                                <ol>
+                                    <li>Добре розімніть зап'ястя</li>
+                                    <li>Тест: Макс. час <strong>Advanced Tuck Planche</strong> (1 ідеальний підхід)</li>
+                                    <li>Відпочинок 5 хв → <strong>1RM підтягування з гирею</strong> (або макс. без ваги)</li>
+                                    <li>Відпочинок 5 хв → <strong>Макс. бруси з вагою</strong></li>
+                                </ol>
+                            </td>
+                        </tr>
+                        <tr class="analysis-day">
+                            <td class="day-number">90</td>
+                            <td><span class="badge analysis">📊</span></td>
+                            <td>Ранок</td>
+                            <td>Вулиця</td>
+                            <td>
+                                <ul>
+                                    <li>Легкий відновлювальний біг</li>
+                                    <li><strong>Планування нових цілей:</strong> перехід до Straddle Planche або ускладнення гімнастичних елементів на основі нових рекордів</li>
+                                </ul>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-      </div>
+
+        <footer>
+            <p>© 2024 Програма тренувань | Удачі у досягненні цілей! 💪</p>
+        </footer>
     </div>
-    <script type="module" src="app.js"></script>
-  </body>
+
+    <script src="main.js"></script>
+</body>
 </html>
