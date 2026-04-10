@@ -320,30 +320,29 @@ window.uiLogic = () => {
 
 window.updateDropdowns = () => {
   const dbExercises = [...new Set(allWorkouts.map((w) => w.exercise))];
-  const baseExercises = [
-    EX.PULLUPS,
-    EX.PUSHUPS,
-    EX.DIPS,
-    EX.RUN,
-    EX.SPRINT,
-    EX.SHUTTLE,
-  ];
-  const combined = [...new Set([...baseExercises, ...dbExercises])];
+
+  // Для додавання: базові типи + кастомні (без бігових варіантів з дистанцією)
+  const baseForAdd = [EX.PULLUPS, EX.PUSHUPS, EX.DIPS, EX.RUN, EX.SPRINT, EX.SHUTTLE];
+  const customFromDB = dbExercises.filter((ex) => !baseForAdd.includes(ex) && !isRunningExercise(ex));
+  const addList = [...baseForAdd, ...customFromDB];
+
+  const labelMap = { [EX.RUN]: "Біг (км)", [EX.SPRINT]: "Спринт (м)", [EX.SHUTTLE]: "Човниковий біг" };
 
   const exSelect = document.getElementById("exSelect");
   const currentEx = exSelect.value;
   exSelect.innerHTML =
-    combined.map((ex) => `<option value="${ex}">${ex}</option>`).join("") +
+    addList.map((ex) => `<option value="${ex}">${labelMap[ex] || ex}</option>`).join("") +
     `<option value="custom">Інше...</option>`;
-  if (combined.includes(currentEx) || currentEx === "custom")
+  if (addList.includes(currentEx) || currentEx === "custom")
     exSelect.value = currentEx;
 
+  // Для фільтрації: усі реальні вправи з бази (включно з "Біг 5 км" тощо)
   const filterSelect = document.getElementById("filterSelect");
   const currentFilter = filterSelect.value;
   filterSelect.innerHTML =
     `<option value="all">Усі рекорди</option>` +
-    combined.map((ex) => `<option value="${ex}">${ex}</option>`).join("");
-  if (combined.includes(currentFilter) || currentFilter === "all")
+    dbExercises.map((ex) => `<option value="${ex}">${ex}</option>`).join("");
+  if (dbExercises.includes(currentFilter) || currentFilter === "all")
     filterSelect.value = currentFilter;
 };
 
@@ -364,6 +363,80 @@ window.escapeHTML = (str) => {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 };
+// === ХЕЛПЕРИ ДЛЯ БІГОВИХ ДИСЦИПЛІН ===
+// Визначає, чи це бігова/спринтерська дисципліна
+function isRunningExercise(exerciseName) {
+  return /^(Біг|Спринт|Човниковий біг)(\s|$)/.test(exerciseName);
+}
+
+// Витягує час у секундах з будь-якого формату count
+function parseTimeFromCount(countStr) {
+  let s = String(countStr).replace(/,/g, ".");
+  // mm:ss або h:mm:ss (де завгодно у рядку)
+  let timeMatch = s.match(/(\d+):(\d+)(?::(\d+))?/);
+  if (timeMatch) {
+    if (timeMatch[3] !== undefined) {
+      return parseInt(timeMatch[1]) * 3600 + parseInt(timeMatch[2]) * 60 + parseInt(timeMatch[3]);
+    }
+    return parseInt(timeMatch[1]) * 60 + parseInt(timeMatch[2]);
+  }
+  // "12.5 с" або "12.5с"
+  let secMatch = s.match(/([\d.]+)\s*с/);
+  if (secMatch) return parseFloat(secMatch[1]);
+  return 0;
+}
+
+// Витягує дистанцію (км) з count (для Залу Слави)
+function parseDistFromCount(countStr) {
+  let match = String(countStr).match(/([\d.]+)\s*км/);
+  return match ? parseFloat(match[1]) : 0;
+}
+
+// Повертає правильне значення для графіка/diff: час (сек) для бігових, число для силових
+function getChartValue(countStr, exerciseName) {
+  if (isRunningExercise(exerciseName)) return parseTimeFromCount(countStr);
+  return parseValue(countStr);
+}
+
+// Форматує секунди у читабельний час
+function formatSecondsToTime(totalSec) {
+  if (totalSec <= 0) return "0:00";
+  let hours = Math.floor(totalSec / 3600);
+  let min = Math.floor((totalSec % 3600) / 60);
+  let sec = Math.round(totalSec % 60);
+  if (hours > 0) return `${hours}:${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  return `${min}:${String(sec).padStart(2, "0")}`;
+}
+
+// Форматує різницю часу для diff-бейджів
+function formatTimeDiff(diffSec) {
+  let abs = Math.abs(diffSec);
+  let sign = diffSec > 0 ? "+" : "-";
+  if (abs < 60) return `${sign}${Math.round(abs * 10) / 10} с`;
+  let min = Math.floor(abs / 60);
+  let sec = Math.round(abs % 60);
+  return `${sign}${min}:${String(sec).padStart(2, "0")}`;
+}
+
+// Міграція старих записів (exercise: "Біг" → "Біг 5 км") БЕЗ зміни Firebase
+function migrateWorkout(w) {
+  let m = { ...w };
+  let countStr = String(w.count || "");
+
+  if (w.exercise === EX.RUN) {
+    let match = countStr.match(/([\d.]+)\s*км/);
+    if (match) m.exercise = `Біг ${match[1]} км`;
+  } else if (w.exercise === EX.SPRINT) {
+    let match = countStr.match(/([\d.]+)\s*м/);
+    if (match) m.exercise = `Спринт ${match[1]} м`;
+  } else if (w.exercise === EX.SHUTTLE) {
+    // Витягує "10х10" або "4х9" з "10х10 м (24.5 с)" або "24.5 с (10х10 м)"
+    let match = countStr.match(/([\dхxХX]+[хxХX][\dхxХX]+)/i);
+    if (match) m.exercise = `Човниковий біг ${match[1]}`;
+  }
+
+  return m;
+}
 // НОВА ФУНКЦІЯ: Отримання ваги користувача на конкретну дату
 function getWeightAtDate(targetDate) {
   if (typeof allWeights === "undefined" || allWeights.length === 0) return 75;
@@ -378,55 +451,80 @@ function getWeightAtDate(targetDate) {
 }
 // Допоміжна функція для визначення лічильника
 function getStatUpdateData(exercise, finalResultStr) {
-  let baseEx = [EX.PULLUPS, EX.PUSHUPS, EX.DIPS, EX.RUN];
+  let baseEx = [EX.PULLUPS, EX.PUSHUPS, EX.DIPS];
   if (baseEx.includes(exercise)) {
     return { key: exercise, val: parseValue(finalResultStr) };
-  } else if (exercise === EX.SPRINT || exercise === EX.SHUTTLE) {
-    return { key: EX.SPRINT, val: 0 }; // 0 означає, що ігнорується для Залу Слави
-  } else {
-    return { key: "otherSets", val: 1 };
   }
+  // Бігові: "Біг 5 км" → ключ "Біг", значення = дистанція в км
+  if (exercise.startsWith("Біг ")) {
+    return { key: EX.RUN, val: parseDistFromCount(finalResultStr) };
+  }
+  // Старий формат без дистанції в назві
+  if (exercise === EX.RUN) {
+    return { key: EX.RUN, val: parseDistFromCount(finalResultStr) };
+  }
+  // Спринт/Човниковий — не рахуються в Залі Слави
+  if (exercise === EX.SPRINT || exercise === EX.SHUTTLE ||
+      exercise.startsWith("Спринт ") || exercise.startsWith("Човниковий біг ")) {
+    return { key: EX.SPRINT, val: 0 };
+  }
+  return { key: "otherSets", val: 1 };
 }
 // НОВА ФУНКЦІЯ: Силовий та Швидкісний індекс
-function calculateIndex(valStr, dateStr) {
+function calculateIndex(valStr, dateStr, exerciseName) {
   if (!valStr) return 0;
   const cleanStr = String(valStr).replace(/,/g, ".");
 
-  // Спринт: розуміє "100 м (12.5 с)", "100м(12.5)", "100 м ( 12.5 с )"
-  let sprintMatch = cleanStr.match(/([\d.]+)\s*м\s*\(\s*([\d.]+)\s*с?\s*\)/i);
-  if (sprintMatch)
-    return parseFloat(sprintMatch[2]) > 0
-      ? (parseFloat(sprintMatch[1]) / parseFloat(sprintMatch[2])) * 100
-      : 0;
+  // Якщо передано назву бігової дисципліни — індекс = 1/час (менше часу = вищий індекс)
+  if (exerciseName && isRunningExercise(exerciseName)) {
+    let timeSec = parseTimeFromCount(cleanStr);
+    return timeSec > 0 ? (1 / timeSec) * 10000 : 0;
+  }
 
-  // Човниковий біг: розуміє кирилицю, латиницю, великі і маленькі букви Х
+  // Автодетект для старих записів без exerciseName:
+  // Спринт (старий): "100 м (12.5 с)"
+  let sprintMatch = cleanStr.match(/([\d.]+)\s*м\s*\(\s*([\d.]+)\s*с?\s*\)/i);
+  if (sprintMatch) {
+    let timeSec = parseFloat(sprintMatch[2]);
+    return timeSec > 0 ? (1 / timeSec) * 10000 : 0;
+  }
+
+  // Човниковий (старий): "10х10 м (24.5 с)"
   let shuttleMatch = cleanStr.match(
     /([\dхxХX\s.]+)\s*м\s*\(\s*([\d.]+)\s*с?\s*\)/i,
   );
   if (shuttleMatch) {
-    let cleanScheme = shuttleMatch[1].replace(/\s/g, "").toLowerCase();
-    let parts = cleanScheme.split(/[хx]/);
-    let totalDist =
-      parts.length === 2 ? parseFloat(parts[0]) * parseFloat(parts[1]) : 100;
-    return parseFloat(shuttleMatch[2]) > 0
-      ? (totalDist / parseFloat(shuttleMatch[2])) * 100
-      : 0;
+    let timeSec = parseFloat(shuttleMatch[2]);
+    return timeSec > 0 ? (1 / timeSec) * 10000 : 0;
   }
 
-  // Біг
+  // Біг (старий): "5 км (25:00)"
   let runMatch = cleanStr.match(
     /([\d.]+)\s*к?м?\s*\(\s*(?:(\d+):)?(\d+):(\d+)\s*\)/i,
   );
   if (runMatch) {
-    let dist = parseFloat(runMatch[1]);
     let hours = runMatch[2] ? parseInt(runMatch[2]) : 0;
     let min = parseInt(runMatch[3]);
     let sec = parseInt(runMatch[4]);
     let totalSec = hours * 3600 + min * 60 + sec;
-    return totalSec > 0 ? (dist / totalSec) * 10000 : 0;
+    return totalSec > 0 ? (1 / totalSec) * 10000 : 0;
   }
 
-  // Силові вправи: розуміє "(+10 кг)", "(10.5)", "( + 10кг )"
+  // Новий формат бігу: "25:00 (5 км)" або "12.5 с (100 м)"
+  let newRunMatch = cleanStr.match(/^(\d+):(\d+)(?::(\d+))?\s*\(/);
+  if (newRunMatch) {
+    let totalSec = newRunMatch[3] !== undefined
+      ? parseInt(newRunMatch[1]) * 3600 + parseInt(newRunMatch[2]) * 60 + parseInt(newRunMatch[3])
+      : parseInt(newRunMatch[1]) * 60 + parseInt(newRunMatch[2]);
+    return totalSec > 0 ? (1 / totalSec) * 10000 : 0;
+  }
+  let newSprintMatch = cleanStr.match(/^([\d.]+)\s*с\s*\(/);
+  if (newSprintMatch) {
+    let timeSec = parseFloat(newSprintMatch[1]);
+    return timeSec > 0 ? (1 / timeSec) * 10000 : 0;
+  }
+
+  // Силові вправи: формула Еплі (без змін)
   let reps = parseFloat(cleanStr) || 0;
   let weightMatch = cleanStr.match(/\(\s*\+?\s*([\d.]+)\s*к?г?\s*\)/i);
   let addedWeight = weightMatch ? parseFloat(weightMatch[1]) : 0;
@@ -603,12 +701,23 @@ function renderPedestal() {
 
     if (goal) {
       const goalNum = parseFloat(goal);
-      let percent = Math.round((maxW.absoluteMaxReps / goalNum) * 100);
+      let percent;
+      let goalLabel;
+
+      if (isRunningExercise(ex)) {
+        // Ціль = цільовий час (сек). Прогрес = goalTime / actualTime * 100
+        let actualTime = parseTimeFromCount(maxW.count);
+        percent = actualTime > 0 ? Math.round((goalNum / actualTime) * 100) : 0;
+        goalLabel = `Ціль: ${formatSecondsToTime(goalNum)}`;
+      } else {
+        percent = Math.round((maxW.absoluteMaxReps / goalNum) * 100);
+        goalLabel = `Ціль: ${goalNum}`;
+      }
       if (percent > 100) percent = 100;
 
       goalHTML = `
                 <div class="goal-header">
-                    <span>Ціль: ${goalNum}</span>
+                    <span>${goalLabel}</span>
                     <span>${percent}%</span>
                 </div>
                 <div class="progress-bg">
@@ -621,8 +730,9 @@ function renderPedestal() {
     }
 
     let icon = "🏅";
-    if (ex === "Біг") icon = "🏃‍♂️";
-    if (ex === "Спринт") icon = "⚡";
+    if (ex.startsWith("Біг")) icon = "🏃‍♂️";
+    if (ex.startsWith("Спринт")) icon = "⚡";
+    if (ex.startsWith("Човниковий")) icon = "🚀";
     if (ex === "Підтягування") icon = "🦍";
     if (ex === "Віджимання") icon = "🔥";
 
@@ -817,80 +927,84 @@ function updateChart(workouts, filterValue) {
 
   const chartData = [...workouts].reverse();
   const labels = chartData.map((w) => formatDate(w.date));
-  const dataPoints = chartData.map((w) => parseValue(w.count));
+  const isRunning = workouts.length > 0 && isRunningExercise(workouts[0].exercise);
+  const dataPoints = chartData.map((w) => getChartValue(w.count, w.exercise));
 
-  // 🚀 МАГІЯ ОПТИМІЗАЦІЇ: Якщо графік вже існує, просто оновлюємо йому дані
+  // Знищуємо старий графік при зміні типу (бігові ↔ силові мають різні осі)
   if (myChartInstance) {
-    myChartInstance.data.labels = labels;
-    myChartInstance.data.datasets[0].data = dataPoints;
-    myChartInstance.data.datasets[0].label = `Динаміка: ${filterValue}`;
-    myChartInstance.update(); // Плавна анімація замість жорсткого перемалювання
-  } else {
-    // Створюємо графік з нуля ТІЛЬКИ ОДИН РАЗ
-    const style = getComputedStyle(document.body);
-    const textColor = style.getPropertyValue("--text-muted").trim() || "#888";
-    const gridColor =
-      style.getPropertyValue("--border").trim() || "rgba(255,255,255,0.1)";
-    const highlightColor =
-      style.getPropertyValue("--accent").trim() || "#6366f1";
-
-    let gradient = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, "rgba(99, 102, 241, 0.5)");
-    gradient.addColorStop(1, "rgba(99, 102, 241, 0.0)");
-
-    myChartInstance = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: `Динаміка: ${filterValue}`,
-            data: dataPoints,
-            borderColor: highlightColor,
-            backgroundColor: gradient,
-            borderWidth: 4,
-            pointBackgroundColor: "#fff",
-            pointBorderColor: highlightColor,
-            pointBorderWidth: 2,
-            pointRadius: 5,
-            pointHoverRadius: 7,
-            tension: 0.4,
-            fill: true,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            labels: {
-              color: textColor,
-              font: { family: "Nunito", weight: "bold" },
-            },
-          },
-          tooltip: {
-            backgroundColor: "rgba(15, 23, 42, 0.9)",
-            titleFont: { family: "Nunito", size: 14 },
-            bodyFont: { family: "Nunito", size: 14 },
-            padding: 12,
-            cornerRadius: 12,
-          },
-        },
-        scales: {
-          x: {
-            ticks: { color: textColor, font: { family: "Nunito" } },
-            grid: { color: gridColor, drawBorder: false },
-          },
-          y: {
-            ticks: { color: textColor, font: { family: "Nunito" } },
-            grid: { color: gridColor, drawBorder: false, borderDash: [5, 5] },
-            beginAtZero: true,
-          },
-        },
-      },
-    });
+    myChartInstance.destroy();
+    myChartInstance = null;
   }
+
+  const style = getComputedStyle(document.body);
+  const textColor = style.getPropertyValue("--text-muted").trim() || "#888";
+  const gridColor = style.getPropertyValue("--border").trim() || "rgba(255,255,255,0.1)";
+  const highlightColor = style.getPropertyValue("--accent").trim() || "#6366f1";
+
+  let gradient = ctx.createLinearGradient(0, 0, 0, 400);
+  gradient.addColorStop(0, "rgba(99, 102, 241, 0.5)");
+  gradient.addColorStop(1, "rgba(99, 102, 241, 0.0)");
+
+  myChartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: isRunning ? `Час: ${filterValue}` : `Динаміка: ${filterValue}`,
+          data: dataPoints,
+          borderColor: highlightColor,
+          backgroundColor: gradient,
+          borderWidth: 4,
+          pointBackgroundColor: "#fff",
+          pointBorderColor: highlightColor,
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          tension: 0.4,
+          fill: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: {
+            color: textColor,
+            font: { family: "Nunito", weight: "bold" },
+          },
+        },
+        tooltip: {
+          backgroundColor: "rgba(15, 23, 42, 0.9)",
+          titleFont: { family: "Nunito", size: 14 },
+          bodyFont: { family: "Nunito", size: 14 },
+          padding: 12,
+          cornerRadius: 12,
+          callbacks: isRunning ? {
+            label: (ctx) => `Час: ${formatSecondsToTime(ctx.parsed.y)}`
+          } : undefined,
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: textColor, font: { family: "Nunito" } },
+          grid: { color: gridColor, drawBorder: false },
+        },
+        y: {
+          ticks: {
+            color: textColor,
+            font: { family: "Nunito" },
+            callback: isRunning ? (val) => formatSecondsToTime(val) : undefined,
+          },
+          grid: { color: gridColor, drawBorder: false, borderDash: [5, 5] },
+          beginAtZero: !isRunning,
+          title: isRunning ? { display: true, text: "Час", color: textColor, font: { family: "Nunito", weight: "bold" } } : undefined,
+        },
+      },
+    },
+  });
 }
 window.renderUI = () => {
   renderPedestal();
@@ -920,9 +1034,9 @@ window.renderUI = () => {
   // Розраховуємо, які тренування були особистими рекордами на свій час
   const pbSet = new Set();
   const maxAtTime = {};
-  const reversedAll = [...allWorkouts].reverse(); // від найстарішого до найновішого
+  const reversedAll = [...allWorkouts].reverse();
   reversedAll.forEach((w) => {
-    let wIndex = calculateIndex(w.count, w.date);
+    let wIndex = calculateIndex(w.count, w.date, w.exercise);
     if (!maxAtTime[w.exercise] || wIndex > maxAtTime[w.exercise]) {
       maxAtTime[w.exercise] = wIndex;
       pbSet.add(w.id);
@@ -937,15 +1051,20 @@ window.renderUI = () => {
 
     if (filterValue !== "all" && index < filteredWorkouts.length - 1) {
       let prevW = filteredWorkouts[index + 1];
-      let currentVal = parseValue(w.count);
-      let prevVal = parseValue(prevW.count);
+      let currentVal = getChartValue(w.count, w.exercise);
+      let prevVal = getChartValue(prevW.count, prevW.exercise);
       let diff = Math.round((currentVal - prevVal) * 100) / 100;
 
-      if (diff > 0) diffHTML = `<span class="diff-badge">+${diff}</span>`;
-      else if (diff < 0)
-        diffHTML = `<span class="diff-badge negative">${diff}</span>`;
-      else
-        diffHTML = `<span class="diff-badge" style="background:var(--border); color:var(--text-muted);">Без змін</span>`;
+      if (isRunningExercise(w.exercise)) {
+        // Бігові: менше часу = краще = зелений
+        if (diff < 0) diffHTML = `<span class="diff-badge">${formatTimeDiff(diff)}</span>`;
+        else if (diff > 0) diffHTML = `<span class="diff-badge negative">${formatTimeDiff(diff)}</span>`;
+        else diffHTML = `<span class="diff-badge" style="background:var(--border); color:var(--text-muted);">Без змін</span>`;
+      } else {
+        if (diff > 0) diffHTML = `<span class="diff-badge">+${diff}</span>`;
+        else if (diff < 0) diffHTML = `<span class="diff-badge negative">${diff}</span>`;
+        else diffHTML = `<span class="diff-badge" style="background:var(--border); color:var(--text-muted);">Без змін</span>`;
+      }
     }
 
     const safeEx = escapeHTML(w.exercise);
@@ -1036,10 +1155,7 @@ window.listenToWorkouts = () => {
   const q = query(colRef, orderBy("date", "desc"), limit(workoutLimit));
 
   unsubscribeWorkouts = onSnapshot(q, (snapshot) => {
-    allWorkouts = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    allWorkouts = snapshot.docs.map((d) => migrateWorkout({ id: d.id, ...d.data() }));
 
     updateDropdowns();
     renderUI();
@@ -1134,8 +1250,14 @@ window.editEntry = (id) => {
   DOM.workoutNote.value = workout.note || "";
   DOM.workoutVideoUrl.value = workout.videoUrl || "";
 
-  if ([...DOM.exSelect.options].some((opt) => opt.value === workout.exercise)) {
-    DOM.exSelect.value = workout.exercise;
+  // Визначаємо базовий тип для мігрованих бігових назв
+  let baseType = workout.exercise;
+  if (workout.exercise.startsWith("Біг ")) baseType = EX.RUN;
+  else if (workout.exercise.startsWith("Спринт ")) baseType = EX.SPRINT;
+  else if (workout.exercise.startsWith("Човниковий біг ")) baseType = EX.SHUTTLE;
+
+  if ([...DOM.exSelect.options].some((opt) => opt.value === baseType)) {
+    DOM.exSelect.value = baseType;
     DOM.customEx.value = "";
   } else {
     DOM.exSelect.value = "custom";
@@ -1167,22 +1289,28 @@ window.editEntry = (id) => {
 
   uiLogic();
 
-  if (DOM.exSelect.value === EX.RUN) {
-    DOM.runDistance.value = parseFloat(valStr) || "";
-    DOM.runMin.value = min;
-    DOM.runSec.value = sec;
-  } else if (DOM.exSelect.value === EX.SPRINT) {
-    let sprintMatch = countStr.match(/^([\d.]+)\s*м\s*\(([\d.]+)\s*с\)/);
-    if (sprintMatch) {
-      DOM.sprintDistance.value = sprintMatch[1];
-      DOM.sprintSec.value = sprintMatch[2];
+  if (baseType === EX.RUN) {
+    // Підтримка обох форматів: "5 км (25:00)" та "25:00 (5 км)"
+    let distMatch = countStr.match(/([\d.]+)\s*км/);
+    DOM.runDistance.value = distMatch ? distMatch[1] : "";
+    // Витягуємо час mm:ss
+    let tMatch = countStr.match(/(\d+):(\d+)/);
+    if (tMatch) {
+      DOM.runMin.value = tMatch[1];
+      DOM.runSec.value = tMatch[2];
     }
-  } else if (DOM.exSelect.value === EX.SHUTTLE) {
-    let shuttleMatch = countStr.match(/^([\dхxX\s.]+)\s*м\s*\(([\d.]+)\s*с\)/);
-    if (shuttleMatch) {
-      DOM.shuttleScheme.value = shuttleMatch[1];
-      DOM.shuttleSec.value = shuttleMatch[2];
-    }
+  } else if (baseType === EX.SPRINT) {
+    // "100 м (12.5 с)" або "12.5 с (100 м)"
+    let distMatch = countStr.match(/([\d.]+)\s*м/);
+    let secMatch = countStr.match(/([\d.]+)\s*с/);
+    if (distMatch) DOM.sprintDistance.value = distMatch[1];
+    if (secMatch) DOM.sprintSec.value = secMatch[1];
+  } else if (baseType === EX.SHUTTLE) {
+    // "10х10 м (24.5 с)" або "24.5 с (10х10 м)"
+    let schemeMatch = countStr.match(/([\dхxХX]+[хxХX][\dхxХX]+)/i);
+    let secMatch = countStr.match(/([\d.]+)\s*с/);
+    if (schemeMatch) DOM.shuttleScheme.value = schemeMatch[1];
+    if (secMatch) DOM.shuttleSec.value = secMatch[1];
   } else if (DOM.exSelect.value === EX.CUSTOM) {
     DOM.customResultStr.value = valStr;
     DOM.customMin.value = min;
@@ -1214,17 +1342,21 @@ function buildWorkoutResult(selectType) {
     const secVal = document.getElementById("runSec").value;
     if (!dist || (!minVal && !secVal))
       throw new Error("Вкажи відстань та час бігу!");
-    finalResult = `${dist} км (${minVal || "0"}:${(secVal || "0").padStart(2, "0")})`;
+    // Час первинний, дистанція контекстна
+    finalResult = `${minVal || "0"}:${(secVal || "0").padStart(2, "0")} (${dist} км)`;
+    exerciseName = `Біг ${dist} км`;
   } else if (selectType === "Спринт") {
     const dist = document.getElementById("sprintDistance").value;
     const sec = document.getElementById("sprintSec").value;
     if (!dist || !sec) throw new Error("Вкажи дистанцію та час!");
-    finalResult = `${dist} м (${sec} с)`;
+    finalResult = `${sec} с (${dist} м)`;
+    exerciseName = `Спринт ${dist} м`;
   } else if (selectType === "Човниковий біг") {
     const scheme = document.getElementById("shuttleScheme").value;
     const sec = document.getElementById("shuttleSec").value;
     if (!scheme || !sec) throw new Error("Вкажи схему (напр. 10х10) та час!");
-    finalResult = `${scheme} м (${sec} с)`;
+    finalResult = `${sec} с (${scheme} м)`;
+    exerciseName = `Човниковий біг ${scheme}`;
   } else if (selectType === "custom") {
     const customRes = document.getElementById("customResultStr").value.trim();
     const customMin = document.getElementById("customMin").value;
@@ -1260,9 +1392,10 @@ async function processWorkoutDB(workoutData, currentEditId) {
   const { exerciseName, date, finalResult, noteValue, videoValue } =
     workoutData;
 
-  let newIndex = calculateIndex(finalResult, date);
-  let newValueReps = parseValue(finalResult);
-  let new1RM = calculate1RM(finalResult, date);
+  let isRunning = isRunningExercise(exerciseName);
+  let newIndex = calculateIndex(finalResult, date, exerciseName);
+  let newValueReps = isRunning ? parseTimeFromCount(finalResult) : parseValue(finalResult);
+  let new1RM = isRunning ? 0 : calculate1RM(finalResult, date);
 
   let currentRecord = pedestalData[exerciseName] || {
     index: 0,
@@ -1270,10 +1403,16 @@ async function processWorkoutDB(workoutData, currentEditId) {
   };
   let isRecord = newIndex > currentRecord.index;
   const goalVal = allGoals[exerciseName];
-  let isGoalReached =
-    goalVal &&
-    newValueReps >= parseFloat(goalVal) &&
-    currentRecord.absoluteMaxReps < parseFloat(goalVal);
+  let isGoalReached;
+  if (isRunning) {
+    // Ціль = цільовий час (сек). Досягнута, коли фактичний час <= цілі
+    isGoalReached = goalVal && newValueReps > 0 && newValueReps <= parseFloat(goalVal) &&
+      (currentRecord.absoluteMaxReps === 0 || currentRecord.absoluteMaxReps > parseFloat(goalVal));
+  } else {
+    isGoalReached = goalVal &&
+      newValueReps >= parseFloat(goalVal) &&
+      currentRecord.absoluteMaxReps < parseFloat(goalVal);
+  }
 
   const dataToSave = {
     exercise: exerciseName,
@@ -1287,7 +1426,12 @@ async function processWorkoutDB(workoutData, currentEditId) {
   const batch = writeBatch(db);
 
   // 1. Оновлюємо П'єдестал (додаємо в пакет)
-  if (isRecord || newValueReps > currentRecord.absoluteMaxReps) {
+  let shouldUpdatePedestal = isRecord;
+  if (!isRecord && !isRunning && newValueReps > currentRecord.absoluteMaxReps) {
+    shouldUpdatePedestal = true; // Силові: більше повторень, хоча індекс нижчий
+  }
+
+  if (shouldUpdatePedestal) {
     const pedestalRef = doc(db, "stats", "pedestal");
     batch.set(
       pedestalRef,
@@ -1296,10 +1440,9 @@ async function processWorkoutDB(workoutData, currentEditId) {
           count: isRecord ? finalResult : currentRecord.count,
           date: isRecord ? date : currentRecord.date,
           index: isRecord ? newIndex : currentRecord.index,
-          absoluteMaxReps: Math.max(
-            newValueReps,
-            currentRecord.absoluteMaxReps,
-          ),
+          absoluteMaxReps: isRunning
+            ? (isRecord ? newValueReps : currentRecord.absoluteMaxReps)
+            : Math.max(newValueReps, currentRecord.absoluteMaxReps),
           max1RM: isRecord ? new1RM : currentRecord.max1RM || 0,
         },
       },
@@ -1479,7 +1622,7 @@ window.syncGlobalStats = async () => {
 
     // Витягуємо ВСІ тренування без лімітів (тільки для цього скрипта)
     const querySnapshot = await getDocs(collection(db, "workouts"));
-    let allW = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    let allW = querySnapshot.docs.map((d) => migrateWorkout({ id: d.id, ...d.data() }));
 
     let totals = {
       Підтягування: 0,
@@ -1497,9 +1640,10 @@ window.syncGlobalStats = async () => {
       else totals[s.key] = s.val;
 
       // 2. Рахуємо П'єдестал
-      let wIndex = calculateIndex(w.count, w.date);
-      let wReps = parseValue(w.count);
-      let w1RM = calculate1RM(w.count, w.date);
+      let isRunning = isRunningExercise(w.exercise);
+      let wIndex = calculateIndex(w.count, w.date, w.exercise);
+      let wReps = isRunning ? parseTimeFromCount(w.count) : parseValue(w.count);
+      let w1RM = isRunning ? 0 : calculate1RM(w.count, w.date);
 
       if (!newPedestal[w.exercise] || wIndex > newPedestal[w.exercise].index) {
         newPedestal[w.exercise] = {
@@ -1510,7 +1654,7 @@ window.syncGlobalStats = async () => {
           max1RM: w1RM,
         };
       } else {
-        if (wReps > newPedestal[w.exercise].absoluteMaxReps) {
+        if (!isRunning && wReps > newPedestal[w.exercise].absoluteMaxReps) {
           newPedestal[w.exercise].absoluteMaxReps = wReps;
         }
       }
@@ -2203,11 +2347,107 @@ function renderBodyMap() {
     menuOverlay.addEventListener("click", closeMenu);
 
     document.querySelectorAll(".side-menu__item").forEach((item) => {
-      item.addEventListener("click", closeMenu);
+      if (item.id !== "musicToggle") {
+        item.addEventListener("click", closeMenu);
+      }
     });
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && sideMenu.classList.contains("open")) closeMenu();
+    });
+  }
+}
+
+// === ФОНОВА МУЗИКА ===
+{
+  const bgMusic = document.getElementById("bgMusic");
+  const musicBtn = document.getElementById("musicToggle");
+  const musicVolume = document.getElementById("musicVolume");
+  const musicLabel = document.getElementById("musicLabel");
+  const musicVolLabel = document.getElementById("musicVolLabel");
+
+  if (bgMusic && musicBtn) {
+    const savedVol = localStorage.getItem("musicVol");
+    bgMusic.volume = savedVol ? parseInt(savedVol) / 100 : 0.3;
+    if (musicVolume) musicVolume.value = Math.round(bgMusic.volume * 100);
+    if (musicVolLabel) musicVolLabel.textContent = Math.round(bgMusic.volume * 100) + "%";
+
+    let trackName = "";
+    let wasPlayingBeforeHide = false;
+
+    function updateUI(playing) {
+      const img = musicBtn.querySelector(".btn-icon");
+      const fallback = musicBtn.querySelector(".btn-fallback");
+      if (img) {
+        const name = playing ? "pause" : "play";
+        img.dataset.retry = "";
+        img.src = `assets/icons/${name}.svg`;
+        img.onerror = function () {
+          if (!this.dataset.retry) {
+            this.dataset.retry = "1";
+            this.src = `assets/icons/${name}.png`;
+          } else {
+            this.remove();
+          }
+        };
+      }
+      if (fallback) fallback.textContent = playing ? "⏸" : "▶";
+      musicBtn.classList.toggle("playing", playing);
+      musicLabel.textContent = playing ? `🎵 ${trackName}` : "Музика вимк.";
+    }
+
+    // Завантажуємо плейлист і обираємо випадковий трек
+    fetch("sounds/playlist.json")
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((songs) => {
+        if (!songs.length) return;
+        const pick = songs[Math.floor(Math.random() * songs.length)];
+        trackName = pick.replace(/\.[^.]+$/, "");
+        bgMusic.src = `sounds/${pick}`;
+
+        if (localStorage.getItem("musicOn") === "true") {
+          bgMusic.play().then(() => updateUI(true)).catch(() => {
+            const unlock = () => {
+              bgMusic.play().then(() => updateUI(true)).catch(() => {});
+              document.removeEventListener("click", unlock);
+            };
+            document.addEventListener("click", unlock);
+          });
+        }
+      })
+      .catch(() => {});
+
+    musicBtn.addEventListener("click", () => {
+      if (bgMusic.paused) {
+        bgMusic.play().then(() => {
+          localStorage.setItem("musicOn", "true");
+          updateUI(true);
+        }).catch(() => {});
+      } else {
+        bgMusic.pause();
+        localStorage.setItem("musicOn", "false");
+        updateUI(false);
+      }
+    });
+
+    if (musicVolume) {
+      musicVolume.addEventListener("input", (e) => {
+        bgMusic.volume = e.target.value / 100;
+        localStorage.setItem("musicVol", e.target.value);
+        if (musicVolLabel) musicVolLabel.textContent = e.target.value + "%";
+      });
+    }
+
+    // Пауза при згортанні / переході на інший таб
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        wasPlayingBeforeHide = !bgMusic.paused;
+        if (wasPlayingBeforeHide) bgMusic.pause();
+      } else {
+        if (wasPlayingBeforeHide) {
+          bgMusic.play().then(() => updateUI(true)).catch(() => {});
+        }
+      }
     });
   }
 }

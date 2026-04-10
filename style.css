@@ -111,17 +111,14 @@ h1 span {
 .status-bar {
   text-align: center;
   font-size: 13px;
-  margin-bottom: 25px;
+  margin: 0 auto 20px auto;
   color: var(--success);
   font-weight: 600;
   background: var(--card-bg);
   padding: 8px 15px;
   border-radius: 20px;
-  display: inline-block;
+  display: table;
   border: 1px solid var(--border);
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
   user-select: none;
   -webkit-user-select: none;
   pointer-events: none;
@@ -1021,8 +1018,8 @@ body {
   background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  z-index: 9999;
-  display: none; /* Заховано за замовчуванням */
+  z-index: 10000;
+  display: none;
   align-items: center;
   justify-content: center;
   opacity: 0;
@@ -1237,7 +1234,14 @@ body {
   padding: 20px;
   border-bottom: 1px solid var(--border);
 }
-.side-menu__header h3 { margin: 0; color: var(--text-main); font-size: 1.2rem; }
+.side-menu__header h3 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1.2rem;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+}
 .side-menu__close {
   background: transparent;
   border: none;
@@ -1253,7 +1257,9 @@ body {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;}
+  gap: 12px;
+  flex: 1;
+}
 .side-menu__item {
   background: transparent;
   border: 1px solid var(--border);
@@ -1271,6 +1277,158 @@ body {
   background: rgba(99, 102, 241, 0.15);
   border-color: var(--accent);
   transform: translateX(5px);
+}
+
+.side-menu__logout {
+  color: var(--danger);
+  border-color: rgba(244, 63, 94, 0.3);
+  margin-top: auto;
+}
+
+.side-menu__fund {
+  text-decoration: none;
+  border-color: var(--highlight);
+  color: var(--highlight);
+  background: rgba(245, 158, 11, 0.08);
+}
+.side-menu__fund:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: var(--highlight);
+  transform: translateX(5px);
+}
+.side-menu__logout:hover {
+  background: rgba(244, 63, 94, 0.15);
+  border-color: var(--danger);
+  transform: translateX(5px);
+}
+
+#musicToggle {
+  border-style: dashed;
+  border-color: var(--accent);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+#musicToggle:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--text-main);
+}
+
+/* === СИСТЕМА ІКОНОК (PNG/SVG з emoji-фолбеком) === */
+.btn-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+/* Якщо іконка завантажилась — ховаємо емодзі */
+.btn-icon + .btn-fallback {
+  display: none;
+}
+/* Якщо іконка НЕ завантажилась (onerror видаляє img) — емодзі показується */
+.btn-fallback {
+  vertical-align: middle;
+}
+/* Більша іконка для кнопки плеєра */
+.music-play-btn .btn-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* === МУЗИЧНИЙ ПЛЕЄР У МЕНЮ === */
+.side-menu__music {
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.music-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.music-play-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--text-main);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+.music-play-btn:hover {
+  background: var(--accent);
+  color: white;
+}
+.music-play-btn.playing {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+}
+
+.music-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-volume {
+  width: 100%;
+  height: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.music-volume::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--card-bg);
+  cursor: pointer;
+}
+.music-volume::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--card-bg);
+  cursor: pointer;
+}
+
+.music-vol-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.music-vol-row .music-volume {
+  flex: 1;
+}
+.music-vol-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--accent);
+  min-width: 32px;
+  text-align: right;
 }
 
 /* === ОВЕРЛЕЙ ДЛЯ КЛІКУ ПОНАД МЕНЮ === */

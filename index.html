@@ -39,10 +39,37 @@
     <button id="closeMenu" class="side-menu__close" aria-label="Закрити меню">✖</button>
   </div>
   <div class="side-menu__content">
-    <button id="infoBtn" class="side-menu__item">💡 Як це працює?</button>
-    <button id="donateBtn" class="side-menu__item">☕ Підтримати автора</button>
+    <div class="side-menu__music">
+      <div class="music-header">
+        <button id="musicToggle" class="music-play-btn">
+          <img src="assets/icons/play.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
+          <span class="btn-fallback">▶</span>
+        </button>
+        <span id="musicLabel" class="music-label">Музика вимк.</span>
+      </div>
+      <div class="music-vol-row">
+        <input type="range" id="musicVolume" class="music-volume" min="0" max="100" value="30" />
+        <span id="musicVolLabel" class="music-vol-label">30%</span>
+      </div>
+    </div>
+    <button id="infoBtn" class="side-menu__item">
+      <img src="assets/icons/info.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
+      <span class="btn-fallback">💡</span> Як це працює?
+    </button>
+    <a href="fund.html" class="side-menu__item side-menu__fund">
+      🏠 Фундамент
+    </a>
+    <button id="donateBtn" class="side-menu__item">
+      <img src="assets/icons/donate.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
+      <span class="btn-fallback">☕</span> Підтримати автора
+    </button>
+    <button id="logoutBtn" class="side-menu__item side-menu__logout" style="display: none">
+      <img src="assets/icons/logout.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
+      <span class="btn-fallback">🚪</span> Вийти
+    </button>
   </div>
 </nav>
+<audio id="bgMusic" loop preload="auto"></audio>
 <div id="menuOverlay" class="menu-overlay"></div>
 
       <div id="loginSection" class="card login-card" style="display: none">
@@ -58,34 +85,7 @@
         <div id="loginError" class="login-error"></div>
       </div>
 
-      <div style="position: relative; margin-bottom: 20px; min-height: 40px">
-        <div
-          id="status"
-          class="status-bar"
-          style="
-            margin: 0;
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-          "
-        >
-          Підключення...
-        </div>
-        <button
-          id="logoutBtn"
-          class="btn-del"
-          style="
-            display: none;
-            position: absolute;
-            right: 0;
-            top: 0;
-            border-color: var(--border);
-            color: var(--text-muted);
-          "
-        >
-          Вийти
-        </button>
-      </div>
+      <div id="status" class="status-bar">Підключення...</div>
       <div id="tab-dashboard" class="tab-content active">
         <div class="card experience-card">
           <div class="experience-title">🔥 Тренуюсь вже:</div>
