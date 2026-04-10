@@ -82,41 +82,10 @@ body::after {
   z-index: 1;
 }
 
-.header-box {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  position: relative;
-  min-height: 50px;
-}
-
-.header-controls-left {
-  display: flex;
-  gap: 10px;
-  z-index: 2;
-}
-
 #themeToggle {
   position: relative;
   z-index: 2;
 }
-
-h1 {
-  color: var(--text-main);
-  font-size: 2rem;
-  font-weight: 800;
-  margin: 0;
-  text-align: center;
-  letter-spacing: -0.5px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  width: max-content;
-  z-index: 1;
-}
-
-
 h1 span {
   color: var(--highlight);
 }
@@ -1045,59 +1014,6 @@ body {
   transform: translateY(-3px); /* Залишаємо тільки плавне підняття */
 }
 
-/* Сама підказка (тепер праворуч) */
-#infoBtn::before {
-  content: attr(data-label);
-  position: absolute;
-  top: 50%;
-  left: 125%; /* Відступ праворуч від кнопки */
-  transform: translateY(-50%) translateX(-10px);
-  background: var(--bg-color);
-  color: var(--highlight);
-  padding: 5px 12px;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transition: var(--transition);
-  border: 1px solid var(--highlight);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
-  z-index: 100;
-  font-family: "Nunito", sans-serif;
-  font-weight: 800;
-  pointer-events: none;
-  user-select: none;
-}
-
-/* Додаємо стрілочку (як у кубка) */
-#infoBtn::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 105%; /* Знаходиться між кнопкою і текстом */
-  transform: translateY(-50%);
-  border-width: 6px;
-  border-style: solid;
-  /* Стрілка вказує вліво на лампочку */
-  border-color: transparent var(--highlight) transparent transparent;
-  opacity: 0;
-  visibility: hidden;
-  transition: var(--transition);
-  pointer-events: none;
-}
-
-/* Анімація появи */
-#infoBtn:hover::before {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(-50%) translateX(0);
-}
-
-#infoBtn:hover::after {
-  opacity: 1;
-  visibility: visible;
-}
 /* --- МОДАЛЬНЕ ВІКНО --- */
 .modal-overlay {
   position: fixed;
@@ -1145,73 +1061,8 @@ body {
   transform: translateY(-3px);
 }
 
-#donateBtn::before {
-  content: attr(data-label);
-  position: absolute;
-  top: 50%;
-  left: 125%;
-  transform: translateY(-50%) translateX(-10px);
-  background: var(--bg-color);
-  color: var(--highlight);
-  padding: 5px 12px;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transition: var(--transition);
-  border: 1px solid var(--highlight);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
-  z-index: 100;
-  font-family: "Nunito", sans-serif;
-  font-weight: 800;
-  pointer-events: none;
-  user-select: none;
-}
-
-#donateBtn::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 105%;
-  transform: translateY(-50%);
-  border-width: 6px;
-  border-style: solid;
-  border-color: transparent var(--highlight) transparent transparent;
-  opacity: 0;
-  visibility: hidden;
-  transition: var(--transition);
-  pointer-events: none;
-}
-
-#donateBtn:hover::before {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(-50%) translateX(0);
-}
-#donateBtn:hover::after {
-  opacity: 1;
-  visibility: visible;
-}
-/* === АНІМАЦІЯ ЗМІЩЕННЯ КАВИ === */
-
-#infoBtn::before,
-#infoBtn::after {
-  pointer-events: none;
-}
-
 #donateBtn {
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@media (hover: hover) {
-  .header-controls-left #infoBtn:hover + #donateBtn {
-    transform: translateX(110px);
-  }
-
-  .header-controls-left #infoBtn:hover + #donateBtn:hover {
-    transform: translateX(110px) translateY(-3px);
-  }
 }
 /* --- КАСТОМНІ СКРОЛЛБАРИ (Для модалок і сторінки) --- */
 ::-webkit-scrollbar {
@@ -1305,4 +1156,144 @@ body {
 
 .btn-outline-accent:hover {
   background: rgba(99, 102, 241, 0.1);
+}
+/* === ОНОВЛЕНА ШАПКА (Flex/Grid без absolute) === */
+.header-box {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 0 10px;
+}
+
+.main-title {
+  color: var(--text-main);
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0;
+  text-align: center;
+  letter-spacing: -0.5px;
+  grid-column: 2;
+  white-space: nowrap;
+}
+
+@media (min-width: 600px) {
+  .main-title { font-size: 2rem; }
+}
+
+/* === КНОПКА-БУРГЕР === */
+.hamburger {
+  grid-column: 1;
+  width: 40px;
+  height: 40px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0;
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+  position: relative;
+  z-index: 2;
+}
+.hamburger:hover { border-color: var(--accent); }
+.hamburger span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background-color: var(--text-main);
+  border-radius: 2px;  transition: var(--transition);
+}
+.hamburger.active span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger.active span:nth-child(2) { opacity: 0; }
+.hamburger.active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* === БІЧНЕ МЕНЮ === */
+.side-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 280px;
+  height: 100vh;
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-right: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  z-index: 9999;
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+.side-menu.open { transform: translateX(0); }
+
+.side-menu__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.side-menu__header h3 { margin: 0; color: var(--text-main); font-size: 1.2rem; }
+.side-menu__close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px;
+  transition: var(--transition);
+}
+.side-menu__close:hover { color: var(--danger); }
+
+.side-menu__content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;}
+.side-menu__item {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition);
+  font-family: inherit;
+}
+.side-menu__item:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent);
+  transform: translateX(5px);
+}
+
+/* === ОВЕРЛЕЙ ДЛЯ КЛІКУ ПОНАД МЕНЮ === */
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 9998;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.menu-overlay.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }

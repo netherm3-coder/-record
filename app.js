@@ -67,20 +67,7 @@ setPersistence(auth, browserLocalPersistence).catch((error) => {
 const colRef = collection(db, "workouts");
 
 let isAdmin = false; // Глобальна змінна для перевірки власника
-// Отримуємо ідеальну місцеву дату (Україна)
-function getLocalDate() {
-  const today = new Date();
-  const offset = today.getTimezoneOffset() * 60000;
-  return new Date(today.getTime() - offset).toISOString().split("T")[0];
-}
 
-// І прив'яжи її до всіх календарів:
-if (document.getElementById("workoutDate"))
-  document.getElementById("workoutDate").value = getLocalDate();
-if (document.getElementById("weightDate"))
-  document.getElementById("weightDate").value = getLocalDate();
-if (document.getElementById("photoDate"))
-  document.getElementById("photoDate").value = getLocalDate();
 // === ЛОГІКА ТЕМ ===
 const themeBtn = document.getElementById("themeToggle");
 const savedTheme = localStorage.getItem("workoutTheme") || "dark";
@@ -115,7 +102,7 @@ if (infoBtn && infoModal && closeInfoBtn) {
     }
   });
 }
-document.getElementById("workoutDate").value = getLocalDate();
+document.getElementById("workoutDate").valueAsDate = new Date();
 
 // === ЛОГІКА ВІКНА ДОНАТУ ===
 const donateBtn = document.getElementById("donateBtn");
@@ -152,10 +139,6 @@ onAuthStateChanged(auth, (user) => {
     if (weightPanel) weightPanel.style.display = "block";
     if (navPhotos) navPhotos.style.display = "flex";
 
-    // --- ДОДАНО: Показуємо кнопку синхронізації адміну ---
-    const syncBtn = document.getElementById("syncStatsBtn");
-    if (syncBtn) syncBtn.style.display = "block";
-
     // --- ВИМИКАЄМО КУБОК ДЛЯ АДМІНА ---
     if (secretDoor) {
       secretDoor.classList.add("admin-mode");
@@ -166,9 +149,6 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("adminPanel").style.display = "none";
     document.getElementById("logoutBtn").style.display = "none";
     if (weightPanel) weightPanel.style.display = "none";
-
-const syncBtn = document.getElementById("syncStatsBtn");
-    if (syncBtn) syncBtn.style.display = "none";
 
     // --- ВМИКАЄМО КУБОК ДЛЯ ГОСТЕЙ ---
     if (secretDoor) {
@@ -191,29 +171,14 @@ const syncBtn = document.getElementById("syncStatsBtn");
 });
 
 // Клік по трофею (показати/сховати логін)
-document.getElementById("secretDoor").addEventListener("click", () => {
+const secretDoorEl = document.getElementById("secretDoor");
+if (secretDoorEl) secretDoorEl.addEventListener("click", () => {
   if (!isAdmin) {
     const loginSec = document.getElementById("loginSection");
     loginSec.style.display =
       loginSec.style.display === "none" ? "block" : "none";
   }
 });
-
-// --- ДОДАНО: Вхід по клавіші Enter ---
-const triggerLoginOnEnter = (e) => {
-  if (e.key === "Enter") {
-    e.preventDefault(); // Забороняємо браузеру робити свої стандартні дії
-    document.getElementById("loginBtn").click();
-  }
-};
-
-// ОСЬ ТУТ: Вішаємо слухача на обидва поля
-document
-  .getElementById("loginEmail")
-  ?.addEventListener("keydown", triggerLoginOnEnter);
-document
-  .getElementById("loginPass")
-  ?.addEventListener("keydown", triggerLoginOnEnter);
 
 // Кнопка Увійти
 document.getElementById("loginBtn").addEventListener("click", async () => {
@@ -251,7 +216,6 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
     loginBtn.innerText = "Увійти";
   }
 });
-
 // === Кнопка Вийти ===
 const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {
@@ -288,7 +252,6 @@ const DOM = {
   exMin: document.getElementById("exMin"),
   exSec: document.getElementById("exSec"),
   runDistance: document.getElementById("runDistance"),
-  runHr: document.getElementById("runHr"),
   runMin: document.getElementById("runMin"),
   runSec: document.getElementById("runSec"),
   sprintDistance: document.getElementById("sprintDistance"),
@@ -586,6 +549,7 @@ window.setGoal = (exercise) => {
 document.getElementById("closeGoalBtn")?.addEventListener("click", () => {
   goalModal.classList.remove("show");
 });
+
 // Збереження цілі у Firebase
 document.getElementById("saveGoalBtn")?.addEventListener("click", async () => {
   const newGoal = goalInput.value.trim();
@@ -595,8 +559,16 @@ document.getElementById("saveGoalBtn")?.addEventListener("click", async () => {
       // Якщо поле порожнє — видаляємо ціль
       await deleteDoc(doc(db, "goals", currentGoalExercise));
     } else {
-      // Тепер ми зберігаємо ціль як рядок, тому вона прийме і "50", і "25:00"
-      await setDoc(doc(db, "goals", currentGoalExercise), { value: newGoal });
+      const numGoal = parseFloat(newGoal);
+
+      // 🛡️ Броньована перевірка: число > 0, але не більше 1 000 000 (захист від Infinity та аномалій)
+      if (!isNaN(numGoal) && numGoal > 0 && numGoal <= 1000000) {
+        // Зберігаємо нову ціль
+        await setDoc(doc(db, "goals", currentGoalExercise), { value: numGoal });
+      } else {
+        alert("Будь ласка, введіть реалістичне число (від 0.1 до 1 000 000).");
+        return;
+      }
     }
     goalModal.classList.remove("show");
   } catch (error) {
@@ -630,63 +602,22 @@ function renderPedestal() {
     let goalHTML = `<button class="goal-btn" onclick="setGoal('${ex}')">+ Задати ціль</button>`;
 
     if (goal) {
-      let percent = 0;
-      let goalStr = String(goal);
-      let isTimeGoal =
-        goalStr.includes(":") || goalStr.toLowerCase().includes("с");
-
-      if (isTimeGoal) {
-        // ⏳ Рахуємо прогрес для ЧАСУ (чим менше - тим ближче до 100%)
-        let goalSec = 0;
-        if (goalStr.includes(":")) {
-          let parts = goalStr.split(":").reverse();
-          for (let i = 0; i < parts.length; i++)
-            goalSec += parseFloat(parts[i] || 0) * Math.pow(60, i);
-        } else {
-          goalSec = parseFloat(goalStr) || 0;
-        }
-
-        let currentSec = 0;
-        let timeMatch = maxW.count.match(/\((.*?)\)/);
-        if (timeMatch) {
-          let tStr = timeMatch[1].replace(/с/gi, "").trim();
-          if (tStr.includes(":")) {
-            let cParts = tStr.split(":").reverse();
-            for (let i = 0; i < cParts.length; i++)
-              currentSec += parseFloat(cParts[i] || 0) * Math.pow(60, i);
-          } else {
-            currentSec = parseFloat(tStr) || 0;
-          }
-        }
-
-        if (currentSec > 0 && goalSec > 0) {
-          percent = Math.round((goalSec / currentSec) * 100);
-        }
-        if (currentSec > 0 && currentSec <= goalSec) {
-          percent = 100; // Ціль досягнуто!
-        }
-      } else {
-        // Звичайна ціль (на кількість або кілометри)
-        const goalNum = parseFloat(goal);
-        if (goalNum > 0) {
-          percent = Math.round((maxW.absoluteMaxReps / goalNum) * 100);
-        }
-      }
-
+      const goalNum = parseFloat(goal);
+      let percent = Math.round((maxW.absoluteMaxReps / goalNum) * 100);
       if (percent > 100) percent = 100;
 
       goalHTML = `
-        <div class="goal-header">
-            <span>Ціль: ${goalStr}</span>
-            <span>${percent}%</span>
-        </div>
-        <div class="progress-bg">
-            <div class="progress-fill" style="width: ${percent}%;"></div>
-        </div>
-        <div style="text-align:right; margin-top:5px;">
-            <button class="goal-btn" style="padding:2px 5px; font-size: 0.65rem;" onclick="setGoal('${ex}')">Змінити</button>
-        </div>
-      `;
+                <div class="goal-header">
+                    <span>Ціль: ${goalNum}</span>
+                    <span>${percent}%</span>
+                </div>
+                <div class="progress-bg">
+                    <div class="progress-fill" style="width: ${percent}%;"></div>
+                </div>
+                <div style="text-align:right; margin-top:5px;">
+                    <button class="goal-btn" style="padding:2px 5px; font-size: 0.65rem;" onclick="setGoal('${ex}')">Змінити</button>
+                </div>
+            `;
     }
 
     let icon = "🏅";
@@ -1018,9 +949,11 @@ window.renderUI = () => {
     }
 
     const safeEx = escapeHTML(w.exercise);
-    const safeCount = w.count;
+    const safeCount = escapeHTML(w.count);
+
     const exLabel =
       filterValue === "all" ? `<div class="timeline-ex">${safeEx}</div>` : "";
+
     let pbCrown = "";
     if (pbSet.has(w.id)) {
       let daysAgo = getDaysAgo(w.date);
@@ -1162,20 +1095,17 @@ function clearForm() {
   DOM.exMin.value = "";
   DOM.exSec.value = "";
   DOM.runDistance.value = "";
-  DOM.runHr.value = "";
   DOM.runMin.value = "";
   DOM.runSec.value = "";
   if (DOM.sprintDistance) DOM.sprintDistance.value = "";
   if (DOM.sprintSec) DOM.sprintSec.value = "";
-  if (DOM.shuttleScheme) DOM.shuttleScheme.value = "";
-  if (DOM.shuttleSec) DOM.shuttleSec.value = "";
   DOM.customEx.value = "";
   DOM.customResultStr.value = "";
   DOM.customMin.value = "";
   DOM.customSec.value = "";
   DOM.workoutNote.value = "";
   DOM.workoutVideoUrl.value = "";
-  DOM.workoutDate.value = getLocalDate();
+  DOM.workoutDate.valueAsDate = new Date();
 
   if (DOM.exSelect) {
     DOM.exSelect.selectedIndex = 0;
@@ -1220,17 +1150,15 @@ window.editEntry = (id) => {
   let tempStr = countStr.replace(/\(\s*\+?\s*[\d.]+\s*к?г?\s*\)/i, "").trim();
   let timeMatch = tempStr.match(/\((.*?)\)/);
   let timeStr = timeMatch ? timeMatch[1] : "";
-  let hr = "",
-    min = "",
+  let min = "",
     sec = "";
+
   if (timeStr.includes(":")) {
     let parts = timeStr.split(":");
     if (parts.length === 3) {
-      hr = parts[0];
-      min = parts[1];
+      min = String(parseInt(parts[0]) * 60 + parseInt(parts[1]));
       sec = parts[2];
     } else {
-      hr = "";
       min = parts[0];
       sec = parts[1];
     }
@@ -1241,7 +1169,6 @@ window.editEntry = (id) => {
 
   if (DOM.exSelect.value === EX.RUN) {
     DOM.runDistance.value = parseFloat(valStr) || "";
-    DOM.runHr.value = hr;
     DOM.runMin.value = min;
     DOM.runSec.value = sec;
   } else if (DOM.exSelect.value === EX.SPRINT) {
@@ -1283,20 +1210,11 @@ function buildWorkoutResult(selectType) {
 
   if (selectType === "Біг") {
     const dist = document.getElementById("runDistance").value;
-    const hrVal = document.getElementById("runHr").value;
     const minVal = document.getElementById("runMin").value;
     const secVal = document.getElementById("runSec").value;
-
-    if (!dist || (!hrVal && !minVal && !secVal))
+    if (!dist || (!minVal && !secVal))
       throw new Error("Вкажи відстань та час бігу!");
-
-    // Формуємо рядок часу: якщо є години, формат HH:MM:SS, якщо немає - MM:SS
-    let timeParts = [];
-    if (hrVal) timeParts.push(hrVal);
-    timeParts.push(minVal || "0");
-    timeParts.push((secVal || "0").padStart(2, "0"));
-
-    finalResult = `${dist} км (${timeParts.join(":")})`;
+    finalResult = `${dist} км (${minVal || "0"}:${(secVal || "0").padStart(2, "0")})`;
   } else if (selectType === "Спринт") {
     const dist = document.getElementById("sprintDistance").value;
     const sec = document.getElementById("sprintSec").value;
@@ -1678,7 +1596,7 @@ let weightChartInstance = null;
 
 // Встановлюємо сьогоднішню дату у формі ваги за замовчуванням
 const weightDateInput = document.getElementById("weightDate");
-if (weightDateInput) weightDateInput.value = getLocalDate();
+if (weightDateInput) weightDateInput.valueAsDate = new Date();
 // --- АВТОЗБЕРЕЖЕННЯ ЗРОСТУ ЯК СТАЛОЇ ---
 const heightInput = document.getElementById("userHeight");
 if (heightInput) {
@@ -1723,13 +1641,11 @@ if (saveWeightBtn) {
     }
 
     try {
-      saveWeightBtn.disabled = true; // 🔒 БЛОКУЄМО КНОПКУ ПІД ЧАС ВІДПРАВКИ
       document.getElementById("status").innerText = "Збереження даних тіла...";
-
       await addDoc(weightColRef, {
         date: date,
         weight: weight,
-        measurements: measurements,
+        measurements: measurements, // Зберігаємо заміри разом з вагою
         createdAt: Date.now(),
       });
 
@@ -1754,8 +1670,6 @@ if (saveWeightBtn) {
       }, 3000);
     } catch (err) {
       alert("Помилка: " + err.message);
-    } finally {
-      saveWeightBtn.disabled = false; // 🔓 РОЗБЛОКОВУЄМО КНОПКУ В БУДЬ-ЯКОМУ ВИПАДКУ
     }
   });
 }
@@ -2060,47 +1974,42 @@ function getDriveDirectLink(url) {
   return url; // якщо це посилання на інший сайт (не Диск), залишаємо як є
 }
 if (document.getElementById("photoDate")) {
-  document.getElementById("photoDate").value = getLocalDate();
+  document.getElementById("photoDate").valueAsDate = new Date();
 }
 
-const savePhotoBtn = document.getElementById("savePhotoBtn");
-if (savePhotoBtn) {
-  savePhotoBtn.addEventListener("click", async () => {
-    if (!isAdmin) return;
+if (document.getElementById("savePhotoBtn")) {
+  document
+    .getElementById("savePhotoBtn")
+    .addEventListener("click", async () => {
+      if (!isAdmin) return;
 
-    const date = document.getElementById("photoDate").value;
-    const url = document.getElementById("photoUrl").value;
+      const date = document.getElementById("photoDate").value;
+      const url = document.getElementById("photoUrl").value;
 
-    if (!date || !url) {
-      alert("Вкажіть дату та вставте посилання з Google Диску!");
-      return;
-    }
-
-    try {
-      savePhotoBtn.disabled = true; // 🔒 БЛОКУЄМО КНОПКУ
-      document.getElementById("status").innerText = "Збереження фото...";
-
-      await addDoc(collection(db, "photos"), {
-        date: date,
-        url: url,
-        createdAt: Date.now(),
-      });
-
-      document.getElementById("photoUrl").value = "";
-      document.getElementById("status").innerText = "Фото додано ✅";
-      setTimeout(() => {
-        document.getElementById("status").innerText = "Хмара синхронізована ✅";
-      }, 3000);
-    } catch (err) {
-      if (err.code === "permission-denied") {
-        alert("🛡️ Доступ заборонено! Тільки власник може додавати фотографії.");
-      } else {
-        alert("Помилка: " + err.message);
+      if (!date || !url) {
+        alert("Вкажіть дату та вставте посилання з Google Диску!");
+        return;
       }
-    } finally {
-      savePhotoBtn.disabled = false; // 🔓 РОЗБЛОКОВУЄМО КНОПКУ
-    }
-  });
+
+      try {
+        document.getElementById("status").innerText = "Збереження фото...";
+        await addDoc(collection(db, "photos"), {
+          date: date,
+          url: url,
+          createdAt: Date.now(),
+        });
+        document.getElementById("photoUrl").value = "";
+        document.getElementById("status").innerText = "Фото додано ✅";
+      } catch (err) {
+        if (err.code === "permission-denied") {
+          alert(
+            "🛡️ Доступ заборонено! Тільки власник може додавати фотографії.",
+          );
+        } else {
+          alert("Помилка: " + err.message);
+        }
+      }
+    });
 }
 
 // === РОЗУМНЕ ЗАВАНТАЖЕННЯ ФОТО (ПАГІНАЦІЯ) ===
@@ -2265,3 +2174,45 @@ function renderBodyMap() {
     }
   });
 }
+// === БЕЗПЕЧНА ЛОГІКА БІЧНОГО МЕНЮ ===
+const menuTrigger = document.getElementById("menuTrigger");
+const sideMenu = document.getElementById("menuTrigger");
+  const sideMenu = document.getElementById("sideMenu");
+  const closeMenuBtn = document.getElementById("closeMenu");
+  const menuOverlay = document.getElementById("menuOverlay");
+
+  if (!menuTrigger || !sideMenu || !closeMenuBtn || !menuOverlay) {
+    console.warn("⚠️ Меню не активовано: відсутній один з ID (menuTrigger, sideMenu, closeMenu, menuOverlay)");
+    return;
+  }
+
+  function openMenu() {
+    sideMenu.classList.add("open");
+    menuOverlay.classList.add("active");
+    menuTrigger.classList.add("active");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeMenu() {
+    sideMenu.classList.remove("open");
+    menuOverlay.classList.remove("active");
+    menuTrigger.classList.remove("active");
+    document.body.style.overflow = "";
+  }
+
+  menuTrigger.addEventListener("click", () => sideMenu.classList.contains("open") ? closeMenu() : openMenu());
+  closeMenuBtn.addEventListener("click", closeMenu);
+  menuOverlay.addEventListener("click", closeMenu);
+
+  document.querySelectorAll(".side-menu__item").forEach(item => {
+    item.addEventListener("click", closeMenu);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && sideMenu.classList.contains("open")) closeMenu();
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 600) closeMenu();
+  });
+});
