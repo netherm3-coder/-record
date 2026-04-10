@@ -2174,45 +2174,40 @@ function renderBodyMap() {
     }
   });
 }
-// === БЕЗПЕЧНА ЛОГІКА БІЧНОГО МЕНЮ ===
-const menuTrigger = document.getElementById("menuTrigger");
-const sideMenu = document.getElementById("menuTrigger");
+// === ЛОГІКА БІЧНОГО МЕНЮ ===
+{
+  const menuTrigger = document.getElementById("menuTrigger");
   const sideMenu = document.getElementById("sideMenu");
   const closeMenuBtn = document.getElementById("closeMenu");
   const menuOverlay = document.getElementById("menuOverlay");
 
-  if (!menuTrigger || !sideMenu || !closeMenuBtn || !menuOverlay) {
-    console.warn("⚠️ Меню не активовано: відсутній один з ID (menuTrigger, sideMenu, closeMenu, menuOverlay)");
-    return;
+  if (menuTrigger && sideMenu && closeMenuBtn && menuOverlay) {
+    function openMenu() {
+      sideMenu.classList.add("open");
+      menuOverlay.classList.add("active");
+      menuTrigger.classList.add("active");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeMenu() {
+      sideMenu.classList.remove("open");
+      menuOverlay.classList.remove("active");
+      menuTrigger.classList.remove("active");
+      document.body.style.overflow = "";
+    }
+
+    menuTrigger.addEventListener("click", () =>
+      sideMenu.classList.contains("open") ? closeMenu() : openMenu()
+    );
+    closeMenuBtn.addEventListener("click", closeMenu);
+    menuOverlay.addEventListener("click", closeMenu);
+
+    document.querySelectorAll(".side-menu__item").forEach((item) => {
+      item.addEventListener("click", closeMenu);
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && sideMenu.classList.contains("open")) closeMenu();
+    });
   }
-
-  function openMenu() {
-    sideMenu.classList.add("open");
-    menuOverlay.classList.add("active");
-    menuTrigger.classList.add("active");
-    document.body.style.overflow = "hidden";
-  }
-
-  function closeMenu() {
-    sideMenu.classList.remove("open");
-    menuOverlay.classList.remove("active");
-    menuTrigger.classList.remove("active");
-    document.body.style.overflow = "";
-  }
-
-  menuTrigger.addEventListener("click", () => sideMenu.classList.contains("open") ? closeMenu() : openMenu());
-  closeMenuBtn.addEventListener("click", closeMenu);
-  menuOverlay.addEventListener("click", closeMenu);
-
-  document.querySelectorAll(".side-menu__item").forEach(item => {
-    item.addEventListener("click", closeMenu);
-  });
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && sideMenu.classList.contains("open")) closeMenu();
-  });
-
-  window.addEventListener("resize", () => {
-    if (window.innerWidth > 600) closeMenu();
-  });
-});
+}
