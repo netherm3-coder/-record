@@ -1,14 +1,21 @@
-const CACHE_NAME = "trophy-room-v2";
+const CACHE_NAME = "trophy-room-v3";
 
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./music.js",
   "./manifest.json",
   "./assets/icon.svg",
   "./assets/icon-192.png",
   "./assets/icon-512.png",
+  "./assets/icon-1024.png",
+  "./assets/money.png",
+  "./assets/exit.png",
+  "./assets/noalcohol.png",
+  "./assets/nosmoking.png",
+  "./assets/icone-btc.png",
   "./fund/index.html",
   "./fund/fund.css",
   "./fund/fund.js",

@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Кімната Рекордів</title>
 
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏆</text></svg>"
-    />
+    <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="1024x1024" href="assets/icon-1024.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script
       defer
@@ -58,15 +59,14 @@
       <span class="btn-fallback">💡</span> Як це працює?
     </button>
     <a href="fund/index.html" class="side-menu__item side-menu__fund">
-      🏠 Фундамент
+      <img src="assets/money.png" alt="" class="btn-icon"> Фундамент
     </a>
     <button id="donateBtn" class="side-menu__item">
       <img src="assets/icons/donate.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
       <span class="btn-fallback">☕</span> Підтримати автора
     </button>
     <button id="logoutBtn" class="side-menu__item side-menu__logout" style="display: none">
-      <img src="assets/icons/logout.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
-      <span class="btn-fallback">🚪</span> Вийти
+      <img src="assets/exit.png" alt="" class="btn-icon"> Вийти
     </button>
   </div>
 </nav>
@@ -124,7 +124,7 @@
             "
           >
             <div class="stat-card" style="min-width: 160px; flex: 0 1 auto">
-              <div class="stat-title">🚫 Без алкоголю</div>
+              <div class="stat-title"><img src="assets/noalcohol.png" alt="" class="sober-icon"> Без алкоголю</div>
               <div
                 id="soberAlcohol"
                 class="stat-value"
@@ -143,7 +143,7 @@
               ></div>
             </div>
             <div class="stat-card" style="min-width: 160px; flex: 0 1 auto">
-              <div class="stat-title">🚭 Без куріння</div>
+              <div class="stat-title"><img src="assets/nosmoking.png" alt="" class="sober-icon"> Без куріння</div>
               <div
                 id="soberSmoking"
                 class="stat-value"

@@ -1,19 +1,13 @@
 {
-  "name": "Кімната Рекордів 🏆",
+  "name": "Кімната Рекордів",
   "short_name": "Рекорди",
   "description": "Мій особистий зал слави та трекер спортивних рекордів",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0f172a",
-  "theme_color": "#6366f1",
+  "theme_color": "#0f172a",
   "orientation": "portrait",
   "icons": [
-    {
-      "src": "./assets/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
     {
       "src": "./assets/icon-192.png",
       "sizes": "192x192",
@@ -25,6 +19,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

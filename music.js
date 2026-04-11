@@ -16,6 +16,7 @@
   var playlist = [];
   var currentIndex = -1;
   var wasPlayingBeforeHide = false;
+  var pendingResume = false;
 
   var savedVol = localStorage.getItem("musicVol");
   bgMusic.volume = savedVol ? parseInt(savedVol) / 100 : 0.3;
@@ -23,7 +24,7 @@
   if (musicVolLabel) musicVolLabel.textContent = Math.round(bgMusic.volume * 100) + "%";
 
   function getTrackName() {
-    return playlist[currentIndex] ? playlist[currentIndex].replace(/\.[^.]+$/, "") : "Музика";
+    return playlist[currentIndex] ? playlist[currentIndex].replace(/\.[^.]+$/, "") : "";
   }
 
   function updateUI(playing) {
@@ -56,26 +57,34 @@
     loadTrack(index, 0);
     bgMusic.play().then(function () {
       localStorage.setItem("musicOn", "true");
+      pendingResume = false;
+      updateUI(true);
+    }).catch(function () {
+      pendingResume = true;
+    });
+  }
+
+  // Розблокування автовідтворення при першій взаємодії
+  function tryResume() {
+    if (!pendingResume || bgMusic.src === "") return;
+    bgMusic.play().then(function () {
+      pendingResume = false;
       updateUI(true);
     }).catch(function () {});
   }
 
-  function startPlayback(resumeTime) {
-    if (resumeTime > 0) bgMusic.currentTime = resumeTime;
-    bgMusic.play().then(function () {
-      updateUI(true);
-    }).catch(function () {
-      var unlock = function () {
-        if (localStorage.getItem("musicOn") === "true") {
-          if (resumeTime > 0) bgMusic.currentTime = resumeTime;
-          bgMusic.play().then(function () { updateUI(true); }).catch(function () {});
-        }
-        document.removeEventListener("click", unlock);
-      };
-      document.addEventListener("click", unlock);
-    });
+  function addUnlockListeners() {
+    var events = ["click", "touchstart", "keydown", "scroll"];
+    function handler() {
+      tryResume();
+      if (!pendingResume) {
+        events.forEach(function (e) { document.removeEventListener(e, handler); });
+      }
+    }
+    events.forEach(function (e) { document.addEventListener(e, handler, { passive: true }); });
   }
 
+  // Завантажуємо плейлист
   fetch(soundsBase + "playlist.json")
     .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
     .then(function (songs) {
@@ -103,9 +112,16 @@
 
       loadTrack(startIndex, 0);
 
-      if (localStorage.getItem("musicOn") === "true") {
-        startPlayback(savedTime);
-      }
+            if (savedTime > 0) bgMusic.currentTime = savedTime;
+      bgMusic.play().then(function () {
+        localStorage.setItem("musicOn", "true");
+        pendingResume = false;
+        updateUI(true);
+      }).catch(function () {
+        pendingResume = true;
+        addUnlockListeners();
+      });
+
 
       localStorage.removeItem("musicTime");
     })
@@ -113,19 +129,23 @@
       if (musicSelect) musicSelect.innerHTML = '<option value="">Немає playlist.json</option>';
     });
 
+  // Play / Pause
   musicBtn.addEventListener("click", function () {
     if (bgMusic.paused) {
       bgMusic.play().then(function () {
         localStorage.setItem("musicOn", "true");
+        pendingResume = false;
         updateUI(true);
       }).catch(function () {});
     } else {
       bgMusic.pause();
       localStorage.setItem("musicOn", "false");
+      pendingResume = false;
       updateUI(false);
     }
   });
 
+  // Зміна треку
   if (musicSelect) {
     musicSelect.addEventListener("change", function () {
       var idx = parseInt(musicSelect.value);
@@ -133,6 +153,7 @@
     });
   }
 
+  // Гучність
   if (musicVolume) {
     musicVolume.addEventListener("input", function (e) {
       bgMusic.volume = e.target.value / 100;
@@ -141,17 +162,22 @@
     });
   }
 
+  // Пауза при згортанні
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) {
       wasPlayingBeforeHide = !bgMusic.paused;
       if (wasPlayingBeforeHide) bgMusic.pause();
     } else {
       if (wasPlayingBeforeHide) {
-        bgMusic.play().then(function () { updateUI(true); }).catch(function () {});
+        bgMusic.play().then(function () { updateUI(true); }).catch(function () {
+          pendingResume = true;
+          addUnlockListeners();
+        });
       }
     }
   });
 
+  // Зберігаємо позицію при переході
   window.addEventListener("beforeunload", function () {
     if (!bgMusic.paused && playlist[currentIndex]) {
       localStorage.setItem("musicTrack", playlist[currentIndex]);

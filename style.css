@@ -1225,6 +1225,7 @@ body {
   display: flex;
   flex-direction: column;
 }
+
 .side-menu.open { transform: translateX(0); }
 
 .side-menu__header {
@@ -1321,6 +1322,14 @@ body {
   vertical-align: middle;
   flex-shrink: 0;
 }
+
+.sober-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-right: 2px;
+}
 /* Якщо іконка завантажилась — ховаємо емодзі */
 .btn-icon + .btn-fallback {
   display: none;
@@ -1331,8 +1340,12 @@ body {
 }
 /* Більша іконка для кнопки плеєра */
 .music-play-btn .btn-icon {
-  width: 16px;
-  height: 16px;
+  width: 32px;
+  height: 32px;
+}
+.side-menu__fund .btn-icon {
+  width: 32px;
+  height: 32px;
 }
 
 /* === МУЗИЧНИЙ ПЛЕЄР У МЕНЮ === */

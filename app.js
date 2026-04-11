@@ -188,17 +188,17 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
   const errorMsg = document.getElementById("loginError");
 
   loginBtn.innerText = "Завантаження...";
-  errorMsg.innerText = ""; // Очищаємо попередні помилки
+  errorMsg.innerText = "";
 
   try {
     await signInWithEmailAndPassword(auth, email, pass);
-    // Якщо успішно, помилок немає
+    // Зберігаємо дані для автологіну
+    localStorage.setItem("adminEmail", email);
+    localStorage.setItem("adminPass", btoa(pass));
   } catch (error) {
-    // 1. Логуємо повну помилку в консоль для розробника (тебе)
     console.error("Помилка авторизації Firebase:", error.code, error.message);
 
-    // 2. Аналізуємо код помилки і видаємо зрозумілий текст для UI
-    let userMessage = "Невірний логін або пароль!"; // Стандартне повідомлення
+    let userMessage = "Невірний логін або пароль!";
 
     if (error.code === "auth/network-request-failed") {
       userMessage = "Відсутнє з'єднання з інтернетом. Перевірте мережу.";
@@ -209,20 +209,35 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
       userMessage = "Введено некоректний формат email.";
     }
 
-    // Виводимо повідомлення на екран
     errorMsg.innerText = userMessage;
   } finally {
-    // Цей блок виконається завжди, повертаючи кнопку у вихідний стан
     loginBtn.innerText = "Увійти";
   }
 });
+
+// === АВТОЛОГІН ===
+onAuthStateChanged(auth, () => {}, { onlyOnce: false });
+{
+  const savedEmail = localStorage.getItem("adminEmail");
+  const savedPass = localStorage.getItem("adminPass");
+  if (savedEmail && savedPass && !auth.currentUser) {
+    signInWithEmailAndPassword(auth, savedEmail, atob(savedPass)).catch(() => {
+      // Дані застарілі — очищаємо
+      localStorage.removeItem("adminEmail");
+      localStorage.removeItem("adminPass");
+    });
+  }
+}
+
 // === Кнопка Вийти ===
 const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {
     try {
+      localStorage.removeItem("adminEmail");
+      localStorage.removeItem("adminPass");
       await signOut(auth);
-      location.reload(); // Перезавантажуємо сторінку, щоб точно скинути адмін-режим
+      location.reload();
     } catch (error) {
       console.error("Помилка при виході:", error);
     }
