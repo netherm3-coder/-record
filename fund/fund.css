@@ -247,6 +247,28 @@
   color: var(--accent);
 }
 
+.fund-music-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 20px;
+}
+.fund-music-panel .music-label {
+  flex: 1;
+  min-width: 0;
+}
+.fund-music-panel .music-select {
+  width: 100%;
+}
+.fund-music-panel .music-vol-row {
+  width: 100%;
+}
+
 .fund-del-btn {
   position: absolute;
   top: 10px;

@@ -2,13 +2,12 @@ import { firebaseConfig } from "../firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc,
-  initializeFirestore, persistentLocalCache, limit,
+  initializeFirestore, persistentLocalCache, limit, updateDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
   getAuth, onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// === INIT ===
 const app = initializeApp(firebaseConfig);
 const db = initializeFirestore(app, { localCache: persistentLocalCache() });
 const auth = getAuth(app);
@@ -16,51 +15,67 @@ const colRef = collection(db, "fund_deposits");
 
 let isAdmin = false;
 let allDeposits = [];
+let editingId = null;
 
-// === GOAL ===
 const GOAL_USD = 200000;
 
-// === EXCHANGE RATES ===
+// === КУРСИ ===
 let rates = {
   usdUah: parseFloat(localStorage.getItem("fund_usdUah")) || 41.5,
+  eurUah: parseFloat(localStorage.getItem("fund_eurUah")) || 45.0,
+  btcUsd: parseFloat(localStorage.getItem("fund_btcUsd")) || 65000,
   goldPerGram: parseFloat(localStorage.getItem("fund_goldGram")) || 95,
 };
 
+const CUR_SYMBOLS = { UAH: "₴", USD: "$", EUR: "€", BTC: "₿", USDT: "$" };
+
+// Конвертує будь-яку валюту → USD
+function toUSD(amount, currency) {
+  switch (currency) {
+    case "USD": case "USDT": return amount;
+    case "UAH": return amount / rates.usdUah;
+    case "EUR": return (amount * rates.eurUah) / rates.usdUah;
+    case "BTC": return amount * rates.btcUsd;
+    default: return amount / rates.usdUah;
+  }
+}
+
 async function fetchRates() {
-  const statusEl = document.getElementById("status");
+  const st = document.getElementById("status");
 
-  // 1. USD/UAH від НБУ
+  // USD/UAH
   try {
-    const res = await fetch("https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&json");
-    const data = await res.json();
-    if (data && data[0] && data[0].rate) {
-      rates.usdUah = data[0].rate;
-      localStorage.setItem("fund_usdUah", rates.usdUah);
-    }
-  } catch (e) {
-    console.warn("НБУ API недоступний, використовую кеш:", rates.usdUah);
-  }
+    const r = await fetch("https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&json");
+    const d = await r.json();
+    if (d?.[0]?.rate) { rates.usdUah = d[0].rate; localStorage.setItem("fund_usdUah", rates.usdUah); }
+  } catch (e) { console.warn("НБУ USD:", e); }
 
-  // 2. Золото ($/грам) — пробуємо кілька джерел
+  // EUR/UAH
   try {
-    // Frankfurter не підтримує XAU, тому спробуємо goldapi через проксі
-    // Якщо не вдалось — кеш або дефолт
-    const goldRes = await fetch("https://data-asg.goldprice.org/dbXRates/USD");
-    const goldData = await goldRes.json();
-    if (goldData && goldData.items && goldData.items[0]) {
-      // Ціна за тройську унцію → за грам (1 oz = 31.1035 g)
-      const pricePerOz = goldData.items[0].xauPrice;
-      if (pricePerOz > 0) {
-        rates.goldPerGram = Math.round((pricePerOz / 31.1035) * 100) / 100;
-        localStorage.setItem("fund_goldGram", rates.goldPerGram);
-      }
+    const r = await fetch("https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=EUR&json");
+    const d = await r.json();
+    if (d?.[0]?.rate) { rates.eurUah = d[0].rate; localStorage.setItem("fund_eurUah", rates.eurUah); }
+  } catch (e) { console.warn("НБУ EUR:", e); }
+
+  // BTC/USD
+  try {
+    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd");
+    const d = await r.json();
+    if (d?.bitcoin?.usd) { rates.btcUsd = d.bitcoin.usd; localStorage.setItem("fund_btcUsd", rates.btcUsd); }
+  } catch (e) { console.warn("BTC:", e); }
+
+  // Золото
+  try {
+    const r = await fetch("https://data-asg.goldprice.org/dbXRates/USD");
+    const d = await r.json();
+    if (d?.items?.[0]?.xauPrice > 0) {
+      rates.goldPerGram = Math.round((d.items[0].xauPrice / 31.1035) * 100) / 100;
+      localStorage.setItem("fund_goldGram", rates.goldPerGram);
     }
-  } catch (e) {
-    console.warn("Gold API недоступний, використовую кеш:", rates.goldPerGram);
-  }
+  } catch (e) { console.warn("Gold:", e); }
 
   renderDashboard();
-  if (statusEl) statusEl.innerText = "Курси оновлено ✅";
+  if (st) st.innerText = "Курси оновлено ✅";
 }
 
 // === THEME ===
@@ -68,10 +83,8 @@ const themeBtn = document.getElementById("themeToggle");
 const savedTheme = localStorage.getItem("workoutTheme") || "dark";
 document.documentElement.setAttribute("data-theme", savedTheme);
 themeBtn.innerText = savedTheme === "dark" ? "☀️" : "🌙";
-
 themeBtn.addEventListener("click", () => {
-  const cur = document.documentElement.getAttribute("data-theme");
-  const next = cur === "dark" ? "light" : "dark";
+  const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("workoutTheme", next);
   themeBtn.innerText = next === "dark" ? "☀️" : "🌙";
@@ -80,69 +93,49 @@ themeBtn.addEventListener("click", () => {
 // === AUTH ===
 onAuthStateChanged(auth, (user) => {
   isAdmin = !!user;
-  const adminPanel = document.getElementById("fundAdmin");
-  const loginHint = document.getElementById("fundLoginHint");
-
-  if (isAdmin) {
-    adminPanel.classList.add("visible");
-    if (loginHint) loginHint.style.display = "none";
-  } else {
-    adminPanel.classList.remove("visible");
-    if (loginHint) loginHint.style.display = "block";
-  }
+  document.getElementById("fundAdmin").classList.toggle("visible", isAdmin);
+  const hint = document.getElementById("fundLoginHint");
+  if (hint) hint.style.display = isAdmin ? "none" : "block";
+  renderHistory();
 });
 
-// === DATE DEFAULT ===
+// === ДАТА ===
 document.getElementById("fundDate").valueAsDate = new Date();
 
-// === FORMAT HELPERS ===
-function fmt(num) {
-  return Math.round(num).toLocaleString("uk-UA");
+// === ХЕЛПЕРИ ===
+function fmt(n) { return Math.round(n).toLocaleString("uk-UA"); }
+function fmtDec(n, d) { return n.toLocaleString("uk-UA", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+function formatDate(s) { if (!s) return ""; const p = s.split("-"); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : s; }
+function escapeHTML(s) { return s ? String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") : ""; }
+
+function fmtAmount(amount, cur) {
+  if (cur === "BTC") return fmtDec(amount, 6) + " ₿";
+  return (CUR_SYMBOLS[cur] || "") + fmt(amount);
 }
 
-function fmtDec(num, dec) {
-  return num.toLocaleString("uk-UA", { minimumFractionDigits: dec, maximumFractionDigits: dec });
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return "";
-  const parts = dateStr.split("-");
-  return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : dateStr;
-}
-
-// === RENDER DASHBOARD ===
+// === DASHBOARD ===
 function renderDashboard() {
-  // Сумуємо всі грами золота
   let totalGold = 0;
   allDeposits.forEach((d) => { totalGold += d.goldGrams || 0; });
 
-  // Конвертуємо в USD та UAH за поточними курсами
   const totalUSD = totalGold * rates.goldPerGram;
   const totalUAH = totalUSD * rates.usdUah;
-
-  // Ціль у золоті
   const goalGold = GOAL_USD / rates.goldPerGram;
   const percent = goalGold > 0 ? Math.min((totalGold / goalGold) * 100, 100) : 0;
-
-  // Залишок
   const remainUSD = Math.max(GOAL_USD - totalUSD, 0);
 
-  // UI
   document.getElementById("fundGoalDisplay").textContent = `$${fmt(GOAL_USD)}`;
   document.getElementById("fundBarFill").style.width = `${percent}%`;
   document.getElementById("fundPercent").textContent = `${fmtDec(percent, 2)}%`;
-
   document.getElementById("fundGold").innerHTML = `${fmtDec(totalGold, 1)} <span>г</span>`;
   document.getElementById("fundUSD").textContent = `$${fmt(totalUSD)}`;
   document.getElementById("fundUAH").innerHTML = `${fmt(totalUAH)} <span>₴</span>`;
-
   document.getElementById("fundRemaining").innerHTML = `Залишилось: <b>$${fmt(remainUSD)}</b> (~${fmt(remainUSD * rates.usdUah)} ₴)`;
-
   document.getElementById("fundRates").innerHTML =
-    `🥇 Au: <b>$${fmtDec(rates.goldPerGram, 2)}</b>/г &nbsp;|&nbsp; 💵 USD: <b>${fmtDec(rates.usdUah, 2)}</b> ₴`;
+    `🥇 Au <b>$${fmtDec(rates.goldPerGram, 2)}</b>/г · 💵 <b>${fmtDec(rates.usdUah, 2)}</b>₴ · 🇪🇺 <b>${fmtDec(rates.eurUah, 2)}</b>₴ · ₿ <b>$${fmt(rates.btcUsd)}</b>`;
 }
 
-// === RENDER HISTORY ===
+// === ІСТОРІЯ ===
 function renderHistory() {
   const container = document.getElementById("fundTimeline");
   const emptyEl = document.getElementById("fundEmpty");
@@ -156,21 +149,27 @@ function renderHistory() {
 
   let html = "";
   allDeposits.forEach((d) => {
-    const usdAtTime = d.rateUSD ? (d.amountUAH / d.rateUSD) : 0;
+    const cur = d.currency || "UAH";
+    const origAmount = d.originalAmount || d.amountUAH || 0;
     const noteHTML = d.note ? `<div class="fund-deposit-note">${escapeHTML(d.note)}</div>` : "";
-    const deleteBtn = isAdmin
-      ? `<button class="btn-del" onclick="deleteFundDeposit('${d.id}')" style="position:absolute;top:10px;right:10px;">✖</button>`
-      : "";
+
+    let adminBtns = "";
+    if (isAdmin) {
+      adminBtns = `
+        <div style="position:absolute;top:10px;right:10px;display:flex;gap:4px;">
+          <button class="btn-edit" onclick="editFundDeposit('${d.id}')">✏️</button>
+          <button class="btn-del" onclick="deleteFundDeposit('${d.id}')">✖</button>
+        </div>`;
+    }
+
+    const usdVal = (d.goldGrams || 0) * rates.goldPerGram;
 
     html += `
-      <div class="fund-history-item" style="position:relative;">
-        ${deleteBtn}
-        <div class="fund-deposit-amount">+${fmt(d.amountUAH)} ₴</div>
+      <div class="fund-history-item">
+        ${adminBtns}
+        <div class="fund-deposit-amount">+${fmtAmount(origAmount, cur)}</div>
         <div class="fund-deposit-meta">
-          🗓️ ${formatDate(d.date)} &nbsp;|&nbsp; ~$${fmt(usdAtTime)} &nbsp;|&nbsp; ${fmtDec(d.goldGrams || 0, 2)} г Au
-        </div>
-        <div class="fund-deposit-meta" style="font-size:0.7rem; margin-top:2px;">
-          Курс: $${fmtDec(d.rateUSD || 0, 2)}/₴ &nbsp; Au $${fmtDec(d.rateGold || 0, 2)}/г
+          🗓️ ${formatDate(d.date)} · ~$${fmt(usdVal)} · ${fmtDec(d.goldGrams || 0, 2)} г Au
         </div>
         ${noteHTML}
       </div>`;
@@ -179,70 +178,99 @@ function renderHistory() {
   container.innerHTML = html;
 }
 
-function escapeHTML(str) {
-  if (!str) return "";
-  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-// === SAVE DEPOSIT ===
+// === ЗБЕРЕЖЕННЯ ===
 document.getElementById("fundSaveBtn").addEventListener("click", async () => {
   if (!isAdmin) return;
 
   const amount = parseFloat(document.getElementById("fundAmount").value);
   const date = document.getElementById("fundDate").value;
   const note = document.getElementById("fundNote").value.trim();
-  const statusEl = document.getElementById("status");
+  const currency = document.getElementById("fundCurrency").value;
+  const st = document.getElementById("status");
 
-  if (!amount || amount <= 0 || !date) {
-    alert("Вкажи суму та дату!");
-    return;
-  }
+  if (!amount || amount <= 0 || !date) { alert("Вкажи суму та дату!"); return; }
 
-  // Конвертуємо в золото за поточними курсами
-  const usdAmount = amount / rates.usdUah;
+  const usdAmount = toUSD(amount, currency);
   const goldGrams = usdAmount / rates.goldPerGram;
 
+  const data = {
+    date,
+    currency,
+    originalAmount: amount,
+    amountUAH: usdAmount * rates.usdUah,
+    rateUSD: rates.usdUah,
+    rateEUR: rates.eurUah,
+    rateBTC: rates.btcUsd,
+    rateGold: rates.goldPerGram,
+    goldGrams: Math.round(goldGrams * 10000) / 10000,
+    note,
+  };
+
   try {
-    statusEl.innerText = "Збереження...";
+    st.innerText = "Збереження...";
     document.getElementById("fundSaveBtn").disabled = true;
 
-    await addDoc(colRef, {
-      date,
-      amountUAH: amount,
-      rateUSD: rates.usdUah,
-      rateGold: rates.goldPerGram,
-      goldGrams: Math.round(goldGrams * 10000) / 10000,
-      note,
-      createdAt: Date.now(),
-    });
+    if (editingId) {
+      await updateDoc(doc(db, "fund_deposits", editingId), data);
+      cancelEdit();
+      st.innerText = "Внесок оновлено ✅";
+    } else {
+      data.createdAt = Date.now();
+      await addDoc(colRef, data);
+      st.innerText = "Внесок збережено 🏠";
+    }
 
     document.getElementById("fundAmount").value = "";
     document.getElementById("fundNote").value = "";
     document.getElementById("fundDate").valueAsDate = new Date();
-    statusEl.innerText = "Внесок збережено 🏠";
-    setTimeout(() => { statusEl.innerText = "Хмара синхронізована ✅"; }, 3000);
+    setTimeout(() => { st.innerText = "Хмара синхронізована ✅"; }, 3000);
   } catch (err) {
-    if (err.code === "permission-denied") {
-      alert("🛡️ Доступ заборонено!");
-    } else {
-      alert("Помилка: " + err.message);
-    }
+    alert(err.code === "permission-denied" ? "🛡️ Доступ заборонено!" : "Помилка: " + err.message);
   } finally {
     document.getElementById("fundSaveBtn").disabled = false;
   }
 });
 
-// === DELETE ===
-window.deleteFundDeposit = async (id) => {
-  if (!isAdmin || !confirm("Видалити цей внесок?")) return;
-  try {
-    await deleteDoc(doc(db, "fund_deposits", id));
-  } catch (err) {
-    alert("Помилка: " + err.message);
-  }
+// === РЕДАГУВАННЯ ===
+window.editFundDeposit = (id) => {
+  if (!isAdmin) return;
+  const d = allDeposits.find((x) => x.id === id);
+  if (!d) return;
+
+  editingId = id;
+  document.getElementById("fundCurrency").value = d.currency || "UAH";
+  document.getElementById("fundAmount").value = d.originalAmount || d.amountUAH || "";
+  document.getElementById("fundDate").value = d.date || "";
+  document.getElementById("fundNote").value = d.note || "";
+
+  document.getElementById("fundFormTitle").textContent = "✏️ Редагування внеску";
+  document.getElementById("fundSaveBtn").textContent = "Оновити внесок";
+  document.getElementById("fundCancelEdit").style.display = "block";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
-// === LISTEN TO DATA ===
+function cancelEdit() {
+  editingId = null;
+  document.getElementById("fundFormTitle").textContent = "💸 Додати внесок";
+  document.getElementById("fundSaveBtn").textContent = "Зберегти внесок";
+  document.getElementById("fundCancelEdit").style.display = "none";
+}
+
+document.getElementById("fundCancelEdit").addEventListener("click", () => {
+  cancelEdit();
+  document.getElementById("fundAmount").value = "";
+  document.getElementById("fundNote").value = "";
+  document.getElementById("fundDate").valueAsDate = new Date();
+});
+
+// === ВИДАЛЕННЯ ===
+window.deleteFundDeposit = async (id) => {
+  if (!isAdmin || !confirm("Видалити цей внесок?")) return;
+  try { await deleteDoc(doc(db, "fund_deposits", id)); } catch (e) { alert("Помилка: " + e.message); }
+};
+
+// === СЛУХАЧ ДАНИХ ===
 const q = query(colRef, orderBy("date", "desc"), limit(100));
 onSnapshot(q, (snapshot) => {
   allDeposits = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -251,7 +279,5 @@ onSnapshot(q, (snapshot) => {
   document.getElementById("status").innerText = "Хмара синхронізована ✅";
 });
 
-// === INIT RATES ===
 fetchRates();
-// Оновлюємо курси кожні 30 хвилин
 setInterval(fetchRates, 30 * 60 * 1000);
