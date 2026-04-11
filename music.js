@@ -17,7 +17,9 @@
   var currentIndex = -1;
   var wasPlayingBeforeHide = false;
   var pendingResume = false;
+  var positionSaver = null;
 
+  // Гучність
   var savedVol = localStorage.getItem("musicVol");
   bgMusic.volume = savedVol ? parseInt(savedVol) / 100 : 0.3;
   if (musicVolume) musicVolume.value = Math.round(bgMusic.volume * 100);
@@ -44,13 +46,33 @@
     if (musicLabel) musicLabel.textContent = playing ? "🎵 " + getTrackName() : "Музика вимк.";
   }
 
+  // Зберігає позицію кожну секунду поки грає
+  function startPositionSaver() {
+    stopPositionSaver();
+    positionSaver = setInterval(function () {
+      if (!bgMusic.paused && playlist[currentIndex]) {
+        localStorage.setItem("musicTrack", playlist[currentIndex]);
+        localStorage.setItem("musicTime", String(bgMusic.currentTime));
+      }
+    }, 1000);
+  }
+
+  function stopPositionSaver() {
+    if (positionSaver) { clearInterval(positionSaver); positionSaver = null; }
+  }
+
   function loadTrack(index, resumeTime) {
     if (index < 0 || index >= playlist.length) return;
     currentIndex = index;
     bgMusic.src = soundsBase + playlist[index];
     localStorage.setItem("musicTrack", playlist[index]);
     if (musicSelect) musicSelect.value = String(index);
-    if (resumeTime > 0) bgMusic.currentTime = resumeTime;
+    if (resumeTime > 0) {
+      bgMusic.addEventListener("loadedmetadata", function onMeta() {
+        bgMusic.currentTime = resumeTime;
+        bgMusic.removeEventListener("loadedmetadata", onMeta);
+      });
+    }
   }
 
   function playTrack(index) {
@@ -59,17 +81,18 @@
       localStorage.setItem("musicOn", "true");
       pendingResume = false;
       updateUI(true);
+      startPositionSaver();
     }).catch(function () {
       pendingResume = true;
     });
   }
 
-  // Розблокування автовідтворення при першій взаємодії
   function tryResume() {
-    if (!pendingResume || bgMusic.src === "") return;
+    if (!pendingResume || !bgMusic.src) return;
     bgMusic.play().then(function () {
       pendingResume = false;
       updateUI(true);
+      startPositionSaver();
     }).catch(function () {});
   }
 
@@ -95,6 +118,7 @@
       var savedTime = parseFloat(localStorage.getItem("musicTime")) || 0;
       var startIndex = 0;
 
+      // Заповнюємо дропдаун
       if (musicSelect) {
         musicSelect.innerHTML = songs.map(function (s, i) {
           var name = s.replace(/\.[^.]+$/, "");
@@ -110,20 +134,19 @@
         savedTime = 0;
       }
 
-      loadTrack(startIndex, 0);
+      loadTrack(startIndex, savedTime);
 
-            if (savedTime > 0) bgMusic.currentTime = savedTime;
-      bgMusic.play().then(function () {
-        localStorage.setItem("musicOn", "true");
-        pendingResume = false;
-        updateUI(true);
-      }).catch(function () {
-        pendingResume = true;
-        addUnlockListeners();
-      });
-
-
-      localStorage.removeItem("musicTime");
+      // Автовідтворення тільки якщо було увімкнено
+      if (localStorage.getItem("musicOn") === "true") {
+        bgMusic.play().then(function () {
+          pendingResume = false;
+          updateUI(true);
+          startPositionSaver();
+        }).catch(function () {
+          pendingResume = true;
+          addUnlockListeners();
+        });
+      }
     })
     .catch(function () {
       if (musicSelect) musicSelect.innerHTML = '<option value="">Немає playlist.json</option>';
@@ -136,12 +159,19 @@
         localStorage.setItem("musicOn", "true");
         pendingResume = false;
         updateUI(true);
+        startPositionSaver();
       }).catch(function () {});
     } else {
       bgMusic.pause();
       localStorage.setItem("musicOn", "false");
       pendingResume = false;
       updateUI(false);
+      stopPositionSaver();
+      // Зберігаємо фінальну позицію
+      if (playlist[currentIndex]) {
+        localStorage.setItem("musicTrack", playlist[currentIndex]);
+        localStorage.setItem("musicTime", String(bgMusic.currentTime));
+      }
     }
   });
 
@@ -166,10 +196,16 @@
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) {
       wasPlayingBeforeHide = !bgMusic.paused;
-      if (wasPlayingBeforeHide) bgMusic.pause();
+      if (wasPlayingBeforeHide) {
+        bgMusic.pause();
+        stopPositionSaver();
+      }
     } else {
       if (wasPlayingBeforeHide) {
-        bgMusic.play().then(function () { updateUI(true); }).catch(function () {
+        bgMusic.play().then(function () {
+          updateUI(true);
+          startPositionSaver();
+        }).catch(function () {
           pendingResume = true;
           addUnlockListeners();
         });
@@ -177,8 +213,8 @@
     }
   });
 
-  // Зберігаємо позицію при переході
-  window.addEventListener("beforeunload", function () {
+  // Додатковий захист — зберігаємо при переході (якщо спрацює)
+  window.addEventListener("pagehide", function () {
     if (!bgMusic.paused && playlist[currentIndex]) {
       localStorage.setItem("musicTrack", playlist[currentIndex]);
       localStorage.setItem("musicTime", String(bgMusic.currentTime));
