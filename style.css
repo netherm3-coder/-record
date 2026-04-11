@@ -1431,6 +1431,24 @@ body {
   text-align: right;
 }
 
+.music-select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  transition: var(--transition);
+  box-sizing: border-box;
+}
+.music-select:focus {
+  border-color: var(--accent);
+}
+
 /* === ОВЕРЛЕЙ ДЛЯ КЛІКУ ПОНАД МЕНЮ === */
 .menu-overlay {
   position: fixed;

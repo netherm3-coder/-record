@@ -47,6 +47,7 @@
         </button>
         <span id="musicLabel" class="music-label">Музика вимк.</span>
       </div>
+      <select id="musicSelect" class="music-select"><option value="">Завантаження...</option></select>
       <div class="music-vol-row">
         <input type="range" id="musicVolume" class="music-volume" min="0" max="100" value="30" />
         <span id="musicVolLabel" class="music-vol-label">30%</span>
@@ -908,5 +909,6 @@
       </div>
     </div>
     <script type="module" src="app.js"></script>
+    <script defer src="music.js"></script>
   </body>
 </html>

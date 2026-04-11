@@ -1,37 +1,38 @@
-const CACHE_NAME = "trophy-room-v1";
+const CACHE_NAME = "trophy-room-v2";
 
-// Список файлів, які треба зберегти в пам'ять телефону
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
   "./manifest.json",
-  "./icon.svg",
+  "./assets/icon.svg",
+  "./assets/icon-192.png",
+  "./assets/icon-512.png",
+  "./fund/index.html",
+  "./fund/fund.css",
+  "./fund/fund.js",
 ];
 
-// Крок 1: Встановлення (завантажуємо файли в кеш)
 self.addEventListener("install", (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log("Кешування файлів...");
-      return cache.addAll(ASSETS_TO_CACHE);
-    }),
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
   );
 });
 
-// Крок 2: Перехоплення запитів (Стратегія: Спочатку Мережа, потім Кеш)
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
-      .then((response) => {
-        // Якщо інтернет є і запит успішний - віддаємо свіжий файл
-        return response;
-      })
-      .catch(() => {
-        // Якщо інтернету немає - беремо з кешу
-        return caches.match(event.request);
-      }),
+      .then((response) => response)
+      .catch(() => caches.match(event.request))
   );
 });
-
