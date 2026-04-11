@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Фундамент</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>F</text></svg>" />
+    <link rel="icon" type="image/svg+xml" href="../assets/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="../assets/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="1024x1024" href="../assets/icon-1024.png" />
+    <meta name="music-base" content="../sounds/" />
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../style.css" />
     <link rel="stylesheet" href="fund.css" />
@@ -12,10 +15,40 @@
   <body>
     <div class="container">
       <div class="fund-header">
-        <a href="../index.html" class="fund-back">← Назад</a>
+        <button id="fundMenuTrigger" class="hamburger" aria-label="Меню">
+          <span></span><span></span><span></span>
+        </button>
         <h1 class="fund-title"><span>Фундамент</span></h1>
         <button id="themeToggle" class="theme-btn" aria-label="Змінити тему">☀️</button>
       </div>
+
+      <!-- SIDE MENU -->
+      <nav id="fundSideMenu" class="side-menu">
+        <div class="side-menu__header">
+          <h3>Навігація</h3>
+          <button id="fundCloseMenu" class="side-menu__close" aria-label="Закрити">✖</button>
+        </div>
+        <div class="side-menu__content">
+          <div class="side-menu__music">
+            <div class="music-header">
+              <button id="musicToggle" class="music-play-btn">
+                <span class="btn-fallback">▶</span>
+              </button>
+              <span id="musicLabel" class="music-label">Музика вимк.</span>
+            </div>
+            <select id="musicSelect" class="music-select"><option value="">...</option></select>
+            <div class="music-vol-row">
+              <input type="range" id="musicVolume" class="music-volume" min="0" max="100" value="30" />
+              <span id="musicVolLabel" class="music-vol-label">30%</span>
+            </div>
+          </div>
+          <a href="../index.html" class="side-menu__item">
+            <img src="../assets/exit.png" alt="" class="btn-icon"> Кімната Рекордів
+          </a>
+        </div>
+      </nav>
+      <div id="fundMenuOverlay" class="menu-overlay"></div>
+      <audio id="bgMusic" loop preload="auto"></audio>
 
       <div id="status" class="status-bar">Підключення...</div>
 
@@ -63,7 +96,7 @@
           <option value="UAH">🇺🇦 Гривня (₴)</option>
           <option value="USD">🇺🇸 Долар ($)</option>
           <option value="EUR">🇪🇺 Євро (€)</option>
-          <option value="BTC">₿ Bitcoin</option>
+          <option value="BTC">BTC (Bitcoin)</option>
           <option value="USDT">USDT ($)</option>
         </select>
 
@@ -97,5 +130,6 @@
     </div>
 
     <script type="module" src="fund.js"></script>
+    <script src="../music.js"></script>
   </body>
 </html>

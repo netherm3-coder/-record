@@ -5,7 +5,7 @@ import {
   initializeFirestore, persistentLocalCache, limit, updateDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
-  getAuth, onAuthStateChanged,
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
@@ -16,6 +16,15 @@ const colRef = collection(db, "fund_deposits");
 let isAdmin = false;
 let allDeposits = [];
 let editingId = null;
+
+// Автологін
+{
+  const se = localStorage.getItem("adminEmail");
+  const sp = localStorage.getItem("adminPass");
+  if (se && sp && !auth.currentUser) {
+    signInWithEmailAndPassword(auth, se, atob(sp)).catch(() => {});
+  }
+}
 
 const GOAL_USD = 200000;
 
@@ -135,7 +144,7 @@ function escapeHTML(s) { return s ? String(s).replace(/&/g,"&amp;").replace(/</g
 
 function fmtAmount(amount, cur) {
   switch (cur) {
-    case "BTC": return fmtDec(amount, 8) + " BTC";
+    case "BTC": return fmtDec(amount, 8) + ' <img src="../assets/icone-btc.png" alt="BTC" class="sober-icon">';
     case "UAH": return fmtDec(amount, 2) + " ₴";
     case "USD": return "$" + fmtDec(amount, 2);
     case "EUR": return fmtDec(amount, 2) + " €";
@@ -305,3 +314,32 @@ onSnapshot(q, (snapshot) => {
 
 fetchRates();
 setInterval(fetchRates, 90 * 1000);
+
+// === БІЧНЕ МЕНЮ ===
+{
+  const trigger = document.getElementById("fundMenuTrigger");
+  const menu = document.getElementById("fundSideMenu");
+  const closeBtn = document.getElementById("fundCloseMenu");
+  const overlay = document.getElementById("fundMenuOverlay");
+
+  if (trigger && menu && closeBtn && overlay) {
+    function openMenu() {
+      menu.classList.add("open");
+      overlay.classList.add("active");
+      trigger.classList.add("active");
+      document.body.style.overflow = "hidden";
+    }
+    function closeMenu() {
+      menu.classList.remove("open");
+      overlay.classList.remove("active");
+      trigger.classList.remove("active");
+      document.body.style.overflow = "";
+    }
+    trigger.addEventListener("click", () => menu.classList.contains("open") ? closeMenu() : openMenu());
+    closeBtn.addEventListener("click", closeMenu);
+    overlay.addEventListener("click", closeMenu);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && menu.classList.contains("open")) closeMenu();
+    });
+  }
+}
