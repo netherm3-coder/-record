@@ -38,6 +38,9 @@
   margin: 0;
   text-align: center;
   white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
 }
 .fund-title span {
   color: var(--highlight);
@@ -90,10 +93,7 @@
 .fund-bar-fill::after {
   content: "";
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
   animation: shimmer 2s infinite;
 }
@@ -131,11 +131,6 @@
   transform: translateY(-2px);
 }
 
-.fund-cur-icon {
-  font-size: 1.3rem;
-  margin-bottom: 4px;
-}
-
 .fund-cur-label {
   font-size: 0.65rem;
   font-weight: 800;
@@ -165,18 +160,57 @@
   color: var(--danger);
 }
 
-.fund-rates {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 10px;
-  display: flex;
-  justify-content: center;
-  gap: 15px;
+/* === КУРСИ ВАЛЮТ === */
+.fund-rates-card {
+  padding: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
 }
-.fund-rates b {
+
+.fund-rates-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.fund-rates-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.fund-rate-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.fund-rate-pair {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.fund-rate-val {
+  font-size: 0.8rem;
+  font-weight: 800;
   color: var(--accent);
+}
+
+.fund-rates-updated {
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 10px;
+  opacity: 0.7;
 }
 
 /* === АДМІН === */
@@ -214,6 +248,14 @@
   border-color: var(--highlight);
 }
 
+.fund-history-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+}
+
 .fund-deposit-amount {
   font-size: 1.2rem;
   font-weight: 800;
@@ -247,35 +289,8 @@
   color: var(--accent);
 }
 
-.fund-music-panel {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-radius: 12px;
-  padding: 10px 12px;
-  margin-bottom: 20px;
-}
-.fund-music-panel .music-label {
-  flex: 1;
-  min-width: 0;
-}
-.fund-music-panel .music-select {
-  width: 100%;
-}
-.fund-music-panel .music-vol-row {
-  width: 100%;
-}
-
-.fund-del-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-}
-
 @media (max-width: 360px) {
   .fund-currencies { grid-template-columns: 1fr; }
   .fund-goal-value { font-size: 1.5rem; }
+  .fund-rates-grid { grid-template-columns: 1fr; }
 }

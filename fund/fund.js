@@ -27,9 +27,6 @@ let rates = {
   goldPerGram: parseFloat(localStorage.getItem("fund_goldGram")) || 95,
 };
 
-const CUR_SYMBOLS = { UAH: "₴", USD: "$", EUR: "€", BTC: "₿", USDT: "$" };
-
-// Конвертує будь-яку валюту → USD
 function toUSD(amount, currency) {
   switch (currency) {
     case "USD": case "USDT": return amount;
@@ -43,28 +40,24 @@ function toUSD(amount, currency) {
 async function fetchRates() {
   const st = document.getElementById("status");
 
-  // USD/UAH
   try {
     const r = await fetch("https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&json");
     const d = await r.json();
     if (d?.[0]?.rate) { rates.usdUah = d[0].rate; localStorage.setItem("fund_usdUah", rates.usdUah); }
-  } catch (e) { console.warn("НБУ USD:", e); }
+  } catch (e) {}
 
-  // EUR/UAH
   try {
     const r = await fetch("https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=EUR&json");
     const d = await r.json();
     if (d?.[0]?.rate) { rates.eurUah = d[0].rate; localStorage.setItem("fund_eurUah", rates.eurUah); }
-  } catch (e) { console.warn("НБУ EUR:", e); }
+  } catch (e) {}
 
-  // BTC/USD
   try {
     const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd");
     const d = await r.json();
     if (d?.bitcoin?.usd) { rates.btcUsd = d.bitcoin.usd; localStorage.setItem("fund_btcUsd", rates.btcUsd); }
-  } catch (e) { console.warn("BTC:", e); }
+  } catch (e) {}
 
-  // Золото
   try {
     const r = await fetch("https://data-asg.goldprice.org/dbXRates/USD");
     const d = await r.json();
@@ -72,10 +65,43 @@ async function fetchRates() {
       rates.goldPerGram = Math.round((d.items[0].xauPrice / 31.1035) * 100) / 100;
       localStorage.setItem("fund_goldGram", rates.goldPerGram);
     }
-  } catch (e) { console.warn("Gold:", e); }
+  } catch (e) {}
 
   renderDashboard();
-  if (st) st.innerText = "Курси оновлено ✅";
+  renderRates();
+  if (st) st.innerText = "Курси оновлено";
+}
+
+function renderRates() {
+  const container = document.getElementById("fundRates");
+  const timeEl = document.getElementById("fundRatesTime");
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="fund-rate-item">
+      <div class="fund-rate-pair">USD / UAH</div>
+      <div class="fund-rate-val">${fmtDec(rates.usdUah, 4)} ₴</div>
+    </div>
+    <div class="fund-rate-item">
+      <div class="fund-rate-pair">EUR / UAH</div>
+      <div class="fund-rate-val">${fmtDec(rates.eurUah, 4)} ₴</div>
+    </div>
+    <div class="fund-rate-item">
+      <div class="fund-rate-pair">BTC / USD</div>
+      <div class="fund-rate-val">$${fmt(rates.btcUsd)}</div>
+    </div>
+    <div class="fund-rate-item">
+      <div class="fund-rate-pair">Au / USD</div>
+      <div class="fund-rate-val">$${fmtDec(rates.goldPerGram, 2)} / г</div>
+    </div>`;
+
+  if (timeEl) {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, "0");
+    const m = String(now.getMinutes()).padStart(2, "0");
+    const s = String(now.getSeconds()).padStart(2, "0");
+    timeEl.textContent = "Оновлено: " + h + ":" + m + ":" + s;
+  }
 }
 
 // === THEME ===
@@ -99,18 +125,23 @@ onAuthStateChanged(auth, (user) => {
   renderHistory();
 });
 
-// === ДАТА ===
 document.getElementById("fundDate").valueAsDate = new Date();
 
 // === ХЕЛПЕРИ ===
 function fmt(n) { return Math.round(n).toLocaleString("uk-UA"); }
 function fmtDec(n, d) { return n.toLocaleString("uk-UA", { minimumFractionDigits: d, maximumFractionDigits: d }); }
-function formatDate(s) { if (!s) return ""; const p = s.split("-"); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : s; }
+function formatDate(s) { if (!s) return ""; const p = s.split("-"); return p.length === 3 ? p[2] + "." + p[1] + "." + p[0] : s; }
 function escapeHTML(s) { return s ? String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") : ""; }
 
 function fmtAmount(amount, cur) {
-  if (cur === "BTC") return fmtDec(amount, 6) + " ₿";
-  return (CUR_SYMBOLS[cur] || "") + fmt(amount);
+  switch (cur) {
+    case "BTC": return fmtDec(amount, 8) + " BTC";
+    case "UAH": return fmtDec(amount, 2) + " ₴";
+    case "USD": return "$" + fmtDec(amount, 2);
+    case "EUR": return fmtDec(amount, 2) + " €";
+    case "USDT": return fmtDec(amount, 2) + " USDT";
+    default: return fmtDec(amount, 2);
+  }
 }
 
 // === DASHBOARD ===
@@ -124,15 +155,13 @@ function renderDashboard() {
   const percent = goalGold > 0 ? Math.min((totalGold / goalGold) * 100, 100) : 0;
   const remainUSD = Math.max(GOAL_USD - totalUSD, 0);
 
-  document.getElementById("fundGoalDisplay").textContent = `$${fmt(GOAL_USD)}`;
-  document.getElementById("fundBarFill").style.width = `${percent}%`;
-  document.getElementById("fundPercent").textContent = `${fmtDec(percent, 2)}%`;
-  document.getElementById("fundGold").innerHTML = `${fmtDec(totalGold, 1)} <span>г</span>`;
-  document.getElementById("fundUSD").textContent = `$${fmt(totalUSD)}`;
-  document.getElementById("fundUAH").innerHTML = `${fmt(totalUAH)} <span>₴</span>`;
-  document.getElementById("fundRemaining").innerHTML = `Залишилось: <b>$${fmt(remainUSD)}</b> (~${fmt(remainUSD * rates.usdUah)} ₴)`;
-  document.getElementById("fundRates").innerHTML =
-    `🥇 Au <b>$${fmtDec(rates.goldPerGram, 2)}</b>/г · 💵 <b>${fmtDec(rates.usdUah, 2)}</b>₴ · 🇪🇺 <b>${fmtDec(rates.eurUah, 2)}</b>₴ · ₿ <b>$${fmt(rates.btcUsd)}</b>`;
+  document.getElementById("fundGoalDisplay").textContent = "$" + fmt(GOAL_USD);
+  document.getElementById("fundBarFill").style.width = percent + "%";
+  document.getElementById("fundPercent").textContent = fmtDec(percent, 4) + "%";
+  document.getElementById("fundGold").innerHTML = fmtDec(totalGold, 1) + ' <span>г</span>';
+  document.getElementById("fundUSD").textContent = "$" + fmtDec(totalUSD, 2);
+  document.getElementById("fundUAH").innerHTML = fmtDec(totalUAH, 2) + ' <span>₴</span>';
+  document.getElementById("fundRemaining").innerHTML = 'Залишилось: <b>$' + fmtDec(remainUSD, 2) + '</b> (~' + fmtDec(remainUSD * rates.usdUah, 2) + ' ₴)';
 }
 
 // === ІСТОРІЯ ===
@@ -151,28 +180,25 @@ function renderHistory() {
   allDeposits.forEach((d) => {
     const cur = d.currency || "UAH";
     const origAmount = d.originalAmount || d.amountUAH || 0;
-    const noteHTML = d.note ? `<div class="fund-deposit-note">${escapeHTML(d.note)}</div>` : "";
+    const noteHTML = d.note ? '<div class="fund-deposit-note">' + escapeHTML(d.note) + '</div>' : "";
+    const usdVal = (d.goldGrams || 0) * rates.goldPerGram;
 
     let adminBtns = "";
     if (isAdmin) {
-      adminBtns = `
-        <div style="position:absolute;top:10px;right:10px;display:flex;gap:4px;">
-          <button class="btn-edit" onclick="editFundDeposit('${d.id}')">✏️</button>
-          <button class="btn-del" onclick="deleteFundDeposit('${d.id}')">✖</button>
-        </div>`;
+      adminBtns = '<div class="fund-history-actions">' +
+        '<button class="btn-edit" onclick="editFundDeposit(\'' + d.id + '\')">✏️</button>' +
+        '<button class="btn-del" onclick="deleteFundDeposit(\'' + d.id + '\')">✖</button>' +
+        '</div>';
     }
 
-    const usdVal = (d.goldGrams || 0) * rates.goldPerGram;
-
-    html += `
-      <div class="fund-history-item">
-        ${adminBtns}
-        <div class="fund-deposit-amount">+${fmtAmount(origAmount, cur)}</div>
-        <div class="fund-deposit-meta">
-          🗓️ ${formatDate(d.date)} · ~$${fmt(usdVal)} · ${fmtDec(d.goldGrams || 0, 2)} г Au
-        </div>
-        ${noteHTML}
-      </div>`;
+    html += '<div class="fund-history-item">' +
+      adminBtns +
+      '<div class="fund-deposit-amount">+' + fmtAmount(origAmount, cur) + '</div>' +
+      '<div class="fund-deposit-meta">' +
+        formatDate(d.date) + ' · ~$' + fmtDec(usdVal, 2) + ' · ' + fmtDec(d.goldGrams || 0, 4) + ' г Au' +
+      '</div>' +
+      noteHTML +
+    '</div>';
   });
 
   container.innerHTML = html;
@@ -194,15 +220,14 @@ document.getElementById("fundSaveBtn").addEventListener("click", async () => {
   const goldGrams = usdAmount / rates.goldPerGram;
 
   const data = {
-    date,
-    currency,
+    date, currency,
     originalAmount: amount,
     amountUAH: usdAmount * rates.usdUah,
     rateUSD: rates.usdUah,
     rateEUR: rates.eurUah,
     rateBTC: rates.btcUsd,
     rateGold: rates.goldPerGram,
-    goldGrams: Math.round(goldGrams * 10000) / 10000,
+    goldGrams: Math.round(goldGrams * 100000000) / 100000000,
     note,
   };
 
@@ -213,19 +238,19 @@ document.getElementById("fundSaveBtn").addEventListener("click", async () => {
     if (editingId) {
       await updateDoc(doc(db, "fund_deposits", editingId), data);
       cancelEdit();
-      st.innerText = "Внесок оновлено ✅";
+      st.innerText = "Внесок оновлено";
     } else {
       data.createdAt = Date.now();
       await addDoc(colRef, data);
-      st.innerText = "Внесок збережено 🏠";
+      st.innerText = "Внесок збережено";
     }
 
     document.getElementById("fundAmount").value = "";
     document.getElementById("fundNote").value = "";
     document.getElementById("fundDate").valueAsDate = new Date();
-    setTimeout(() => { st.innerText = "Хмара синхронізована ✅"; }, 3000);
+    setTimeout(() => { st.innerText = "Хмара синхронізована"; }, 3000);
   } catch (err) {
-    alert(err.code === "permission-denied" ? "🛡️ Доступ заборонено!" : "Помилка: " + err.message);
+    alert(err.code === "permission-denied" ? "Доступ заборонено!" : "Помилка: " + err.message);
   } finally {
     document.getElementById("fundSaveBtn").disabled = false;
   }
@@ -243,16 +268,15 @@ window.editFundDeposit = (id) => {
   document.getElementById("fundDate").value = d.date || "";
   document.getElementById("fundNote").value = d.note || "";
 
-  document.getElementById("fundFormTitle").textContent = "✏️ Редагування внеску";
+  document.getElementById("fundFormTitle").textContent = "Редагування внеску";
   document.getElementById("fundSaveBtn").textContent = "Оновити внесок";
   document.getElementById("fundCancelEdit").style.display = "block";
-
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
 function cancelEdit() {
   editingId = null;
-  document.getElementById("fundFormTitle").textContent = "💸 Додати внесок";
+  document.getElementById("fundFormTitle").textContent = "Додати внесок";
   document.getElementById("fundSaveBtn").textContent = "Зберегти внесок";
   document.getElementById("fundCancelEdit").style.display = "none";
 }
@@ -270,14 +294,14 @@ window.deleteFundDeposit = async (id) => {
   try { await deleteDoc(doc(db, "fund_deposits", id)); } catch (e) { alert("Помилка: " + e.message); }
 };
 
-// === СЛУХАЧ ДАНИХ ===
+// === СЛУХАЧ ===
 const q = query(colRef, orderBy("date", "desc"), limit(100));
 onSnapshot(q, (snapshot) => {
   allDeposits = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
   renderDashboard();
   renderHistory();
-  document.getElementById("status").innerText = "Хмара синхронізована ✅";
+  document.getElementById("status").innerText = "Хмара синхронізована";
 });
 
 fetchRates();
-setInterval(fetchRates, 30 * 60 * 1000);
+setInterval(fetchRates, 90 * 1000);

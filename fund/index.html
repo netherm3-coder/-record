@@ -3,73 +3,60 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Фундамент 🏠</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>" />
+    <title>Фундамент</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>F</text></svg>" />
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../style.css" />
     <link rel="stylesheet" href="fund.css" />
-    <meta name="music-base" content="../sounds/" />
   </head>
   <body>
     <div class="container">
       <div class="fund-header">
         <a href="../index.html" class="fund-back">← Назад</a>
-        <h1 class="fund-title"><span>Фундамент</span> 🏠</h1>
-        <div style="justify-self:end;display:flex;gap:8px;align-items:center">
-          <button id="musicToggle" class="music-play-btn">
-            <span class="btn-fallback">▶</span>
-          </button>
-          <button id="themeToggle" class="theme-btn" aria-label="Змінити тему">☀️</button>
-        </div>
+        <h1 class="fund-title"><span>Фундамент</span></h1>
+        <button id="themeToggle" class="theme-btn" aria-label="Змінити тему">☀️</button>
       </div>
-
-      <div class="fund-music-panel">
-        <span id="musicLabel" class="music-label">Музика вимк.</span>
-        <select id="musicSelect" class="music-select"><option value="">...</option></select>
-        <div class="music-vol-row">
-          <input type="range" id="musicVolume" class="music-volume" min="0" max="100" value="30" />
-          <span id="musicVolLabel" class="music-vol-label">30%</span>
-        </div>
-      </div>
-      <audio id="bgMusic" loop preload="auto"></audio>
 
       <div id="status" class="status-bar">Підключення...</div>
 
       <!-- DASHBOARD -->
       <div class="card fund-progress-card">
-        <div class="fund-goal-label">🎯 Ціль</div>
+        <div class="fund-goal-label">Ціль</div>
         <div class="fund-goal-value" id="fundGoalDisplay">$200,000</div>
 
         <div class="fund-bar-bg">
           <div class="fund-bar-fill" id="fundBarFill" style="width: 0%"></div>
         </div>
-        <div class="fund-percent" id="fundPercent">0.00%</div>
+        <div class="fund-percent" id="fundPercent">0.0000%</div>
 
         <div class="fund-currencies">
           <div class="fund-cur-card">
-            <div class="fund-cur-icon">🥇</div>
             <div class="fund-cur-label">Золото</div>
             <div class="fund-cur-value" id="fundGold">0 <span>г</span></div>
           </div>
           <div class="fund-cur-card">
-            <div class="fund-cur-icon">💵</div>
             <div class="fund-cur-label">Долар</div>
             <div class="fund-cur-value" id="fundUSD">$0</div>
           </div>
           <div class="fund-cur-card">
-            <div class="fund-cur-icon">💰</div>
             <div class="fund-cur-label">Гривня</div>
             <div class="fund-cur-value" id="fundUAH">0 <span>₴</span></div>
           </div>
         </div>
 
         <div class="fund-remaining" id="fundRemaining">Залишилось: <b>$200,000</b></div>
-        <div class="fund-rates" id="fundRates">Курси завантажуються...</div>
+      </div>
+
+      <!-- RATES -->
+      <div class="card fund-rates-card" id="fundRatesCard">
+        <div class="fund-rates-title">Курси валют</div>
+        <div class="fund-rates-grid" id="fundRates"></div>
+        <div class="fund-rates-updated" id="fundRatesTime">Оновлення...</div>
       </div>
 
       <!-- ADMIN PANEL -->
       <div class="card fund-admin" id="fundAdmin">
-        <div class="section-title" id="fundFormTitle" style="margin-bottom:0">💸 Додати внесок</div>
+        <div class="section-title" id="fundFormTitle" style="margin-bottom:0">Додати внесок</div>
 
         <label>Валюта</label>
         <select id="fundCurrency">
@@ -77,12 +64,12 @@
           <option value="USD">🇺🇸 Долар ($)</option>
           <option value="EUR">🇪🇺 Євро (€)</option>
           <option value="BTC">₿ Bitcoin</option>
-          <option value="USDT">💲 USDT</option>
+          <option value="USDT">USDT ($)</option>
         </select>
 
         <div class="fund-input-row">
           <div>
-            <label id="fundAmountLabel">Сума</label>
+            <label>Сума</label>
             <input type="number" id="fundAmount" placeholder="15000" min="0" step="any" />
           </div>
           <div>
@@ -95,21 +82,20 @@
         <input type="text" id="fundNote" placeholder="Напр.: Зарплата" />
 
         <button id="fundSaveBtn" class="primary-btn fund-save-btn">Зберегти внесок</button>
-        <button id="fundCancelEdit" class="primary-btn btn-outline-danger" style="display:none">❌ Скасувати редагування</button>
+        <button id="fundCancelEdit" class="primary-btn btn-outline-danger" style="display:none">Скасувати редагування</button>
       </div>
 
       <!-- LOGIN HINT -->
       <div id="fundLoginHint" class="fund-login-hint" style="display:none">
-        🔐 Увійдіть як адмін у <a href="../index.html">Кімнаті Рекордів</a>, щоб додавати внески
+        Увійдіть як адмін у <a href="../index.html">Кімнаті Рекордів</a>, щоб додавати внески
       </div>
 
       <!-- HISTORY -->
-      <div class="section-title">📅 Історія внесків</div>
+      <div class="section-title">Історія внесків</div>
       <div id="fundTimeline"></div>
-      <div id="fundEmpty" class="empty-state" style="display:none">Ще немає внесків. Час покласти перший камінь!</div>
+      <div id="fundEmpty" class="empty-state" style="display:none">Ще немає внесків. Час покласти перший камінь.</div>
     </div>
 
     <script type="module" src="fund.js"></script>
-    <script defer src="../music.js"></script>
   </body>
 </html>
