@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a1628"/>
+      <stop offset="100%" style="stop-color:#0d1f3c"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f7e07a"/>
+      <stop offset="50%" style="stop-color:#e8b923"/>
+      <stop offset="100%" style="stop-color:#c8930a"/>
+    </linearGradient>
+    <linearGradient id="goldBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f7e07a"/>
+      <stop offset="50%" style="stop-color:#d4a017"/>
+      <stop offset="100%" style="stop-color:#f0c93a"/>
+    </linearGradient>
+    <linearGradient id="wallGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f2040"/>
+      <stop offset="100%" style="stop-color:#081530"/>
+    </linearGradient>
+    <linearGradient id="floorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0c1a35"/>
+      <stop offset="100%" style="stop-color:#060f20"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" ry="100" fill="url(#bgGrad)"/>
+
+  <!-- Gold border outer -->
+  <rect x="14" y="14" width="484" height="484" rx="90" ry="90"
+        fill="none" stroke="url(#goldBorder)" stroke-width="5" opacity="0.9"/>
+  <!-- Gold border inner subtle -->
+  <rect x="22" y="22" width="468" height="468" rx="84" ry="84"
+        fill="none" stroke="#f5d06030" stroke-width="1.5"/>
+
+  <!-- ══════════ TROPHY ROOM SCENE ══════════ -->
+
+  <!-- Room wall background -->
+  <rect x="72" y="90" width="368" height="300" rx="6" fill="url(#wallGrad)" opacity="0.6"/>
+
+  <!-- Floor -->
+  <rect x="72" y="355" width="368" height="35" rx="4" fill="url(#floorGrad)" opacity="0.9"/>
+  <!-- Floor highlight line -->
+  <line x1="72" y1="355" x2="440" y2="355" stroke="#e8b923" stroke-width="2" opacity="0.5"/>
+
+  <!-- LEFT WALL SHELF -->
+  <rect x="88" y="222" width="140" height="10" rx="3" fill="url(#goldGrad)" opacity="0.9"/>
+  <rect x="100" y="222" width="5" height="22" rx="2" fill="#c8930a" opacity="0.7"/>
+  <rect x="215" y="222" width="5" height="22" rx="2" fill="#c8930a" opacity="0.7"/>
+
+  <!-- Trophy 1 on left shelf — classic cup -->
+  <g transform="translate(120, 218)">
+    <path d="M-13,-40 Q-16,-40 -16,-20 Q-16,0 0,0 Q16,0 16,-20 Q16,-40 13,-40 Z" fill="url(#goldGrad)"/>
+    <path d="M-13,-30 Q-22,-30 -22,-18 Q-22,-8 -13,-8" fill="none" stroke="url(#goldGrad)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M13,-30 Q22,-30 22,-18 Q22,-8 13,-8" fill="none" stroke="url(#goldGrad)" stroke-width="4" stroke-linecap="round"/>
+    <rect x="-4" y="0" width="8" height="12" fill="#c8930a"/>
+    <rect x="-12" y="12" width="24" height="6" rx="2" fill="url(#goldGrad)"/>
+    <polygon points="0,-28 3,-20 12,-20 5,-14 8,-6 0,-11 -8,-6 -5,-14 -12,-20 -3,-20"
+             fill="white" opacity="0.9"/>
+  </g>
+
+  <!-- Trophy 2 on left shelf — medal disc -->
+  <g transform="translate(175, 214)">
+    <circle cx="0" cy="-22" r="18" fill="url(#goldGrad)" opacity="0.95"/>
+    <circle cx="0" cy="-22" r="12" fill="none" stroke="#0a1628" stroke-width="2.5" opacity="0.6"/>
+    <polygon points="0,-29 2,-23 9,-23 3,-19 5,-13 0,-17 -5,-13 -3,-19 -9,-23 -2,-23"
+             fill="white" opacity="0.85"/>
+    <rect x="-4" y="-4" width="8" height="16" rx="2" fill="#e8b923" opacity="0.7"/>
+  </g>
+
+  <!-- RIGHT WALL SHELF -->
+  <rect x="284" y="222" width="140" height="10" rx="3" fill="url(#goldGrad)" opacity="0.9"/>
+  <rect x="296" y="222" width="5" height="22" rx="2" fill="#c8930a" opacity="0.7"/>
+  <rect x="411" y="222" width="5" height="22" rx="2" fill="#c8930a" opacity="0.7"/>
+
+  <!-- Trophy 3 on right shelf — obelisk -->
+  <g transform="translate(315, 218)">
+    <polygon points="0,-48 14,0 -14,0" fill="url(#goldGrad)" opacity="0.95"/>
+    <rect x="-16" y="0" width="32" height="7" rx="2" fill="#c8930a"/>
+    <rect x="-12" y="7" width="24" height="5" rx="1.5" fill="url(#goldGrad)" opacity="0.7"/>
+    <polygon points="0,-36 2,-30 9,-30 3,-26 5,-20 0,-24 -5,-20 -3,-26 -9,-30 -2,-30"
+             fill="white" opacity="0.9"/>
+  </g>
+
+  <!-- Trophy 4 on right shelf — wide cup -->
+  <g transform="translate(385, 215)">
+    <path d="M-18,-30 Q-20,-30 -20,-15 Q-20,0 0,0 Q20,0 20,-15 Q20,-30 18,-30 Z" fill="url(#goldGrad)"/>
+    <path d="M-18,-22 Q-27,-22 -27,-12 Q-27,-4 -18,-4" fill="none" stroke="url(#goldGrad)" stroke-width="4" stroke-linecap="round"/>
+    <path d="M18,-22 Q27,-22 27,-12 Q27,-4 18,-4" fill="none" stroke="url(#goldGrad)" stroke-width="4" stroke-linecap="round"/>
+    <rect x="-5" y="0" width="10" height="10" fill="#c8930a"/>
+    <rect x="-15" y="10" width="30" height="7" rx="2" fill="url(#goldGrad)"/>
+    <polygon points="0,-20 2,-14 9,-14 3,-10 5,-4 0,-8 -5,-4 -3,-10 -9,-14 -2,-14"
+             fill="white" opacity="0.9"/>
+  </g>
+
+  <!-- UPPER SHELF (centered, high) -->
+  <rect x="160" y="148" width="192" height="9" rx="3" fill="url(#goldGrad)" opacity="0.85"/>
+  <rect x="175" y="148" width="4" height="18" rx="2" fill="#c8930a" opacity="0.7"/>
+  <rect x="333" y="148" width="4" height="18" rx="2" fill="#c8930a" opacity="0.7"/>
+
+  <!-- Trophy 5 — star plaque on top shelf -->
+  <g transform="translate(220, 141)">
+    <rect x="-22" y="-28" width="44" height="32" rx="4" fill="url(#goldGrad)" opacity="0.9"/>
+    <polygon points="0,-22 4,-12 14,-12 6,-6 9,4 0,-2 -9,4 -6,-6 -14,-12 -4,-12"
+             fill="white" opacity="0.95"/>
+  </g>
+
+  <!-- Trophy 6 — slim cup on top shelf -->
+  <g transform="translate(292, 143)">
+    <path d="M-10,-36 Q-12,-36 -12,-18 Q-12,0 0,0 Q12,0 12,-18 Q12,-36 10,-36 Z" fill="url(#goldGrad)"/>
+    <path d="M-10,-26 Q-18,-26 -18,-15 Q-18,-6 -10,-6" fill="none" stroke="url(#goldGrad)" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M10,-26 Q18,-26 18,-15 Q18,-6 10,-6" fill="none" stroke="url(#goldGrad)" stroke-width="3.5" stroke-linecap="round"/>
+    <rect x="-3" y="0" width="6" height="9" fill="#c8930a"/>
+    <rect x="-10" y="9" width="20" height="5" rx="2" fill="url(#goldGrad)"/>
+    <polygon points="0,-26 2,-20 8,-20 3,-16 5,-10 0,-14 -5,-10 -3,-16 -8,-20 -2,-20"
+             fill="white" opacity="0.88"/>
+  </g>
+
+  <!-- FLOOR DISPLAY CASE (center) -->
+  <rect x="196" y="295" width="120" height="60" rx="5"
+        fill="#0a1628" stroke="url(#goldGrad)" stroke-width="2.5" opacity="0.95"/>
+  <rect x="200" y="299" width="28" height="52" rx="3" fill="white" opacity="0.03"/>
+
+  <!-- Big trophy inside case -->
+  <g transform="translate(256, 320)">
+    <path d="M-20,-35 Q-24,-35 -24,-18 Q-24,0 0,0 Q24,0 24,-18 Q24,-35 20,-35 Z" fill="url(#goldGrad)"/>
+    <path d="M-20,-26 Q-32,-26 -32,-14 Q-32,-4 -20,-4" fill="none" stroke="url(#goldGrad)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M20,-26 Q32,-26 32,-14 Q32,-4 20,-4" fill="none" stroke="url(#goldGrad)" stroke-width="5" stroke-linecap="round"/>
+    <rect x="-5" y="0" width="10" height="13" fill="#c8930a"/>
+    <rect x="-18" y="13" width="36" height="8" rx="2.5" fill="url(#goldGrad)"/>
+    <polygon points="0,-24 3,-15 13,-15 5,-10 8,-1 0,-6 -8,-1 -5,-10 -13,-15 -3,-15"
+             fill="white" opacity="0.97"/>
+  </g>
+
+  <!-- Wall corner lines -->
+  <line x1="72" y1="90" x2="72" y2="355" stroke="#e8b923" stroke-width="1.5" opacity="0.25"/>
+  <line x1="440" y1="90" x2="440" y2="355" stroke="#e8b923" stroke-width="1.5" opacity="0.25"/>
+  <line x1="72" y1="90" x2="440" y2="90" stroke="#e8b923" stroke-width="1.5" opacity="0.25"/>
+
+  <!-- Subtle wall texture lines -->
+  <line x1="88" y1="115" x2="424" y2="115" stroke="#e8b92318" stroke-width="1"/>
+  <line x1="88" y1="280" x2="170" y2="280" stroke="#e8b92318" stroke-width="1"/>
+  <line x1="342" y1="280" x2="424" y2="280" stroke="#e8b92318" stroke-width="1"/>
+</svg>
