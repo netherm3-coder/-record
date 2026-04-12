@@ -26,7 +26,15 @@ let editingId = null;
   }
 }
 
-const GOAL_USD = 200000;
+// === ІНФЛЯЦІЙНА МОДЕЛЬ ===
+const BASE_GOAL_USD = 200000;
+const INFLATION_RATE = 0.04;
+const START_DATE = new Date("2025-04-12"); // Дата встановлення цілі
+
+function getAdjustedTarget() {
+  const daysElapsed = (Date.now() - START_DATE.getTime()) / (1000 * 60 * 60 * 24);
+  return BASE_GOAL_USD * Math.pow(1 + INFLATION_RATE, daysElapsed / 365);
+}
 
 // === КУРСИ ===
 let rates = {
@@ -78,6 +86,7 @@ async function fetchRates() {
 
   renderDashboard();
   renderRates();
+  renderHistory();
   if (st) st.innerText = "Курси оновлено";
 }
 
@@ -86,30 +95,16 @@ function renderRates() {
   const timeEl = document.getElementById("fundRatesTime");
   if (!container) return;
 
-  container.innerHTML = `
-    <div class="fund-rate-item">
-      <div class="fund-rate-pair">USD / UAH</div>
-      <div class="fund-rate-val">${fmtDec(rates.usdUah, 4)} ₴</div>
-    </div>
-    <div class="fund-rate-item">
-      <div class="fund-rate-pair">EUR / UAH</div>
-      <div class="fund-rate-val">${fmtDec(rates.eurUah, 4)} ₴</div>
-    </div>
-    <div class="fund-rate-item">
-      <div class="fund-rate-pair">BTC / USD</div>
-      <div class="fund-rate-val">$${fmt(rates.btcUsd)}</div>
-    </div>
-    <div class="fund-rate-item">
-      <div class="fund-rate-pair">Au / USD</div>
-      <div class="fund-rate-val">$${fmtDec(rates.goldPerGram, 2)} / г</div>
-    </div>`;
+  container.innerHTML =
+    '<div class="fund-rate-item"><div class="fund-rate-pair">USD / UAH</div><div class="fund-rate-val">' + fmtDec(rates.usdUah, 4) + ' ₴</div></div>' +
+    '<div class="fund-rate-item"><div class="fund-rate-pair">EUR / UAH</div><div class="fund-rate-val">' + fmtDec(rates.eurUah, 4) + ' ₴</div></div>' +
+    '<div class="fund-rate-item"><div class="fund-rate-pair">BTC / USD</div><div class="fund-rate-val">$' + fmt(rates.btcUsd) + '</div></div>' +
+    '<div class="fund-rate-item"><div class="fund-rate-pair">Au / USD</div><div class="fund-rate-val">$' + fmtDec(rates.goldPerGram, 2) + ' / г</div></div>';
 
   if (timeEl) {
     const now = new Date();
-    const h = String(now.getHours()).padStart(2, "0");
-    const m = String(now.getMinutes()).padStart(2, "0");
-    const s = String(now.getSeconds()).padStart(2, "0");
-    timeEl.textContent = "Оновлено: " + h + ":" + m + ":" + s;
+    timeEl.textContent = "Оновлено: " + String(now.getHours()).padStart(2, "0") + ":" +
+      String(now.getMinutes()).padStart(2, "0") + ":" + String(now.getSeconds()).padStart(2, "0");
   }
 }
 
@@ -153,24 +148,58 @@ function fmtAmount(amount, cur) {
   }
 }
 
-// === DASHBOARD ===
+// === DASHBOARD (Inflation-Adjusted) ===
 function renderDashboard() {
-  let totalGold = 0;
-  allDeposits.forEach((d) => { totalGold += d.goldGrams || 0; });
+  const target = getAdjustedTarget();
+  const inflationGrowth = target - BASE_GOAL_USD;
 
-  const totalUSD = totalGold * rates.goldPerGram;
+  // Поточна вартість портфеля за живими курсами
+  let totalUSD = 0;
+  let nominalSaved = 0;
+
+  allDeposits.forEach((d) => {
+    const cur = d.currency || "UAH";
+    const orig = d.originalAmount || d.amountUAH || 0;
+
+    // Актуальна вартість
+    totalUSD += toUSD(orig, cur);
+
+    // Номінальна (скільки було в $ на момент внесення)
+    nominalSaved += (d.amountUAH || 0) / (d.rateUSD || rates.usdUah);
+  });
+
   const totalUAH = totalUSD * rates.usdUah;
-  const goalGold = GOAL_USD / rates.goldPerGram;
-  const percent = goalGold > 0 ? Math.min((totalGold / goalGold) * 100, 100) : 0;
-  const remainUSD = Math.max(GOAL_USD - totalUSD, 0);
+  const percent = target > 0 ? Math.min((totalUSD / target) * 100, 100) : 0;
+  const remainUSD = Math.max(target - totalUSD, 0);
+  const portfolioGrowth = totalUSD - nominalSaved;
 
-  document.getElementById("fundGoalDisplay").textContent = "$" + fmt(GOAL_USD);
+  // UI
+  document.getElementById("fundGoalDisplay").textContent = "$" + fmtDec(target, 2);
   document.getElementById("fundBarFill").style.width = percent + "%";
   document.getElementById("fundPercent").textContent = fmtDec(percent, 4) + "%";
-  document.getElementById("fundGold").innerHTML = fmtDec(totalGold, 1) + ' <span>г</span>';
   document.getElementById("fundUSD").textContent = "$" + fmtDec(totalUSD, 2);
   document.getElementById("fundUAH").innerHTML = fmtDec(totalUAH, 2) + ' <span>₴</span>';
-  document.getElementById("fundRemaining").innerHTML = 'Залишилось: <b>$' + fmtDec(remainUSD, 2) + '</b> (~' + fmtDec(remainUSD * rates.usdUah, 2) + ' ₴)';
+  document.getElementById("fundRemaining").innerHTML =
+    'Залишилось: <b>$' + fmtDec(remainUSD, 2) + '</b> (~' + fmtDec(remainUSD * rates.usdUah, 2) + ' ₴)';
+
+  // P&L
+  const pnlEl = document.getElementById("fundPnL");
+  const pnlSign = portfolioGrowth >= 0 ? "+" : "";
+  pnlEl.textContent = pnlSign + "$" + fmtDec(portfolioGrowth, 2);
+  pnlEl.className = "fund-cur-value " + (portfolioGrowth >= 0 ? "fund-pnl-positive" : "fund-pnl-negative");
+
+  // Warning
+  const warnEl = document.getElementById("fundWarning");
+  if (warnEl) {
+    if (allDeposits.length > 0 && portfolioGrowth < inflationGrowth) {
+      warnEl.style.display = "block";
+      warnEl.innerHTML =
+        'Купівельна сила знижується: інфляція з\'їла <b>$' + fmtDec(inflationGrowth, 2) +
+        '</b>, а портфель виріс лише на <b>$' + fmtDec(Math.max(portfolioGrowth, 0), 2) + '</b>';
+    } else {
+      warnEl.style.display = "none";
+    }
+  }
 }
 
 // === ІСТОРІЯ ===
@@ -190,7 +219,16 @@ function renderHistory() {
     const cur = d.currency || "UAH";
     const origAmount = d.originalAmount || d.amountUAH || 0;
     const noteHTML = d.note ? '<div class="fund-deposit-note">' + escapeHTML(d.note) + '</div>' : "";
-    const usdVal = (d.goldGrams || 0) * rates.goldPerGram;
+
+    // Актуальна вартість за поточним курсом
+    const nowUSD = toUSD(origAmount, cur);
+    const nowUAH = nowUSD * rates.usdUah;
+
+    // Номінальний USD на момент внесення
+    const thenUSD = (d.amountUAH || 0) / (d.rateUSD || rates.usdUah);
+    const pnl = nowUSD - thenUSD;
+    const pnlSign = pnl >= 0 ? "+" : "";
+    const pnlClass = pnl >= 0 ? "fund-pnl-positive" : "fund-pnl-negative";
 
     let adminBtns = "";
     if (isAdmin) {
@@ -204,7 +242,11 @@ function renderHistory() {
       adminBtns +
       '<div class="fund-deposit-amount">+' + fmtAmount(origAmount, cur) + '</div>' +
       '<div class="fund-deposit-meta">' +
-        formatDate(d.date) + ' · ~$' + fmtDec(usdVal, 2) + ' · ' + fmtDec(d.goldGrams || 0, 4) + ' г Au' +
+        formatDate(d.date) + ' · $' + fmtDec(nowUSD, 2) + ' · ' + fmtDec(nowUAH, 2) + ' ₴' +
+      '</div>' +
+      '<div class="fund-deposit-meta" style="font-size:0.7rem;margin-top:2px;">' +
+        '<span class="' + pnlClass + '">' + pnlSign + '$' + fmtDec(pnl, 2) + '</span>' +
+        ' від внеску ($' + fmtDec(thenUSD, 2) + ')' +
       '</div>' +
       noteHTML +
     '</div>';
@@ -226,7 +268,6 @@ document.getElementById("fundSaveBtn").addEventListener("click", async () => {
   if (!amount || amount <= 0 || !date) { alert("Вкажи суму та дату!"); return; }
 
   const usdAmount = toUSD(amount, currency);
-  const goldGrams = usdAmount / rates.goldPerGram;
 
   const data = {
     date, currency,
@@ -236,7 +277,6 @@ document.getElementById("fundSaveBtn").addEventListener("click", async () => {
     rateEUR: rates.eurUah,
     rateBTC: rates.btcUsd,
     rateGold: rates.goldPerGram,
-    goldGrams: Math.round(goldGrams * 100000000) / 100000000,
     note,
   };
 

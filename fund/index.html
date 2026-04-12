@@ -54,8 +54,8 @@
 
       <!-- DASHBOARD -->
       <div class="card fund-progress-card">
-        <div class="fund-goal-label">Ціль</div>
-        <div class="fund-goal-value" id="fundGoalDisplay">$200,000</div>
+        <div class="fund-goal-label">Ціль (з урахуванням інфляції)</div>
+        <div class="fund-goal-value" id="fundGoalDisplay">$200,000.00</div>
 
         <div class="fund-bar-bg">
           <div class="fund-bar-fill" id="fundBarFill" style="width: 0%"></div>
@@ -64,21 +64,24 @@
 
         <div class="fund-currencies">
           <div class="fund-cur-card">
-            <div class="fund-cur-label">Золото</div>
-            <div class="fund-cur-value" id="fundGold">0 <span>г</span></div>
-          </div>
-          <div class="fund-cur-card">
-            <div class="fund-cur-label">Долар</div>
+            <div class="fund-cur-label">Портфель</div>
             <div class="fund-cur-value" id="fundUSD">$0</div>
           </div>
           <div class="fund-cur-card">
-            <div class="fund-cur-label">Гривня</div>
+            <div class="fund-cur-label">Портфель</div>
             <div class="fund-cur-value" id="fundUAH">0 <span>₴</span></div>
+          </div>
+          <div class="fund-cur-card">
+            <div class="fund-cur-label">P&L</div>
+            <div class="fund-cur-value" id="fundPnL">$0</div>
           </div>
         </div>
 
         <div class="fund-remaining" id="fundRemaining">Залишилось: <b>$200,000</b></div>
       </div>
+
+      <!-- INFLATION WARNING -->
+      <div class="card fund-warning" id="fundWarning" style="display:none"></div>
 
       <!-- RATES -->
       <div class="card fund-rates-card" id="fundRatesCard">

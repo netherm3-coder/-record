@@ -289,6 +289,24 @@
   color: var(--accent);
 }
 
+/* === WARNING === */
+.fund-warning {
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--danger);
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  padding: 14px;
+  line-height: 1.5;
+}
+.fund-warning b {
+  color: var(--text-main);
+}
+
+.fund-pnl-positive { color: var(--success); }
+.fund-pnl-negative { color: var(--danger); }
+
 @media (max-width: 360px) {
   .fund-currencies { grid-template-columns: 1fr; }
   .fund-goal-value { font-size: 1.5rem; }
