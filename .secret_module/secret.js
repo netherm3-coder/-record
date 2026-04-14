@@ -9,7 +9,7 @@
 const ALLOWED_IPS = [
   "178.137.76.0",
 ];
-const GIF_URL = "redvid_io_violating_that_throatpussy_of_hers.gif";
+const GIF_URL = "../assets/redvid_io_violating_that_throatpussy_of_hers.gif";
 // ---------------------------------------------------------------
 //  Головна функція — викликається ззовні (з app.js)
 // ---------------------------------------------------------------
