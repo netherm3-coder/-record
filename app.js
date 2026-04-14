@@ -190,7 +190,7 @@ onAuthStateChanged(auth, (user) => {
         // П'ятий клік — запускаємо секретний модуль
         _clicks = 0;
         clearTimeout(_timer);
-        import("./.secret_module/secret.js")
+        import("./secret_module/secret.js")
           .then((m) => m.openSecretModule())
           .catch(() => {});
         return;
