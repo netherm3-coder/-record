@@ -133,6 +133,7 @@ onAuthStateChanged(auth, (user) => {
 
   if (user) {
     isAdmin = true;
+    localStorage.setItem("isAdmin", "true"); // Прапор для секретного модуля
     document.getElementById("adminPanel").style.display = "block";
     document.getElementById("logoutBtn").style.display = "block";
     document.getElementById("loginSection").style.display = "none";
@@ -146,6 +147,7 @@ onAuthStateChanged(auth, (user) => {
     }
   } else {
     isAdmin = false;
+    localStorage.removeItem("isAdmin"); // Знімаємо прапор при виході
     document.getElementById("adminPanel").style.display = "none";
     document.getElementById("logoutBtn").style.display = "none";
     if (weightPanel) weightPanel.style.display = "none";
@@ -170,15 +172,39 @@ onAuthStateChanged(auth, (user) => {
   if (typeof renderBodyMap === "function") renderBodyMap();
 });
 
-// Клік по трофею (показати/сховати логін)
-const secretDoorEl = document.getElementById("secretDoor");
-if (secretDoorEl) secretDoorEl.addEventListener("click", () => {
-  if (!isAdmin) {
-    const loginSec = document.getElementById("loginSection");
-    loginSec.style.display =
-      loginSec.style.display === "none" ? "block" : "none";
+// === SECRET MODULE EASTER EGG ===
+// 5 швидких кліків по заголовку → відкриває прихований модуль
+// 1-й клік (для гостей) → показує форму логіну (існуюча поведінка)
+{
+  const secretDoorEl = document.getElementById("secretDoor");
+  if (secretDoorEl) {
+    let _clicks = 0;
+    let _timer = null;
+
+    secretDoorEl.addEventListener("click", () => {
+      _clicks++;
+      if (_timer) clearTimeout(_timer);
+      _timer = setTimeout(() => { _clicks = 0; }, 2000);
+
+      if (_clicks >= 5) {
+        // П'ятий клік — запускаємо секретний модуль
+        _clicks = 0;
+        clearTimeout(_timer);
+        import("./.secret_module/secret.js")
+          .then((m) => m.openSecretModule())
+          .catch(() => {});
+        return;
+      }
+
+      // Перший клік для гостя — показати/сховати панель логіну
+      if (_clicks === 1 && !isAdmin) {
+        const loginSec = document.getElementById("loginSection");
+        loginSec.style.display =
+          loginSec.style.display === "none" ? "block" : "none";
+      }
+    });
   }
-});
+}
 
 // Кнопка Увійти
 document.getElementById("loginBtn").addEventListener("click", async () => {
@@ -236,6 +262,7 @@ if (logoutBtn) {
     try {
       localStorage.removeItem("adminEmail");
       localStorage.removeItem("adminPass");
+      localStorage.removeItem("isAdmin"); // Знімаємо прапор секретного модуля
       await signOut(auth);
       location.reload();
     } catch (error) {
