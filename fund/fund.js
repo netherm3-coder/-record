@@ -355,6 +355,16 @@ onSnapshot(q, (snapshot) => {
 fetchRates();
 setInterval(fetchRates, 90 * 1000);
 
+// SERVICE WORKER
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("../sw.js", { scope: "../" })
+      .then((reg) => console.log("[SW] Registered (fund), scope:", reg.scope))
+      .catch((err) => console.error("[SW] Registration failed:", err));
+  });
+}
+
 // === БІЧНЕ МЕНЮ ===
 {
   const trigger = document.getElementById("fundMenuTrigger");
