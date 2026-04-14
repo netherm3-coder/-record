@@ -387,7 +387,6 @@ window.updateDropdowns = () => {
   if (dbExercises.includes(currentFilter) || currentFilter === "all")
     filterSelect.value = currentFilter;
 };
-
 // Допоміжна функція для отримання числа з рядка (напр. "15 (2:00)" -> 15, "5.5 км" -> 5.5)
 function parseValue(valStr) {
   if (!valStr) return 0;
