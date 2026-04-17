@@ -14,7 +14,7 @@
   --input-bg: rgba(15, 23, 42, 0.6);
   --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
   --glass-blur: blur(12px);
-  --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
 }
 
 /* Змінні для Світлої теми */
@@ -1321,6 +1321,65 @@ body {
   object-fit: contain;
   vertical-align: middle;
   flex-shrink: 0;
+}
+
+/* Themed SVG icons — dark theme: white; light theme: dark */
+.themed-icon {
+  filter: brightness(0) invert(1);
+  opacity: 0.75;
+  transition: opacity 0.2s ease;
+}
+[data-theme="light"] .themed-icon {
+  filter: brightness(0);
+  opacity: 0.65;
+}
+
+/* Section title icon (1.1em inline) */
+.section-icon {
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: middle;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+/* Nav button icon */
+.nav-icon {
+  width: 1.4rem;
+  height: 1.4rem;
+  display: block;
+  margin: 0 auto 2px;
+}
+.nav-btn.active .nav-icon.themed-icon {
+  opacity: 1;
+}
+
+/* Title trophy icon */
+.title-trophy {
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+}
+
+/* Theme toggle icon */
+.theme-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+/* JS-generated dynamic icons */
+.js-icon {
+  width: 0.9em;
+  height: 0.9em;
+  vertical-align: middle;
+  display: inline-block;
+}
+
+/* Record card icon */
+.record-icon .js-icon,
+.record-icon img {
+  width: 1.4rem;
+  height: 1.4rem;
 }
 
 .sober-icon {

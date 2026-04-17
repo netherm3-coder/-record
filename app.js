@@ -70,17 +70,18 @@ let isAdmin = false; // Глобальна змінна для перевірк�
 
 // === ЛОГІКА ТЕМ ===
 const themeBtn = document.getElementById("themeToggle");
+const themeIcon = document.getElementById("themeIcon");
 const savedTheme = localStorage.getItem("workoutTheme") || "dark";
 document.documentElement.setAttribute("data-theme", savedTheme);
-themeBtn.innerText = savedTheme === "dark" ? "☀️" : "🌙";
+if (themeIcon) themeIcon.src = savedTheme === "dark" ? "assets/icons/sun.svg" : "assets/icons/moon.svg";
 
 themeBtn.addEventListener("click", () => {
   const currentTheme = document.documentElement.getAttribute("data-theme");
   const newTheme = currentTheme === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", newTheme);
   localStorage.setItem("workoutTheme", newTheme);
-  themeBtn.innerText = newTheme === "dark" ? "☀️" : "🌙";
-  renderUI();
+  if (themeIcon) themeIcon.src = newTheme === "dark" ? "assets/icons/sun.svg" : "assets/icons/moon.svg";
+  // renderUI() removed — theme change is purely CSS, no DOM rebuild needed
 });
 // === ЛОГІКА ВІКНА "ФУНКЦІОНАЛ" ===
 const infoBtn = document.getElementById("infoBtn");
@@ -285,6 +286,22 @@ let allWorkouts = [];
 let myChartInstance = null;
 let allGoals = {};
 let pedestalData = {};
+
+// Іконки для динамічно згенерованого HTML (img-теги з themed-icon)
+const ICONS = {
+  cal:      `<img src="assets/icons/calendar.svg"    class="themed-icon js-icon" alt="">`,
+  edit:     `<img src="assets/icons/edit.svg"         class="themed-icon js-icon" alt="">`,
+  note:     `<img src="assets/icons/note.svg"         class="themed-icon js-icon" alt="">`,
+  video:    `<img src="assets/icons/video.svg"        class="themed-icon js-icon" alt="">`,
+  crown:    `<img src="assets/icons/crown.svg"        class="themed-icon js-icon" alt="">`,
+  bulb:     `<img src="assets/icons/lightbulb.svg"   class="themed-icon js-icon" alt="">`,
+  medal:    `<img src="assets/icons/medal.svg"        class="themed-icon js-icon" alt="">`,
+  fire:     `<img src="assets/icons/fire.svg"         class="themed-icon js-icon" alt="">`,
+  bolt:     `<img src="assets/icons/bolt.svg"         class="themed-icon js-icon" alt="">`,
+  trophy:   `<img src="assets/icons/trophy.svg"       class="themed-icon js-icon" alt="">`,
+  shield:   `<img src="assets/icons/shield.svg"       class="themed-icon js-icon" alt="">`,
+  target:   `<img src="assets/icons/target.svg"       class="themed-icon js-icon" alt="">`,
+};
 // === КЕШУВАННЯ DOM-ЕЛЕМЕНТІВ (Для продуктивності) ===
 const DOM = {
   exSelect: document.getElementById("exSelect"),
@@ -651,13 +668,13 @@ window.getDaysAgo = (dateStr) => {
 };
 
 window.formatDaysStanding = (days) => {
-  if (days === 0) return "🔥 Встановлено сьогодні!";
+  if (days === 0) return "Встановлено сьогодні!";
   let n = Math.abs(days) % 100;
   let n1 = n % 10;
-  if (n > 10 && n < 20) return `👑 Тримається ${days} днів`;
-  if (n1 > 1 && n1 < 5) return `👑 Тримається ${days} дні`;
-  if (n1 === 1) return `👑 Тримається ${days} день`;
-  return `👑 Тримається ${days} днів`;
+  if (n > 10 && n < 20) return `Тримається ${days} днів`;
+  if (n1 > 1 && n1 < 5) return `Тримається ${days} дні`;
+  if (n1 === 1) return `Тримається ${days} день`;
+  return `Тримається ${days} днів`;
 };
 
 // Допоміжна функція: відкрити/закрити нотатку
@@ -770,16 +787,16 @@ function renderPedestal() {
             `;
     }
 
-    let icon = "🏅";
-    if (ex.startsWith("Біг")) icon = "🏃‍♂️";
-    if (ex.startsWith("Спринт")) icon = "⚡";
-    if (ex.startsWith("Човниковий")) icon = "🚀";
-    if (ex === "Підтягування") icon = "🦍";
-    if (ex === "Віджимання") icon = "🔥";
+    let icon = ICONS.medal;
+    if (ex.startsWith("Біг")) icon = ICONS.bolt;
+    if (ex.startsWith("Спринт")) icon = ICONS.bolt;
+    if (ex.startsWith("Човниковий")) icon = ICONS.bolt;
+    if (ex === "Підтягування") icon = ICONS.trophy;
+    if (ex === "Віджимання") icon = ICONS.fire;
 
     let rmBadge =
       maxW.max1RM > 0
-        ? `<div style="font-size: 0.95rem; color: var(--success); font-weight: 800; margin-top: -5px; margin-bottom: 8px; text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);">💡 1ПМ: +${maxW.max1RM} кг</div>`
+        ? `<div style="font-size: 0.95rem; color: var(--success); font-weight: 800; margin-top: -5px; margin-bottom: 8px; text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);">${ICONS.bulb} 1ПМ: +${maxW.max1RM} кг</div>`
         : "";
 
     let daysStanding = getDaysAgo(maxW.date);
@@ -817,32 +834,32 @@ function renderGlobalStats() {
 
   if (globalStats["Підтягування"] > 0) {
     html += `<div class="stat-card">
-                    <div class="stat-title">🦍 Підтягування</div>
+                    <div class="stat-title">${ICONS.trophy} Підтягування</div>
                     <div class="stat-value">${fmt(globalStats["Підтягування"])} <span>разів</span></div>
                  </div>`;
   }
   if (globalStats["Віджимання"] > 0) {
     html += `<div class="stat-card">
-                    <div class="stat-title">🔥 Віджимання</div>
+                    <div class="stat-title">${ICONS.fire} Віджимання</div>
                     <div class="stat-value">${fmt(globalStats["Віджимання"])} <span>разів</span></div>
                  </div>`;
   }
   if (globalStats["Бруси"] > 0) {
     html += `<div class="stat-card">
-                    <div class="stat-title">⚡ Бруси</div>
+                    <div class="stat-title">${ICONS.bolt} Бруси</div>
                     <div class="stat-value">${fmt(globalStats["Бруси"])} <span>разів</span></div>
                  </div>`;
   }
   if (globalStats["Біг"] > 0) {
     let runDist = Math.round(globalStats["Біг"] * 10) / 10;
     html += `<div class="stat-card">
-                    <div class="stat-title">🏃‍♂️ Пробіг</div>
+                    <div class="stat-title">${ICONS.bolt} Пробіг</div>
                     <div class="stat-value">${fmt(runDist)} <span>км</span></div>
                  </div>`;
   }
   if (globalStats["otherSets"] > 0) {
     html += `<div class="stat-card">
-                    <div class="stat-title">🏋️‍♂️ Інші вправи</div>
+                    <div class="stat-title">${ICONS.medal} Інші вправи</div>
                     <div class="stat-value">${fmt(globalStats["otherSets"])} <span>підходів</span></div>
                  </div>`;
   }
@@ -893,22 +910,22 @@ function renderSportStatus() {
 
   // Математична модель рангів
   if (coef < 1.2) {
-    level = "Рекрут 🪖";
+    level = "Рекрут";
     nextCoef = 1.2;
     percent = ((coef - 1.0) / (1.2 - 1.0)) * 100;
     color = "var(--text-muted)";
   } else if (coef < 1.5) {
-    level = "Атлет 🥉";
+    level = "Атлет";
     nextCoef = 1.5;
     percent = ((coef - 1.2) / (1.5 - 1.2)) * 100;
     color = "var(--success)";
   } else if (coef < 1.8) {
-    level = "КМС 🥈";
+    level = "КМС";
     nextCoef = 1.8;
     percent = ((coef - 1.5) / (1.8 - 1.5)) * 100;
     color = "var(--highlight)";
   } else {
-    level = "Еліта 🥇";
+    level = "Еліта";
     nextCoef = 2.0;
     percent = 100;
     color = "var(--danger)";
@@ -1119,13 +1136,13 @@ window.renderUI = () => {
       let daysAgo = getDaysAgo(w.date);
       let daysText = daysAgo === 0 ? "Сьогодні!" : `${daysAgo} дн. тому`;
       pbCrown = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; transform: translateY(-5px);">
-                           <span class="pb-crown" title="Особистий рекорд!" style="margin: 0;">👑</span>
+                           <span class="pb-crown" title="Особистий рекорд!" style="margin: 0;">${ICONS.crown}</span>
                            <span style="font-size: 0.7rem; color: var(--highlight); font-weight: 900; margin-top: 2px; text-shadow: none; letter-spacing: 0.5px;">${daysText}</span>
                        </div>`;
     }
 
     let noteIcon = w.note
-      ? `<span class="note-toggle" onclick="toggleNote('${w.id}')" title="Відкрити нотатку">📝</span>`
+      ? `<span class="note-toggle" onclick="toggleNote('${w.id}')" title="Відкрити нотатку">${ICONS.note}</span>`
       : "";
     let safeNote = escapeHTML(w.note);
     let noteHTML = w.note
@@ -1134,7 +1151,7 @@ window.renderUI = () => {
 
     let videoBtn =
       w.videoUrl && isAdmin
-        ? `<a href="${w.videoUrl}" target="_blank" class="video-link-btn" title="Дивитися відео">🎥 Відео</a>`
+        ? `<a href="${w.videoUrl}" target="_blank" class="video-link-btn" title="Дивитися відео">${ICONS.video} Відео</a>`
         : "";
 
     const displayDate = formatDate(w.date);
@@ -1143,19 +1160,19 @@ window.renderUI = () => {
     let allowedEx = ["Підтягування", "Віджимання", "Бруси"];
     let rmBadgeTimeline =
       allowedEx.includes(w.exercise) && rmVal > 0
-        ? `<span style="font-size: 0.8rem; color: var(--success); margin-left: 8px; font-weight: 800; border: 1px dashed var(--success); padding: 2px 6px; border-radius: 8px; background: rgba(16, 185, 129, 0.1);" title="Теоретичний 1ПМ">💡 +${rmVal} кг</span>`
+        ? `<span style="font-size: 0.8rem; color: var(--success); margin-left: 8px; font-weight: 800; border: 1px dashed var(--success); padding: 2px 6px; border-radius: 8px; background: rgba(16, 185, 129, 0.1);" title="Теоретичний 1ПМ">${ICONS.bulb} +${rmVal} кг</span>`
         : "";
 
     timelineHTML += `
             <div class="timeline-item">
                 <div class="timeline-dot"></div>
                 <div class="timeline-header">
-                    <span class="timeline-date">🗓️ ${displayDate}</span>
+                    <span class="timeline-date">${ICONS.cal} ${displayDate}</span>
                     ${
                       isAdmin
                         ? `
                         <div>
-                            <button class="btn-edit" onclick="editEntry('${w.id}')">✏️ Редаг.</button>
+                            <button class="btn-edit" onclick="editEntry('${w.id}')">${ICONS.edit} Редаг.</button>
                             <button class="btn-del" onclick="deleteEntry('${w.id}')">Видалити</button>
                         </div>
                     `
@@ -1990,7 +2007,7 @@ function renderWeightUI() {
             <div class="timeline-item">
                 <div class="timeline-dot" style="background: var(--highlight); border-color: var(--bg-color); box-shadow: 0 0 10px var(--highlight);"></div>
                 <div class="timeline-header">
-                    <span class="timeline-date">🗓️ ${displayDate}</span>
+                    <span class="timeline-date">${ICONS.cal} ${displayDate}</span>
                     ${isAdmin ? `<button class="btn-del" onclick="deleteWeightEntry('${w.id}')">Видалити</button>` : ""}
                 </div>
                 <div class="timeline-content">
@@ -2288,7 +2305,7 @@ window.renderPhotos = () => {
     html += `
       <div class="photo-date-group">
           <div class="photo-date-header">
-              🗓️ ${formatDate(dateStr)}
+              ${ICONS.cal} ${formatDate(dateStr)}
           </div>
           <div class="photo-grid">`;
 
