@@ -174,8 +174,6 @@ onAuthStateChanged(auth, (user) => {
 });
 
 // === SECRET MODULE EASTER EGG ===
-// 5 швидких кліків по заголовку → відкриває прихований модуль
-// 1-й клік (для гостей) → показує форму логіну (існуюча поведінка)
 {
   const secretDoorEl = document.getElementById("secretDoor");
   if (secretDoorEl) {
@@ -187,8 +185,7 @@ onAuthStateChanged(auth, (user) => {
       if (_timer) clearTimeout(_timer);
       _timer = setTimeout(() => { _clicks = 0; }, 2000);
 
-      if (_clicks >= 5) {
-        // П'ятий клік — запускаємо секретний модуль
+      if (_clicks >= 2) {
         _clicks = 0;
         clearTimeout(_timer);
         import("./secret_module/secret.js")
