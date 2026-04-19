@@ -1355,10 +1355,21 @@ body {
 }
 
 /* Title trophy icon */
-.title-trophy {
-  width: 1em;
-  height: 1em;
-  vertical-align: middle;
+/* Trophy click trigger — тільки іконка клікабельна, текст h1 заблоковано */
+.trophy-trigger {
+  cursor: pointer;
+  font-size: inherit;
+  user-select: none;
+  -webkit-user-select: none;
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+.trophy-trigger:active {
+  transform: scale(0.88);
+}
+.trophy-trigger.admin-mode {
+  cursor: default;
+  opacity: 0.5;
 }
 
 /* Theme toggle icon */
