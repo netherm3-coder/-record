@@ -144,7 +144,6 @@ onAuthStateChanged(auth, (user) => {
     // --- ВИМИКАЄМО КУБОК ДЛЯ АДМІНА ---
     if (secretDoor) {
       secretDoor.classList.add("admin-mode");
-      secretDoor.style.cursor = "default";
     }
   } else {
     isAdmin = false;
@@ -156,7 +155,6 @@ onAuthStateChanged(auth, (user) => {
     // --- ВМИКАЄМО КУБОК ДЛЯ ГОСТЕЙ ---
     if (secretDoor) {
       secretDoor.classList.remove("admin-mode");
-      secretDoor.style.cursor = "pointer";
     }
 
     // ХОВАЄМО ВКЛАДКУ ФОТО ТА ВИКИДАЄМО З НЕЇ, ЯКЩО ГІСТЬ

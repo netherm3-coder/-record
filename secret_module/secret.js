@@ -96,6 +96,7 @@ function _showContent(gifUrl) {
   };
   document.addEventListener("keydown", onKey);
 
+  document.body.style.overflow = "hidden";
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add("sm-visible"));
 }
@@ -129,6 +130,7 @@ function _show404() {
 function _removeExisting() {
   const el = document.getElementById("smOverlay");
   if (!el) return;
+  document.body.style.overflow = "";
   el.classList.remove("sm-visible");
   el.addEventListener("transitionend", () => el.remove(), { once: true });
 }
@@ -143,8 +145,9 @@ function _ensureStyles() {
   style.id = "sm-styles";
   style.textContent = `
     .sm-overlay {
-      position: fixed; inset: 0; z-index: 9999;
+      position: fixed; inset: 0; z-index: 10000;
       display: flex; align-items: center; justify-content: center;
+      pointer-events: all;
       background: rgba(0,0,0,0);
       backdrop-filter: blur(0px);
       transition: background .3s ease, backdrop-filter .3s ease;
