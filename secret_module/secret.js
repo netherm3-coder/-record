@@ -17,8 +17,9 @@ import {
   getDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// Fallback GIF (якщо Firestore не налаштовано)
-const FALLBACK_GIF = "../assets/redvid_io_violating_that_throatpussy_of_hers.gif";
+// Fallback GIF — шлях відносно сторінки (index.html), не скрипта.
+// Заміни на пряме посилання з зовнішнього хостингу (Imgur, Giphy тощо), якщо потрібно.
+const FALLBACK_GIF = "assets/redvid_io_violating_that_throatpussy_of_hers.gif";
 
 // ---------------------------------------------------------------
 //  Головна функція — викликається з app.js
