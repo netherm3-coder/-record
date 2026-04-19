@@ -172,8 +172,6 @@ onAuthStateChanged(auth, (user) => {
 });
 
 // === SECRET MODULE EASTER EGG ===
-// 5 швидких кліків по заголовку → відкриває прихований модуль
-// 1-й клік (для гостей) → показує форму логіну (існуюча поведінка)
 {
   const secretDoorEl = document.getElementById("secretDoor");
   if (secretDoorEl) {
@@ -185,8 +183,7 @@ onAuthStateChanged(auth, (user) => {
       if (_timer) clearTimeout(_timer);
       _timer = setTimeout(() => { _clicks = 0; }, 2000);
 
-      if (_clicks >= 5) {
-        // П'ятий клік — запускаємо секретний модуль
+      if (_clicks >= 2) {
         _clicks = 0;
         clearTimeout(_timer);
         import("./secret_module/secret.js")
@@ -300,14 +297,14 @@ const ICONS = {
   shield:   `<img src="assets/icons/shield.svg"       class="themed-icon js-icon" alt="">`,
   target:   `<img src="assets/icons/target.svg"       class="themed-icon js-icon" alt="">`,
 
-  // Кольорові inline SVG — не потребують themed-icon фільтру
-  muscle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="10" width="3" height="4" rx="1"/><rect x="19" y="10" width="3" height="4" rx="1"/><rect x="5" y="8" width="3" height="8" rx="1"/><rect x="16" y="8" width="3" height="8" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
-
-  timer: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="12" cy="13" r="7"/><polyline points="12 10 12 13 14 15"/><line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="19" y1="5" x2="17" y2="7"/></svg>`,
-
-  location: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
-
-  chart: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><polyline points="4 16 8 12 14 8 18 10 22 7"/><polyline points="19 7 22 7 22 10"/></svg>`,
+    // Кольорові inline SVG — не потребують themed-icon фільтру
+      muscle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="10" width="3" height="4" rx="1"/><rect x="19" y="10" width="3" height="4" rx="1"/><rect x="5" y="8" width="3" height="8" rx="1"/><rect x="16" y="8" width="3" height="8" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
+      
+        timer: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="12" cy="13" r="7"/><polyline points="12 10 12 13 14 15"/><line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="19" y1="5" x2="17" y2="7"/></svg>`,
+        
+          location: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+          
+            chart: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><polyline points="4 16 8 12 14 8 18 10 22 7"/><polyline points="19 7 22 7 22 10"/></svg>`,
 };
 // === КЕШУВАННЯ DOM-ЕЛЕМЕНТІВ (Для продуктивності) ===
 const DOM = {

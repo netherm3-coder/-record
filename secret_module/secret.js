@@ -17,8 +17,7 @@ import {
   getDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// Fallback GIF — шлях відносно сторінки (index.html), не скрипта.
-// Заміни на пряме посилання з зовнішнього хостингу (Imgur, Giphy тощо), якщо потрібно.
+// Fallback GIF (якщо Firestore не налаштовано)
 const FALLBACK_GIF = "assets/redvid_io_violating_that_throatpussy_of_hers.gif";
 
 // ---------------------------------------------------------------
@@ -132,7 +131,7 @@ function _removeExisting() {
   if (!el) return;
   document.body.style.overflow = "";
   el.classList.remove("sm-visible");
-  el.addEventListener("transitionend", () => el.remove(), { once: true });
+  el.addEventListener("transitionend", () => { el.remove(); document.body.style.overflow = ""; }, { once: true });
 }
 
 // ---------------------------------------------------------------
@@ -151,6 +150,7 @@ function _ensureStyles() {
       background: rgba(0,0,0,0);
       backdrop-filter: blur(0px);
       transition: background .3s ease, backdrop-filter .3s ease;
+      pointer-events: all;
     }
     .sm-overlay.sm-visible {
       background: rgba(0,0,0,.78);
