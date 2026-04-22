@@ -1,7 +1,5 @@
 // ================================================================
 //  secret_module/secret.js — Прихований модуль "Кімната Рекордів"
-//  Доступ: Firebase Auth (тільки залогінений адмін)
-//  Контент: URL гіфки зберігається в Firestore → secret/content
 // ================================================================
 
 import {
@@ -18,77 +16,44 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const MEDIA_FILES = [
-"assets/redvid_io_violating_that_throatpussy_of_hers.gif",
-"RDT_20260421_2301107487583688953369648.jpg",
-"RDT_20260421_2304236334329579471223536.jpg",
+  "assets/redvid_io_violating_that_throatpussy_of_hers.gif",
+  "RDT_20260421_2301107487583688953369648.jpg",
+  "RDT_20260421_2304236334329579471223536.jpg",
 ];
 
 // ---------------------------------------------------------------
-//  Головна функція — викликається з app.js
-// ---------------------------------------------------------------
 export async function openSecretModule() {
-  // 1. Отримуємо вже ініціалізований Firebase App (з app.js)
-  if (getApps().length === 0) {
-    _show404();
-    return;
-  }
+  if (getApps().length === 0) { _show404(); return; }
   const app = getApp();
   const auth = getAuth(app);
-
-  // 2. Перевірка Firebase Auth — тільки залогінений користувач
-  const user = auth.currentUser;
-  if (!user) {
-    _show404();
-    return;
-  }
-
-  // 3. Читаємо URL контенту з Firestore (колекція secret, документ content)
-  let gifUrl = FALLBACK_GIF;
-  try {
-    const db = getFirestore(app);
-    const secretSnap = await getDoc(doc(db, "secret", "content"));
-    if (secretSnap.exists() && secretSnap.data().gifUrl) {
-      gifUrl = secretSnap.data().gifUrl;
-    }
-  } catch {
-    // Якщо Firestore недоступний — використовуємо fallback
-  }
-
-  _showContent(gifUrl);
+  if (!auth.currentUser) { _show404(); return; }
+  _showContent();
 }
 
-// ---------------------------------------------------------------
-//  Рендер: основний контент модуля
 // ---------------------------------------------------------------
 function _showContent() {
   _ensureStyles();
   _removeExisting();
 
-  // Генерація слайдів
-  const slidesHTML = navigator.onLine 
-    ? MEDIA_FILES.map((url, index) => 
-        `<img src="${url}" alt="Secret media" class="sm-slide ${index === 0 ? 'active' : ''}" />`
-      ).join('')
-    : `<p class="sm-offline">Цей контент потребує з'єднання з мережею</p>`;
+  const slidesHTML = navigator.onLine
+    ? MEDIA_FILES.map((url, i) =>
+        `<img src="${url}" alt="" class="sm-slide ${i === 0 ? "active" : ""}" draggable="false" />`
+      ).join("")
+    : '<p class="sm-offline">Потрібне з\'єднання з мережею</p>';
 
-  // Формування блоку з кнопками навігації
-  const mediaBlock = navigator.onLine && MEDIA_FILES.length > 1
-    ? `
-      <div class="sm-slider" id="smSlider">
-        <button class="sm-nav-btn prev" aria-label="Попередній">❮</button>
-        <div class="sm-slides-container">
-          ${slidesHTML}
-        </div>
-        <button class="sm-nav-btn next" aria-label="Наступний">❯</button>
-      </div>
-      `
-    : `<div class="sm-slider">${slidesHTML}</div>`;
+  const dotsHTML = MEDIA_FILES.length > 1
+    ? '<div class="sm-dots">' + MEDIA_FILES.map((_, i) =>
+        `<span class="sm-dot ${i === 0 ? "active" : ""}" data-i="${i}"></span>`
+      ).join("") + '</div>'
+    : "";
+
+  const counterHTML = MEDIA_FILES.length > 1
+    ? '<div class="sm-counter"><span id="smCurrent">1</span> / ' + MEDIA_FILES.length + '</div>'
+    : "";
 
   const overlay = document.createElement("div");
   overlay.id = "smOverlay";
   overlay.className = "sm-overlay";
-  
-  // Блокування прокрутки фону
   document.body.style.overflow = "hidden";
 
   overlay.innerHTML = `
@@ -98,60 +63,98 @@ function _showContent() {
       </button>
       <div class="sm-badge">СЕКРЕТНО</div>
       <h2 class="sm-title">Особистий архів</h2>
-      <p class="sm-desc">
-        Цей розділ видно лише тобі.<br>
-        Тут зберігається те, що не має бути у стрічці.
-      </p>
-      ${mediaBlock}
+      <p class="sm-desc">Цей розділ видно лише тобі.</p>
+      <div class="sm-slider" id="smSlider">
+        <div class="sm-slides-track">
+          ${slidesHTML}
+        </div>
+        ${counterHTML}
+        ${dotsHTML}
+      </div>
     </div>
   `;
 
-  // Логіка перемикання слайдів
+  // === SLIDER LOGIC ===
   if (navigator.onLine && MEDIA_FILES.length > 1) {
     let currentIndex = 0;
-    const slides = overlay.querySelectorAll('.sm-slide');
-    const btnPrev = overlay.querySelector('.sm-nav-btn.prev');
-    const btnNext = overlay.querySelector('.sm-nav-btn.next');
+    const slides = overlay.querySelectorAll(".sm-slide");
+    const dots = overlay.querySelectorAll(".sm-dot");
+    const counterEl = overlay.querySelector("#smCurrent");
+    const track = overlay.querySelector(".sm-slides-track");
 
-    const updateSlider = (newIndex) => {
-      slides[currentIndex].classList.remove('active');
-      currentIndex = newIndex;
-      if (currentIndex < 0) currentIndex = slides.length - 1;
-      if (currentIndex >= slides.length) currentIndex = 0;
-      slides[currentIndex].classList.add('active');
+    function goTo(idx) {
+      if (idx < 0) idx = slides.length - 1;
+      if (idx >= slides.length) idx = 0;
+      slides[currentIndex].classList.remove("active");
+      if (dots[currentIndex]) dots[currentIndex].classList.remove("active");
+      currentIndex = idx;
+      slides[currentIndex].classList.add("active");
+      if (dots[currentIndex]) dots[currentIndex].classList.add("active");
+      if (counterEl) counterEl.textContent = currentIndex + 1;
+    }
+
+    // Dots click
+    dots.forEach((dot) => {
+      dot.addEventListener("click", (e) => {
+        e.stopPropagation();
+        goTo(parseInt(dot.dataset.i));
+      });
+    });
+
+    // Swipe (touch)
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let swiping = false;
+
+    track.addEventListener("touchstart", (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      swiping = true;
+    }, { passive: true });
+
+    track.addEventListener("touchend", (e) => {
+      if (!swiping) return;
+      swiping = false;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return; // Мінімальна відстань та не вертикальний свайп
+      if (dx < 0) goTo(currentIndex + 1);  // Свайп вліво → наступний
+      else goTo(currentIndex - 1);          // Свайп вправо → попередній
+    }, { passive: true });
+
+    // Keyboard
+    const onKey = (e) => {
+      if (e.key === "ArrowLeft") goTo(currentIndex - 1);
+      if (e.key === "ArrowRight") goTo(currentIndex + 1);
+      if (e.key === "Escape") { _removeExisting(); document.removeEventListener("keydown", onKey); }
     };
+    document.addEventListener("keydown", onKey);
 
-    btnPrev.addEventListener('click', (e) => {
-      e.stopPropagation(); 
-      updateSlider(currentIndex - 1);
-    });
-
-    btnNext.addEventListener('click', (e) => {
+    // Tap left/right halves
+    track.addEventListener("click", (e) => {
       e.stopPropagation();
-      updateSlider(currentIndex + 1);
+      const rect = track.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      if (x < rect.width / 2) goTo(currentIndex - 1);
+      else goTo(currentIndex + 1);
     });
+  } else {
+    const onKey = (e) => {
+      if (e.key === "Escape") { _removeExisting(); document.removeEventListener("keydown", onKey); }
+    };
+    document.addEventListener("keydown", onKey);
   }
 
-  // Обробники закриття
+  // Close handlers
   overlay.querySelector(".sm-close").addEventListener("click", _removeExisting);
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) _removeExisting();
   });
-  
-  const onKey = (e) => {
-    if (e.key === "Escape") {
-      _removeExisting();
-      document.removeEventListener("keydown", onKey);
-    }
-  };
-  document.addEventListener("keydown", onKey);
 
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add("sm-visible"));
 }
 
-// ---------------------------------------------------------------
-//  Рендер: 404 — не авторизований
 // ---------------------------------------------------------------
 function _show404() {
   _ensureStyles();
@@ -166,7 +169,6 @@ function _show404() {
       <p class="sm-404-msg">Not Found</p>
     </div>
   `;
-
   overlay.addEventListener("click", _removeExisting);
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add("sm-visible"));
@@ -174,17 +176,14 @@ function _show404() {
 }
 
 // ---------------------------------------------------------------
-//  Прибираємо оверлей з анімацією
-// ---------------------------------------------------------------
 function _removeExisting() {
   const el = document.getElementById("smOverlay");
   if (!el) return;
+  document.body.style.overflow = "";
   el.classList.remove("sm-visible");
   el.addEventListener("transitionend", () => el.remove(), { once: true });
 }
 
-// ---------------------------------------------------------------
-//  CSS — вставляється один раз в <head>
 // ---------------------------------------------------------------
 function _ensureStyles() {
   if (document.getElementById("sm-styles")) return;
@@ -193,23 +192,23 @@ function _ensureStyles() {
   style.id = "sm-styles";
   style.textContent = `
     .sm-overlay {
-      position: fixed; inset: 0; z-index: 9999;
+      position: fixed; inset: 0; z-index: 99999;
       display: flex; align-items: center; justify-content: center;
       background: rgba(0,0,0,0);
       backdrop-filter: blur(0px);
       transition: background .3s ease, backdrop-filter .3s ease;
     }
     .sm-overlay.sm-visible {
-      background: rgba(0,0,0,.78);
-      backdrop-filter: blur(7px);
+      background: rgba(0,0,0,.85);
+      backdrop-filter: blur(10px);
     }
     .sm-modal {
       position: relative;
       background: var(--card-bg, #1e293b);
       border: 1px solid rgba(99,102,241,.35);
       border-radius: 20px;
-      padding: 32px 28px;
-      max-width: 440px; width: 90%;
+      padding: 32px 24px 24px;
+      max-width: 440px; width: 92%;
       text-align: center;
       box-shadow: 0 0 50px rgba(99,102,241,.2);
       opacity: 0; transform: translateY(24px);
@@ -219,17 +218,17 @@ function _ensureStyles() {
       opacity: 1; transform: translateY(0);
     }
     .sm-close {
-      position: absolute; top: 14px; right: 14px;
+      position: absolute; top: 12px; right: 12px;
       background: transparent; border: none;
       color: var(--text-muted, #94a3b8);
-      cursor: pointer;
-      padding: 6px; border-radius: 8px;
+      cursor: pointer; padding: 6px; border-radius: 8px;
       display: flex; align-items: center; justify-content: center;
       transition: color .2s, background .2s;
+      z-index: 5;
     }
     .sm-close:hover { color: #fff; background: rgba(255,255,255,.08); }
     .sm-badge {
-      display: inline-block; margin-bottom: 16px;
+      display: inline-block; margin-bottom: 14px;
       padding: 3px 12px; border-radius: 20px;
       background: rgba(239,68,68,.12);
       border: 1px solid rgba(239,68,68,.4);
@@ -238,19 +237,76 @@ function _ensureStyles() {
     }
     .sm-title {
       color: var(--text-main, #f1f5f9);
-      font-size: 1.4rem; font-weight: 800;
-      margin: 0 0 10px;
+      font-size: 1.3rem; font-weight: 800;
+      margin: 0 0 6px;
     }
     .sm-desc {
       color: var(--text-muted, #94a3b8);
-      font-size: .9rem; line-height: 1.7;
-      margin-bottom: 22px;
+      font-size: .85rem; line-height: 1.5;
+      margin-bottom: 18px;
     }
-    .sm-gif {
-      width: 100%; max-width: 340px;
+
+    /* === SLIDER === */
+    .sm-slider {
+      position: relative;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .sm-slides-track {
+      position: relative;
+      width: 100%;
       border-radius: 12px;
-      border: 1px solid rgba(99,102,241,.2);
+      overflow: hidden;
+      aspect-ratio: 4 / 3;
+      background: rgba(0,0,0,.3);
+      cursor: pointer;
     }
+    .sm-slide {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: contain;
+      border-radius: 12px;
+      opacity: 0;
+      transition: opacity .35s ease;
+      pointer-events: none;
+    }
+    .sm-slide.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Counter */
+    .sm-counter {
+      margin-top: 10px;
+      font-size: .8rem;
+      font-weight: 800;
+      color: var(--text-muted, #94a3b8);
+      letter-spacing: .5px;
+    }
+
+    /* Dots */
+    .sm-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .sm-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border, rgba(255,255,255,.15));
+      cursor: pointer;
+      transition: background .2s, transform .2s;
+    }
+    .sm-dot.active {
+      background: var(--accent, #6366f1);
+      transform: scale(1.3);
+    }
+    .sm-dot:hover {
+      background: var(--accent, #6366f1);
+    }
+
     .sm-offline {
       padding: 16px 20px; border-radius: 12px;
       background: rgba(239,68,68,.07);
