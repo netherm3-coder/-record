@@ -130,7 +130,7 @@ if (donateBtn && donateModal && closeDonateBtn) {
 onAuthStateChanged(auth, (user) => {
   const navPhotos = document.getElementById("nav-photos");
   const weightPanel = document.getElementById("weightAdminPanel");
-  const secretDoor = document.getElementById("secretDoor"); // Знаходимо кубок
+  const adminSecretBtn = document.getElementById("adminSecretBtn");
 
   if (user) {
     isAdmin = true;
@@ -141,10 +141,7 @@ onAuthStateChanged(auth, (user) => {
     if (weightPanel) weightPanel.style.display = "block";
     if (navPhotos) navPhotos.style.display = "flex";
 
-    // --- ВИМИКАЄМО КУБОК ДЛЯ АДМІНА ---
-    if (secretDoor) {
-      secretDoor.classList.add("admin-mode");
-    }
+  if (adminSecretBtn && localStorage.getItem("isAdmin") === "true") adminSecretBtn.style.display = "flex";
   } else {
     isAdmin = false;
     localStorage.removeItem("isAdmin"); // Знімаємо прапор при виході
@@ -152,10 +149,7 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("logoutBtn").style.display = "none";
     if (weightPanel) weightPanel.style.display = "none";
 
-    // --- ВМИКАЄМО КУБОК ДЛЯ ГОСТЕЙ ---
-    if (secretDoor) {
-      secretDoor.classList.remove("admin-mode");
-    }
+  if (adminSecretBtn) adminSecretBtn.style.display = "none";
 
     // ХОВАЄМО ВКЛАДКУ ФОТО ТА ВИКИДАЄМО З НЕЇ, ЯКЩО ГІСТЬ
     if (navPhotos) {
@@ -170,34 +164,13 @@ onAuthStateChanged(auth, (user) => {
   if (typeof renderPhotos === "function") renderPhotos();
   if (typeof renderBodyMap === "function") renderBodyMap();
 });
-
-// === SECRET MODULE EASTER EGG ===
 {
-  const secretDoorEl = document.getElementById("secretDoor");
-  if (secretDoorEl) {
-    let _clicks = 0;
-    let _timer = null;
-
-    secretDoorEl.addEventListener("click", () => {
-      _clicks++;
-      if (_timer) clearTimeout(_timer);
-      _timer = setTimeout(() => { _clicks = 0; }, 2000);
-
-      if (_clicks >= 2) {
-        _clicks = 0;
-        clearTimeout(_timer);
-        import("./secret_module/secret.js")
-          .then((m) => m.openSecretModule())
-          .catch(() => {});
-        return;
-      }
-
-      // Перший клік для гостя — показати/сховати панель логіну
-      if (_clicks === 1 && !isAdmin) {
-        const loginSec = document.getElementById("loginSection");
-        loginSec.style.display =
-          loginSec.style.display === "none" ? "block" : "none";
-      }
+  const adminSecretBtnEl = document.getElementById("adminSecretBtn");
+  if (adminSecretBtnEl) {
+    adminSecretBtnEl.addEventListener("click", () => {
+      import("./secret_module/secret.js")
+        .then((m) => m.openSecretModule())
+        .catch(() => {});
     });
   }
 }
@@ -296,7 +269,6 @@ const ICONS = {
   trophy:   `🏆`,
   shield:   `<img src="assets/icons/shield.svg"       class="themed-icon js-icon" alt="">`,
   target:   `<img src="assets/icons/target.svg"       class="themed-icon js-icon" alt="">`,
-
     // Кольорові inline SVG — не потребують themed-icon фільтру
       muscle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="10" width="3" height="4" rx="1"/><rect x="19" y="10" width="3" height="4" rx="1"/><rect x="5" y="8" width="3" height="8" rx="1"/><rect x="16" y="8" width="3" height="8" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
       
