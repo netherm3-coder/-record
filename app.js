@@ -130,7 +130,7 @@ if (donateBtn && donateModal && closeDonateBtn) {
 onAuthStateChanged(auth, (user) => {
   const navPhotos = document.getElementById("nav-photos");
   const weightPanel = document.getElementById("weightAdminPanel");
-  const secretDoor = document.getElementById("secretDoor"); // Знаходимо кубок
+  const adminSecretBtn = document.getElementById("adminSecretBtn");
 
   if (user) {
     isAdmin = true;
@@ -140,24 +140,14 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("loginSection").style.display = "none";
     if (weightPanel) weightPanel.style.display = "block";
     if (navPhotos) navPhotos.style.display = "flex";
-
-    // --- ВИМИКАЄМО КУБОК ДЛЯ АДМІНА ---
-    if (secretDoor) {
-      secretDoor.classList.add("admin-mode");
-      secretDoor.style.cursor = "default";
-    }
+    if (adminSecretBtn && localStorage.getItem("isAdmin") === "true") adminSecretBtn.style.display = "flex";
   } else {
     isAdmin = false;
     localStorage.removeItem("isAdmin"); // Знімаємо прапор при виході
     document.getElementById("adminPanel").style.display = "none";
     document.getElementById("logoutBtn").style.display = "none";
     if (weightPanel) weightPanel.style.display = "none";
-
-    // --- ВМИКАЄМО КУБОК ДЛЯ ГОСТЕЙ ---
-    if (secretDoor) {
-      secretDoor.classList.remove("admin-mode");
-      secretDoor.style.cursor = "pointer";
-    }
+    if (adminSecretBtn) adminSecretBtn.style.display = "none";
 
     // ХОВАЄМО ВКЛАДКУ ФОТО ТА ВИКИДАЄМО З НЕЇ, ЯКЩО ГІСТЬ
     if (navPhotos) {
@@ -173,33 +163,14 @@ onAuthStateChanged(auth, (user) => {
   if (typeof renderBodyMap === "function") renderBodyMap();
 });
 
-// === SECRET MODULE EASTER EGG ===
+// === АРХІВ (КНОПКА В МЕНЮ) ===
 {
-  const secretDoorEl = document.getElementById("secretDoor");
-  if (secretDoorEl) {
-    let _clicks = 0;
-    let _timer = null;
-
-    secretDoorEl.addEventListener("click", () => {
-      _clicks++;
-      if (_timer) clearTimeout(_timer);
-      _timer = setTimeout(() => { _clicks = 0; }, 2000);
-
-      if (_clicks >= 2) {
-        _clicks = 0;
-        clearTimeout(_timer);
-        import("./secret_module/secret.js")
-          .then((m) => m.openSecretModule())
-          .catch(() => {});
-        return;
-      }
-
-      // Перший клік для гостя — показати/сховати панель логіну
-      if (_clicks === 1 && !isAdmin) {
-        const loginSec = document.getElementById("loginSection");
-        loginSec.style.display =
-          loginSec.style.display === "none" ? "block" : "none";
-      }
+  const adminSecretBtnEl = document.getElementById("adminSecretBtn");
+  if (adminSecretBtnEl) {
+    adminSecretBtnEl.addEventListener("click", () => {
+      import("./secret_module/secret.js")
+        .then((m) => m.openSecretModule())
+        .catch(() => {});
     });
   }
 }
