@@ -17,8 +17,11 @@ import {
   getDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// Fallback GIF (якщо Firestore не налаштовано)
-const FALLBACK_GIF = "assets/redvid_io_violating_that_throatpussy_of_hers.gif";
+const MEDIA_FILES = [
+"assets/redvid_io_violating_that_throatpussy_of_hers.gif",
+"RDT_20260421_2301107487583688953369648.jpg",
+"RDT_20260421_2304236334329579471223536.jpg",
+];
 
 // ---------------------------------------------------------------
 //  Головна функція — викликається з app.js
@@ -57,17 +60,37 @@ export async function openSecretModule() {
 // ---------------------------------------------------------------
 //  Рендер: основний контент модуля
 // ---------------------------------------------------------------
-function _showContent(gifUrl) {
+function _showContent() {
   _ensureStyles();
   _removeExisting();
 
-  const mediaBlock = navigator.onLine
-    ? `<img src="${gifUrl}" alt="Secret" class="sm-gif" />`
+  // Генерація слайдів
+  const slidesHTML = navigator.onLine 
+    ? MEDIA_FILES.map((url, index) => 
+        `<img src="${url}" alt="Secret media" class="sm-slide ${index === 0 ? 'active' : ''}" />`
+      ).join('')
     : `<p class="sm-offline">Цей контент потребує з'єднання з мережею</p>`;
+
+  // Формування блоку з кнопками навігації
+  const mediaBlock = navigator.onLine && MEDIA_FILES.length > 1
+    ? `
+      <div class="sm-slider" id="smSlider">
+        <button class="sm-nav-btn prev" aria-label="Попередній">❮</button>
+        <div class="sm-slides-container">
+          ${slidesHTML}
+        </div>
+        <button class="sm-nav-btn next" aria-label="Наступний">❯</button>
+      </div>
+      `
+    : `<div class="sm-slider">${slidesHTML}</div>`;
 
   const overlay = document.createElement("div");
   overlay.id = "smOverlay";
   overlay.className = "sm-overlay";
+  
+  // Блокування прокрутки фону
+  document.body.style.overflow = "hidden";
+
   overlay.innerHTML = `
     <div class="sm-modal" role="dialog" aria-modal="true">
       <button class="sm-close" aria-label="Закрити">
@@ -83,10 +106,38 @@ function _showContent(gifUrl) {
     </div>
   `;
 
+  // Логіка перемикання слайдів
+  if (navigator.onLine && MEDIA_FILES.length > 1) {
+    let currentIndex = 0;
+    const slides = overlay.querySelectorAll('.sm-slide');
+    const btnPrev = overlay.querySelector('.sm-nav-btn.prev');
+    const btnNext = overlay.querySelector('.sm-nav-btn.next');
+
+    const updateSlider = (newIndex) => {
+      slides[currentIndex].classList.remove('active');
+      currentIndex = newIndex;
+      if (currentIndex < 0) currentIndex = slides.length - 1;
+      if (currentIndex >= slides.length) currentIndex = 0;
+      slides[currentIndex].classList.add('active');
+    };
+
+    btnPrev.addEventListener('click', (e) => {
+      e.stopPropagation(); 
+      updateSlider(currentIndex - 1);
+    });
+
+    btnNext.addEventListener('click', (e) => {
+      e.stopPropagation();
+      updateSlider(currentIndex + 1);
+    });
+  }
+
+  // Обробники закриття
   overlay.querySelector(".sm-close").addEventListener("click", _removeExisting);
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) _removeExisting();
   });
+  
   const onKey = (e) => {
     if (e.key === "Escape") {
       _removeExisting();
@@ -95,7 +146,6 @@ function _showContent(gifUrl) {
   };
   document.addEventListener("keydown", onKey);
 
-  document.body.style.overflow = "hidden";
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add("sm-visible"));
 }
@@ -129,9 +179,8 @@ function _show404() {
 function _removeExisting() {
   const el = document.getElementById("smOverlay");
   if (!el) return;
-  document.body.style.overflow = "";
   el.classList.remove("sm-visible");
-  el.addEventListener("transitionend", () => { el.remove(); document.body.style.overflow = ""; }, { once: true });
+  el.addEventListener("transitionend", () => el.remove(), { once: true });
 }
 
 // ---------------------------------------------------------------
@@ -144,13 +193,11 @@ function _ensureStyles() {
   style.id = "sm-styles";
   style.textContent = `
     .sm-overlay {
-      position: fixed; inset: 0; z-index: 10000;
+      position: fixed; inset: 0; z-index: 9999;
       display: flex; align-items: center; justify-content: center;
-      pointer-events: all;
       background: rgba(0,0,0,0);
       backdrop-filter: blur(0px);
       transition: background .3s ease, backdrop-filter .3s ease;
-      pointer-events: all;
     }
     .sm-overlay.sm-visible {
       background: rgba(0,0,0,.78);
