@@ -1,19 +1,13 @@
 // ================================================================
-//  secret_module/secret.js — Прихований модуль "Кімната Рекордів"
+//  secret.js — Секретний модуль з повноекранним переглядом
 // ================================================================
 
 import {
-  getApps,
-  getApp,
+  getApps, getApp,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getAuth,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const MEDIA_FILES = [
   "assets/redvid_io_violating_that_throatpussy_of_hers.gif",
@@ -21,12 +15,12 @@ const MEDIA_FILES = [
   "RDT_20260421_2304236334329579471223536.jpg",
 ];
 
+let _keyHandler = null;
+
 // ---------------------------------------------------------------
 export async function openSecretModule() {
   if (getApps().length === 0) { _show404(); return; }
-  const app = getApp();
-  const auth = getAuth(app);
-  if (!auth.currentUser) { _show404(); return; }
+  if (!getAuth(getApp()).currentUser) { _show404(); return; }
   _showContent();
 }
 
@@ -35,124 +29,137 @@ function _showContent() {
   _ensureStyles();
   _removeExisting();
 
-  const slidesHTML = navigator.onLine
-    ? MEDIA_FILES.map((url, i) =>
-        `<img src="${url}" alt="" class="sm-slide ${i === 0 ? "active" : ""}" draggable="false" />`
-      ).join("")
-    : '<p class="sm-offline">Потрібне з\'єднання з мережею</p>';
+  const total = MEDIA_FILES.length;
+  let current = 0;
+  let touchX0 = 0, touchY0 = 0, dragging = false, dragDx = 0;
 
-  const dotsHTML = MEDIA_FILES.length > 1
-    ? '<div class="sm-dots">' + MEDIA_FILES.map((_, i) =>
-        `<span class="sm-dot ${i === 0 ? "active" : ""}" data-i="${i}"></span>`
-      ).join("") + '</div>'
-    : "";
-
-  const counterHTML = MEDIA_FILES.length > 1
-    ? '<div class="sm-counter"><span id="smCurrent">1</span> / ' + MEDIA_FILES.length + '</div>'
-    : "";
-
+  // DOM
   const overlay = document.createElement("div");
   overlay.id = "smOverlay";
   overlay.className = "sm-overlay";
-  document.body.style.overflow = "hidden";
 
+  // Повноекранний layout без модального вікна
   overlay.innerHTML = `
-    <div class="sm-modal" role="dialog" aria-modal="true">
-      <button class="sm-close" aria-label="Закрити">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-      <div class="sm-badge">СЕКРЕТНО</div>
-      <h2 class="sm-title">Особистий архів</h2>
-      <p class="sm-desc">Цей розділ видно лише тобі.</p>
-      <div class="sm-slider" id="smSlider">
-        <div class="sm-slides-track">
-          ${slidesHTML}
+    <div class="sm-viewer">
+      <div class="sm-topbar">
+        <div class="sm-counter" id="smCounter">1 / ${total}</div>
+        <button class="sm-close-btn" id="smCloseBtn" aria-label="Закрити">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="sm-track" id="smTrack">
+        ${MEDIA_FILES.map((url, i) =>
+          `<img src="${url}" alt="" class="sm-img ${i === 0 ? "active" : ""}" draggable="false" />`
+        ).join("")}
+      </div>
+      <div class="sm-bottom">
+        <div class="sm-dots" id="smDots">
+          ${MEDIA_FILES.map((_, i) =>
+            `<span class="sm-dot ${i === 0 ? "active" : ""}" data-i="${i}"></span>`
+          ).join("")}
         </div>
-        ${counterHTML}
-        ${dotsHTML}
       </div>
     </div>
   `;
 
-  // === SLIDER LOGIC ===
-  if (navigator.onLine && MEDIA_FILES.length > 1) {
-    let currentIndex = 0;
-    const slides = overlay.querySelectorAll(".sm-slide");
-    const dots = overlay.querySelectorAll(".sm-dot");
-    const counterEl = overlay.querySelector("#smCurrent");
-    const track = overlay.querySelector(".sm-slides-track");
+  const track = overlay.querySelector("#smTrack");
+  const imgs = overlay.querySelectorAll(".sm-img");
+  const dots = overlay.querySelectorAll(".sm-dot");
+  const counter = overlay.querySelector("#smCounter");
 
-    function goTo(idx) {
-      if (idx < 0) idx = slides.length - 1;
-      if (idx >= slides.length) idx = 0;
-      slides[currentIndex].classList.remove("active");
-      if (dots[currentIndex]) dots[currentIndex].classList.remove("active");
-      currentIndex = idx;
-      slides[currentIndex].classList.add("active");
-      if (dots[currentIndex]) dots[currentIndex].classList.add("active");
-      if (counterEl) counterEl.textContent = currentIndex + 1;
-    }
-
-    // Dots click
-    dots.forEach((dot) => {
-      dot.addEventListener("click", (e) => {
-        e.stopPropagation();
-        goTo(parseInt(dot.dataset.i));
-      });
-    });
-
-    // Swipe (touch)
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let swiping = false;
-
-    track.addEventListener("touchstart", (e) => {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-      swiping = true;
-    }, { passive: true });
-
-    track.addEventListener("touchend", (e) => {
-      if (!swiping) return;
-      swiping = false;
-      const dx = e.changedTouches[0].clientX - touchStartX;
-      const dy = e.changedTouches[0].clientY - touchStartY;
-      if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return; // Мінімальна відстань та не вертикальний свайп
-      if (dx < 0) goTo(currentIndex + 1);  // Свайп вліво → наступний
-      else goTo(currentIndex - 1);          // Свайп вправо → попередній
-    }, { passive: true });
-
-    // Keyboard
-    const onKey = (e) => {
-      if (e.key === "ArrowLeft") goTo(currentIndex - 1);
-      if (e.key === "ArrowRight") goTo(currentIndex + 1);
-      if (e.key === "Escape") { _removeExisting(); document.removeEventListener("keydown", onKey); }
-    };
-    document.addEventListener("keydown", onKey);
-
-    // Tap left/right halves
-    track.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const rect = track.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      if (x < rect.width / 2) goTo(currentIndex - 1);
-      else goTo(currentIndex + 1);
-    });
-  } else {
-    const onKey = (e) => {
-      if (e.key === "Escape") { _removeExisting(); document.removeEventListener("keydown", onKey); }
-    };
-    document.addEventListener("keydown", onKey);
+  // --- Go to slide ---
+  function goTo(idx) {
+    if (idx < 0) idx = total - 1;
+    if (idx >= total) idx = 0;
+    imgs[current].classList.remove("active");
+    dots[current].classList.remove("active");
+    current = idx;
+    imgs[current].classList.add("active");
+    dots[current].classList.add("active");
+    counter.textContent = (current + 1) + " / " + total;
   }
 
-  // Close handlers
-  overlay.querySelector(".sm-close").addEventListener("click", _removeExisting);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) _removeExisting();
+  // --- Touch swipe ---
+  track.addEventListener("touchstart", function (e) {
+    touchX0 = e.touches[0].clientX;
+    touchY0 = e.touches[0].clientY;
+    dragging = true;
+    dragDx = 0;
+    // Прибираємо transition під час свайпу для інтерактивності
+    imgs.forEach(function (img) { img.style.transition = "none"; });
+  }, { passive: true });
+
+  track.addEventListener("touchmove", function (e) {
+    if (!dragging) return;
+    dragDx = e.touches[0].clientX - touchX0;
+    var dy = Math.abs(e.touches[0].clientY - touchY0);
+    // Якщо вертикальний скрол — відпускаємо
+    if (dy > Math.abs(dragDx) + 10) { dragging = false; dragDx = 0; return; }
+    // Візуальний зсув активного слайду
+    var activeImg = imgs[current];
+    activeImg.style.transform = "translateX(" + dragDx + "px)";
+    activeImg.style.opacity = Math.max(0.3, 1 - Math.abs(dragDx) / 400);
+  }, { passive: true });
+
+  track.addEventListener("touchend", function () {
+    if (!dragging) { dragDx = 0; return; }
+    dragging = false;
+    // Повертаємо transitions
+    imgs.forEach(function (img) {
+      img.style.transition = "";
+      img.style.transform = "";
+      img.style.opacity = "";
+    });
+    if (Math.abs(dragDx) > 50) {
+      if (dragDx < 0) goTo(current + 1);
+      else goTo(current - 1);
+    }
+    dragDx = 0;
+  }, { passive: true });
+
+  // --- Tap left/right ---
+  track.addEventListener("click", function (e) {
+    if (Math.abs(dragDx) > 5) return; // Це був свайп, не тап
+    var rect = track.getBoundingClientRect();
+    var x = e.clientX - rect.left;
+    if (x < rect.width * 0.35) goTo(current - 1);
+    else if (x > rect.width * 0.65) goTo(current + 1);
+    // Центральна зона — нічого (щоб не переключати випадково)
   });
 
+  // --- Dots ---
+  dots.forEach(function (dot) {
+    dot.addEventListener("click", function (e) {
+      e.stopPropagation();
+      goTo(parseInt(dot.dataset.i));
+    });
+  });
+
+  // --- Keyboard ---
+  _keyHandler = function (e) {
+    if (e.key === "ArrowLeft") goTo(current - 1);
+    else if (e.key === "ArrowRight") goTo(current + 1);
+    else if (e.key === "Escape") _removeExisting();
+  };
+  document.addEventListener("keydown", _keyHandler);
+
+  // --- Close ---
+  overlay.querySelector("#smCloseBtn").addEventListener("click", function (e) {
+    e.stopPropagation();
+    _removeExisting();
+  });
+
+  // Клік по темній зоні (поза слайдом)
+  overlay.addEventListener("click", function (e) {
+    if (e.target === overlay || e.target.classList.contains("sm-viewer")) {
+      _removeExisting();
+    }
+  });
+
+  // --- Mount ---
+  document.body.style.overflow = "hidden";
   document.body.appendChild(overlay);
-  requestAnimationFrame(() => overlay.classList.add("sm-visible"));
+  requestAnimationFrame(function () { overlay.classList.add("sm-visible"); });
 }
 
 // ---------------------------------------------------------------
@@ -160,170 +167,139 @@ function _show404() {
   _ensureStyles();
   _removeExisting();
 
-  const overlay = document.createElement("div");
+  var overlay = document.createElement("div");
   overlay.id = "smOverlay";
-  overlay.className = "sm-overlay sm-denied";
-  overlay.innerHTML = `
-    <div class="sm-modal sm-modal--404">
-      <p class="sm-404-code">404</p>
-      <p class="sm-404-msg">Not Found</p>
-    </div>
-  `;
+  overlay.className = "sm-overlay";
+  overlay.innerHTML = '<div class="sm-404"><p class="sm-404-code">404</p><p class="sm-404-msg">Not Found</p></div>';
   overlay.addEventListener("click", _removeExisting);
   document.body.appendChild(overlay);
-  requestAnimationFrame(() => overlay.classList.add("sm-visible"));
+  requestAnimationFrame(function () { overlay.classList.add("sm-visible"); });
   setTimeout(_removeExisting, 2500);
 }
 
 // ---------------------------------------------------------------
 function _removeExisting() {
-  const el = document.getElementById("smOverlay");
+  var el = document.getElementById("smOverlay");
   if (!el) return;
   document.body.style.overflow = "";
+  if (_keyHandler) { document.removeEventListener("keydown", _keyHandler); _keyHandler = null; }
   el.classList.remove("sm-visible");
-  el.addEventListener("transitionend", () => el.remove(), { once: true });
+  el.addEventListener("transitionend", function () { el.remove(); }, { once: true });
+  // Fallback якщо transitionend не спрацює
+  setTimeout(function () { if (document.getElementById("smOverlay")) el.remove(); }, 500);
 }
 
 // ---------------------------------------------------------------
 function _ensureStyles() {
   if (document.getElementById("sm-styles")) return;
+  var s = document.createElement("style");
+  s.id = "sm-styles";
+  s.textContent = `
+/* === OVERLAY === */
+.sm-overlay {
+  position: fixed; inset: 0; z-index: 99999;
+  background: rgba(0,0,0,0);
+  transition: background .25s ease;
+  display: flex; flex-direction: column;
+}
+.sm-overlay.sm-visible {
+  background: rgba(0,0,0,.95);
+}
 
-  const style = document.createElement("style");
-  style.id = "sm-styles";
-  style.textContent = `
-    .sm-overlay {
-      position: fixed; inset: 0; z-index: 99999;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(0,0,0,0);
-      backdrop-filter: blur(0px);
-      transition: background .3s ease, backdrop-filter .3s ease;
-    }
-    .sm-overlay.sm-visible {
-      background: rgba(0,0,0,.85);
-      backdrop-filter: blur(10px);
-    }
-    .sm-modal {
-      position: relative;
-      background: var(--card-bg, #1e293b);
-      border: 1px solid rgba(99,102,241,.35);
-      border-radius: 20px;
-      padding: 32px 24px 24px;
-      max-width: 440px; width: 92%;
-      text-align: center;
-      box-shadow: 0 0 50px rgba(99,102,241,.2);
-      opacity: 0; transform: translateY(24px);
-      transition: opacity .3s ease, transform .3s ease;
-    }
-    .sm-overlay.sm-visible .sm-modal {
-      opacity: 1; transform: translateY(0);
-    }
-    .sm-close {
-      position: absolute; top: 12px; right: 12px;
-      background: transparent; border: none;
-      color: var(--text-muted, #94a3b8);
-      cursor: pointer; padding: 6px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      transition: color .2s, background .2s;
-      z-index: 5;
-    }
-    .sm-close:hover { color: #fff; background: rgba(255,255,255,.08); }
-    .sm-badge {
-      display: inline-block; margin-bottom: 14px;
-      padding: 3px 12px; border-radius: 20px;
-      background: rgba(239,68,68,.12);
-      border: 1px solid rgba(239,68,68,.4);
-      color: #ef4444; font-size: .65rem;
-      font-weight: 800; letter-spacing: .12em;
-    }
-    .sm-title {
-      color: var(--text-main, #f1f5f9);
-      font-size: 1.3rem; font-weight: 800;
-      margin: 0 0 6px;
-    }
-    .sm-desc {
-      color: var(--text-muted, #94a3b8);
-      font-size: .85rem; line-height: 1.5;
-      margin-bottom: 18px;
-    }
+/* === VIEWER (fullscreen layout) === */
+.sm-viewer {
+  display: flex;
+  flex-direction: column;
+  width: 100%; height: 100%;
+}
 
-    /* === SLIDER === */
-    .sm-slider {
-      position: relative;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    .sm-slides-track {
-      position: relative;
-      width: 100%;
-      border-radius: 12px;
-      overflow: hidden;
-      aspect-ratio: 4 / 3;
-      background: rgba(0,0,0,.3);
-      cursor: pointer;
-    }
-    .sm-slide {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      object-fit: contain;
-      border-radius: 12px;
-      opacity: 0;
-      transition: opacity .35s ease;
-      pointer-events: none;
-    }
-    .sm-slide.active {
-      opacity: 1;
-      pointer-events: auto;
-    }
+/* --- Top bar --- */
+.sm-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  flex-shrink: 0;
+}
+.sm-counter {
+  font-size: .85rem;
+  font-weight: 800;
+  color: rgba(255,255,255,.6);
+  letter-spacing: .5px;
+}
+.sm-close-btn {
+  background: none; border: none;
+  color: rgba(255,255,255,.6);
+  cursor: pointer; padding: 6px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .2s, background .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.sm-close-btn:active { color: #fff; background: rgba(255,255,255,.1); }
 
-    /* Counter */
-    .sm-counter {
-      margin-top: 10px;
-      font-size: .8rem;
-      font-weight: 800;
-      color: var(--text-muted, #94a3b8);
-      letter-spacing: .5px;
-    }
+/* --- Track (slides area) --- */
+.sm-track {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+}
+.sm-img {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity .3s ease, transform .2s ease;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+.sm-img.active {
+  opacity: 1;
+  pointer-events: auto;
+}
 
-    /* Dots */
-    .sm-dots {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      margin-top: 10px;
-    }
-    .sm-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--border, rgba(255,255,255,.15));
-      cursor: pointer;
-      transition: background .2s, transform .2s;
-    }
-    .sm-dot.active {
-      background: var(--accent, #6366f1);
-      transform: scale(1.3);
-    }
-    .sm-dot:hover {
-      background: var(--accent, #6366f1);
-    }
+/* --- Bottom bar --- */
+.sm-bottom {
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+}
+.sm-dots {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.sm-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.25);
+  cursor: pointer;
+  transition: background .2s, transform .2s, width .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.sm-dot.active {
+  background: #fff;
+  width: 20px;
+  border-radius: 4px;
+}
 
-    .sm-offline {
-      padding: 16px 20px; border-radius: 12px;
-      background: rgba(239,68,68,.07);
-      border: 1px dashed rgba(239,68,68,.35);
-      color: #ef4444; font-size: .9rem; line-height: 1.5;
-      margin: 0;
-    }
-    .sm-modal--404 { padding: 56px 28px; }
-    .sm-404-code {
-      font-size: 5.5rem; font-weight: 800; line-height: 1;
-      color: var(--text-muted, #94a3b8); margin: 0;
-    }
-    .sm-404-msg {
-      color: var(--text-muted, #94a3b8);
-      font-size: 1.1rem; margin: 10px 0 0;
-      letter-spacing: .05em;
-    }
+/* --- 404 --- */
+.sm-404 {
+  margin: auto;
+  text-align: center;
+}
+.sm-404-code {
+  font-size: 5rem; font-weight: 800;
+  color: rgba(255,255,255,.3); margin: 0; line-height: 1;
+}
+.sm-404-msg {
+  color: rgba(255,255,255,.3);
+  font-size: 1rem; margin: 8px 0 0;
+}
   `;
-  document.head.appendChild(style);
+  document.head.appendChild(s);
 }
