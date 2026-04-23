@@ -11,8 +11,8 @@ import {
 
 const MEDIA_FILES = [
   "assets/redvid_io_violating_that_throatpussy_of_hers.gif",
-  "RDT_20260421_2301107487583688953369648.jpg",
-  "RDT_20260421_2304236334329579471223536.jpg",
+  "assets/RDT_20260421_2301107487583688953369648.jpg",
+  "assets/RDT_20260421_2304236334329579471223536.jpg",
 ];
 
 var _keyHandler = null;
