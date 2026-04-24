@@ -1,147 +1,60 @@
+// ================================================================
+//  Service Worker v3 — Network First (безпечна стратегія)
+// ================================================================
+const CACHE_NAME = "records-room-v3";
 
-const CACHE_NAME = "records-room-v1";
-
-// -----------------------------------------------------------------
-//  Статичні ресурси, що кешуються під час інсталяції (App Shell)
-// -----------------------------------------------------------------
-const PRECACHE_ASSETS = [
-  "./",
-  "./index.html",
-  "./style.css",
-  "./app.js",
-  "./music.js",
-  "./firebase-config.js",
-  "./manifest.json",
-  "./sounds/playlist.json",
-  "./assets/icon.svg",
-  "./assets/icon-192.png",
-  "./assets/icon-512.png",
-  "./assets/money.png",
-  "./assets/exit.png",
-  "./assets/noalcohol.png",
-  "./assets/nosmoking.png",
-  "./assets/icone-btc.png",
-  "./fund/index.html",
-  "./fund/fund.css",
-  "./fund/fund.js",
-];
-
-// -----------------------------------------------------------------
-//  URL-патерни, для яких кеш ОБХОДИТЬСЯ (тільки мережа)
-//  — Firebase API, Auth, Firestore
-// -----------------------------------------------------------------
-const BYPASS_PATTERNS = [
+// Firebase/API — завжди тільки мережа, ніколи кеш
+const BYPASS = [
   /firestore\.googleapis\.com/,
   /firebase\.googleapis\.com/,
   /identitytoolkit\.googleapis\.com/,
   /securetoken\.googleapis\.com/,
   /firebaseinstallations\.googleapis\.com/,
   /www\.gstatic\.com\/firebasejs/,
-  /firebaseapp\.com\/(__\/auth|__\/firebase)/,
+  /firebaseapp\.com\//,
+  /bank\.gov\.ua/,
+  /coingecko\.com/,
+  /goldprice\.org/,
 ];
 
-// ================================================================
-//  INSTALL — попереднє кешування App Shell
-// ================================================================
-self.addEventListener("install", (event) => {
-  console.log("[SW] Installing…");
+// INSTALL — просто активуємось, без cache.addAll
+// (кеш наповнюється автоматично при першому завантаженні)
+self.addEventListener("install", () => self.skipWaiting());
 
-  // Активуємося негайно — не чекаємо закриття вкладок
-  self.skipWaiting();
-
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => {
-        console.log("[SW] Pre-caching App Shell");
-        return cache.addAll(PRECACHE_ASSETS);
-      })
-      .catch((err) => console.error("[SW] Pre-cache failed:", err))
-  );
-});
-
-// ================================================================
-//  ACTIVATE — очищення застарілих версій кешу
-// ================================================================
+// ACTIVATE — чистимо старі кеші
 self.addEventListener("activate", (event) => {
-  console.log("[SW] Activating…");
-
   event.waitUntil(
     Promise.all([
-      // Захоплюємо всі відкриті вкладки без перезавантаження
       clients.claim(),
-
-      // Видаляємо всі кеші, крім поточної версії
-      caches.keys().then((cacheNames) =>
-        Promise.all(
-          cacheNames
-            .filter((name) => name !== CACHE_NAME)
-            .map((name) => {
-              console.log("[SW] Deleting outdated cache:", name);
-              return caches.delete(name);
-            })
-        )
+      caches.keys().then((keys) =>
+        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
       ),
     ])
   );
 });
 
-// ================================================================
-//  FETCH — Cache First зі стратегією обходу для Firebase
-// ================================================================
+// FETCH — Network First: спочатку мережа, при помилці — кеш
 self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  const url = request.url;
+  var req = event.request;
+  if (req.method !== "GET" || !req.url.startsWith("http")) return;
 
-  // 1. Пропускаємо не-GET запити (POST/PUT для Firestore, тощо)
-  if (request.method !== "GET") return;
-
-  // 2. Пропускаємо не-HTTP(S) запити (chrome-extension://, тощо)
-  if (!url.startsWith("http")) return;
-
-  // 3. Firebase — завжди мережа, ніколи кеш
-  if (BYPASS_PATTERNS.some((pattern) => pattern.test(url))) {
-    event.respondWith(
-      fetch(request).catch(() =>
-        new Response(
-          JSON.stringify({ error: "offline", message: "Немає з'єднання з мережею" }),
-          { status: 503, headers: { "Content-Type": "application/json" } }
-        )
-      )
-    );
+  // Firebase API — тільки мережа
+  if (BYPASS.some((p) => p.test(req.url))) {
+    event.respondWith(fetch(req).catch(() => new Response("offline", { status: 503 })));
     return;
   }
 
-  // 4. Cache First для всіх статичних ресурсів
+  // Все інше — Network First
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      // Знайдено в кеші → повертаємо миттєво
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      // Не знайдено в кеші → завантажуємо з мережі та зберігаємо
-      return fetch(request)
-        .then((networkResponse) => {
-          // Кешуємо лише валідні відповіді (same-origin або cors)
-          if (
-            networkResponse &&
-            networkResponse.status === 200 &&
-            (networkResponse.type === "basic" || networkResponse.type === "cors")
-          ) {
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          // Офлайн і ресурсу немає в кеші
-          if (request.destination === "document") {
-            // Для навігаційних запитів повертаємо збережений index.html
-            return caches.match("./index.html");
-          }
-          // Для інших ресурсів — тихо повертаємо undefined (браузер обробить)
-        });
-    })
+    fetch(req)
+      .then((res) => {
+        // Кешуємо успішні відповіді для офлайну
+        if (res.status === 200) {
+          var clone = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(req, clone));
+        }
+        return res;
+      })
+      .catch(() => caches.match(req).then((c) => c || caches.match("./index.html")))
   );
 });
