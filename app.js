@@ -175,6 +175,8 @@ onAuthStateChanged(auth, (user) => {
   }
 
   renderUI();
+  listenToWorkouts();
+  listenToMeta();
   if (typeof renderPhotos === "function") renderPhotos();
   if (typeof renderBodyMap === "function") renderBodyMap();
 });
@@ -1236,21 +1238,32 @@ window.loadMoreWorkouts = () => {
 
 listenToWorkouts();
 
-// Завантаження цілей з Firebase
-onSnapshot(collection(db, "goals"), (snapshot) => {
-  allGoals = {};
-  snapshot.docs.forEach((doc) => {
-    allGoals[doc.id] = doc.data().value;
+// Завантаження цілей та глобальної статистики
+var _goalsUnsub = null;
+var _globalUnsub = null;
+var _pedestalUnsub = null;
+
+function listenToMeta() {
+  // Знімаємо старі слухачі щоб не дублювати
+  if (_goalsUnsub) _goalsUnsub();
+  if (_globalUnsub) _globalUnsub();
+
+  _goalsUnsub = onSnapshot(collection(db, "goals"), (snapshot) => {
+    allGoals = {};
+    snapshot.docs.forEach((d) => {
+      allGoals[d.id] = d.data().value;
+    });
+    renderUI();
   });
-  renderUI(); // Оновлюємо П'єдестал, коли завантажаться цілі
-});
-// Завантаження глобальної статистики з Firebase
-onSnapshot(doc(db, "stats", "global"), (docSnapshot) => {
-  if (docSnapshot.exists()) {
-    globalStats = docSnapshot.data();
-    renderGlobalStats(); // Перемальовуємо тільки Зал Слави, коли статистика змінюється!
-  }
-});
+
+  _globalUnsub = onSnapshot(doc(db, "stats", "global"), (docSnapshot) => {
+    if (docSnapshot.exists()) {
+      globalStats = docSnapshot.data();
+      renderGlobalStats();
+    }
+  });
+}
+listenToMeta();
 let editingId = null; // Змінна, яка пам'ятає, чи ми щось редагуємо
 
 // Функція для очищення форми (Оптимізована)
