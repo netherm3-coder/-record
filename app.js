@@ -177,7 +177,9 @@ onAuthStateChanged(auth, (user) => {
   renderUI();
   listenToWorkouts();
   listenToMeta();
-  if (typeof renderPhotos === "function") renderPhotos();
+  if (window.listenToWeight) window.listenToWeight();
+  if (window.listenToPhotos) window.listenToPhotos();
+  if (window.renderPhotos) window.renderPhotos();
   if (typeof renderBodyMap === "function") renderBodyMap();
 });
 {
