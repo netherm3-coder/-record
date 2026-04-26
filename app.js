@@ -127,6 +127,20 @@ if (donateBtn && donateModal && closeDonateBtn) {
 }
 
 // === СИСТЕМА АВТОРИЗАЦІЇ ===
+
+// Клік по заголовку — показати/сховати форму входу
+{
+  const secretDoor = document.getElementById("secretDoor");
+  const loginSection = document.getElementById("loginSection");
+  if (secretDoor && loginSection) {
+    secretDoor.addEventListener("click", () => {
+      if (!isAdmin) {
+        loginSection.style.display = loginSection.style.display === "block" ? "none" : "block";
+      }
+    });
+  }
+}
+
 onAuthStateChanged(auth, (user) => {
   const navPhotos = document.getElementById("nav-photos");
   const weightPanel = document.getElementById("weightAdminPanel");
