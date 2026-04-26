@@ -1541,3 +1541,226 @@ body {
   visibility: visible;
   pointer-events: auto;
 }
+/* ================================================================
+   ПЕРЕНЕСЕНІ INLINE СТИЛІ
+   ================================================================ */
+
+/* Елементи з display:none за замовчуванням (JS керує видимістю) */
+#adminSecretBtn,
+#logoutBtn,
+#loginSection,
+#sportStatusCard,
+#adminPanel,
+#cancelEditBtn,
+#customEx,
+#timeContainer,
+#sprintContainer,
+#shuttleContainer,
+#customResultContainer,
+#oneRmContainer,
+#weightAdminPanel,
+#bodyMapCard,
+#loadMoreBtn,
+#loadMoreWeightBtn,
+#loadMorePhotosBtn,
+#nav-photos { display: none; }
+
+/* Адмін секція */
+.section-title-flush { margin-bottom: 0; }
+
+/* Кастом вправа */
+.custom-ex-input { margin-top: 15px; }
+
+/* 1RM контейнер */
+#oneRmContainer {
+  margin-top: 15px;
+  padding: 12px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px dashed var(--success);
+  border-radius: 12px;
+  color: var(--success);
+  font-weight: 800;
+  font-size: 0.95rem;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.1);
+}
+.onerm-icon { width: 1em; height: 1em; vertical-align: middle; }
+
+/* Час/Спринт/Човник контейнери */
+#sprintContainer,
+#shuttleContainer { margin-top: 15px; }
+#customEx { margin-top: 15px; }
+
+/* Нотатка та відео */
+#noteContainer,
+#videoContainer { margin-top: 15px; }
+
+/* Кнопка Load More */
+.load-more-btn {
+  margin: 0 auto 30px auto;
+  width: auto;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+}
+
+/* Тверезість */
+.sober-section {
+  margin-top: 30px;
+  text-align: center;
+}
+.sober-flex {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+.sober-card {
+  min-width: 160px;
+  flex: 0 1 auto;
+}
+.sober-value { font-size: 1.3rem; }
+.sober-days {
+  font-size: 0.7rem;
+  margin-top: 5px;
+  color: var(--success);
+}
+
+/* Вага: сітка */
+.weight-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+/* Заміри тіла */
+.body-measurements {
+  margin-top: 15px;
+  padding: 15px;
+  background: rgba(99, 102, 241, 0.05);
+  border-radius: 16px;
+  border: 1px dashed var(--border);
+}
+.body-measurements-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--accent);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.measurements-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Кнопка зберегти вагу */
+.save-weight-btn {
+  background: linear-gradient(135deg, var(--highlight), #d97706);
+}
+
+/* Карта тіла */
+#bodyMapCard {
+  padding: 15px;
+  background: rgba(30, 41, 59, 0.4);
+}
+.body-map-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+  margin: 0 auto;
+}
+.body-map-svg {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.2));
+}
+.body-markers {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+.section-title-body-map { font-size: 1rem; }
+
+/* BMI контейнер */
+#bmiContainer {
+  text-align: center;
+  margin-top: 15px;
+  margin-bottom: 20px;
+}
+
+/* Фото — попередження */
+.photo-warning {
+  font-size: 0.8rem;
+  color: var(--highlight);
+  margin-bottom: 10px;
+}
+.warning-icon-raw {
+  filter: none;
+  color: var(--highlight);
+  opacity: 1;
+  vertical-align: middle;
+}
+
+/* Модальні вікна */
+.modal-content-sm { max-width: 400px; text-align: center; }
+.modal-content-xs { max-width: 350px; text-align: center; }
+
+.donate-text {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin-bottom: 25px;
+  line-height: 1.6;
+}
+.donate-link {
+  display: block;
+  text-decoration: none;
+  box-sizing: border-box;
+  width: 100%;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+.goal-desc {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 15px;
+  line-height: 1.5;
+}
+#goalInput {
+  margin-bottom: 15px;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  padding: 10px;
+}
+.save-goal-btn {
+  margin-top: 0;
+  background: linear-gradient(135deg, var(--success), #059669);
+}
+
+/* Info modal */
+.info-body {
+  color: var(--text-main);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  text-align: left;
+}
+.info-intro {
+  background: rgba(99, 102, 241, 0.1);
+  border-left: 3px solid var(--accent);
+  padding: 10px;
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 20px;
+}
+.info-body h3 {
+  color: var(--highlight);
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+}
+.info-body ul {
+  padding-left: 20px;
+  margin-bottom: 20px;
+  color: var(--text-muted);
+}
+
+/* SVG іконка ока в меню */
+#adminSecretBtn .btn-icon { flex-shrink: 0; }

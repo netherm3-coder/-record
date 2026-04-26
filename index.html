@@ -4,98 +4,82 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Кімната Рекордів</title>
-
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
     <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
     <link rel="apple-touch-icon" sizes="1024x1024" href="assets/icon-1024.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"
-    ></script>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap"
-      rel="stylesheet"
-    />
+    <script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet" />
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="style.css" />
   </head>
-
   <body>
     <div class="container">
-<div class="header-box">
-  <button id="menuTrigger" class="hamburger" aria-label="Відкрити меню">
-    <span></span><span></span><span></span>
-  </button>
-  
-  <h1 id="secretDoor" class="main-title">Кімната<span> Рекордів</span> <img src="assets/icons/trophy.svg" class="title-trophy themed-icon" alt="" onerror="this.style.display='none'></h1>
-  
-  <button id="themeToggle" class="theme-btn" aria-label="Змінити тему"><img id="themeIcon" src="assets/icons/sun.svg" class="theme-icon themed-icon" alt=""></button>
-</div>
-<nav id="sideMenu" class="side-menu">
-  <div class="side-menu__header">
-    <h3>Навігація</h3>
-    <button id="closeMenu" class="side-menu__close" aria-label="Закрити меню"><img src="assets/icons/close.svg" class="btn-icon themed-icon" alt=""></button>
-  </div>
-  <div class="side-menu__content">
-    <div class="side-menu__music">
-      <div class="music-header">
-        <button id="musicToggle" class="music-play-btn">
-          <img src="assets/icons/play.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
-          <span class="btn-fallback">▶</span>
-        </button>
-        <span id="musicLabel" class="music-label">Музика вимк.</span>
+      <div class="header-box">
+        <button id="menuTrigger" class="hamburger" aria-label="Відкрити меню"><span></span><span></span><span></span></button>
+        <h1 id="secretDoor" class="main-title">Кімната<span> Рекордів</span> <img src="assets/icons/trophy.svg" class="title-trophy themed-icon" alt="" onerror="this.style.display='none'"></h1>
+        <button id="themeToggle" class="theme-btn" aria-label="Змінити тему"><img id="themeIcon" src="assets/icons/sun.svg" class="theme-icon themed-icon" alt=""></button>
       </div>
-      <select id="musicSelect" class="music-select"><option value="">Завантаження...</option></select>
-      <div class="music-vol-row">
-        <input type="range" id="musicVolume" class="music-volume" min="0" max="100" value="30" />
-        <span id="musicVolLabel" class="music-vol-label">30%</span>
-      </div>
-    </div>
-    <button id="infoBtn" class="side-menu__item">
-      <img src="assets/icons/info.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
-      <span class="btn-fallback">💡</span> Як це працює?
-    </button>
-    <a href="fund/index.html" class="side-menu__item side-menu__fund">
-      <img src="assets/money.png" alt="" class="btn-icon"> Фундамент
-    </a>
-    <button id="donateBtn" class="side-menu__item">
-      <img src="assets/icons/donate.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
-      <span class="btn-fallback">☕</span> Підтримати автора
-    </button>
-    <button id="adminSecretBtn" class="side-menu__item" style="display: none">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20"
-       fill="none" stroke="currentColor" stroke-width="2"
-       stroke-linecap="round" stroke-linejoin="round" class="btn-icon" style="flex-shrink:0">
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-    <circle cx="12" cy="12" r="3"/>
-  </svg>
-  Архів
-</button>
-    <button id="logoutBtn" class="side-menu__item side-menu__logout" style="display: none">
-      <img src="assets/exit.png" alt="" class="btn-icon"> Вийти
-    </button>
-  </div>
-</nav>
-<audio id="bgMusic" loop preload="auto"></audio>
-<div id="menuOverlay" class="menu-overlay"></div>
 
-      <div id="loginSection" class="card login-card" style="display: none">
+      <nav id="sideMenu" class="side-menu">
+        <div class="side-menu__header">
+          <h3>Навігація</h3>
+          <button id="closeMenu" class="side-menu__close" aria-label="Закрити меню"><img src="assets/icons/close.svg" class="btn-icon themed-icon" alt=""></button>
+        </div>
+        <div class="side-menu__content">
+          <div class="side-menu__music">
+            <div class="music-header">
+              <button id="musicToggle" class="music-play-btn">
+                <img src="assets/icons/play.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
+                <span class="btn-fallback">▶</span>
+              </button>
+              <span id="musicLabel" class="music-label">Музика вимк.</span>
+            </div>
+            <select id="musicSelect" class="music-select"><option value="">Завантаження...</option></select>
+            <div class="music-vol-row">
+              <input type="range" id="musicVolume" class="music-volume" min="0" max="100" value="30" />
+              <span id="musicVolLabel" class="music-vol-label">30%</span>
+            </div>
+          </div>
+          <button id="infoBtn" class="side-menu__item">
+            <img src="assets/icons/info.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
+            <span class="btn-fallback">💡</span> Як це працює?
+          </button>
+          <a href="fund/index.html" class="side-menu__item side-menu__fund">
+            <img src="assets/money.png" alt="" class="btn-icon"> Фундамент
+          </a>
+          <button id="donateBtn" class="side-menu__item">
+            <img src="assets/icons/donate.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
+            <span class="btn-fallback">☕</span> Підтримати автора
+          </button>
+          <button id="adminSecretBtn" class="side-menu__item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            Архів
+          </button>
+          <button id="logoutBtn" class="side-menu__item side-menu__logout">
+            <img src="assets/exit.png" alt="" class="btn-icon"> Вийти
+          </button>
+        </div>
+      </nav>
+      <audio id="bgMusic" loop preload="auto"></audio>
+      <div id="menuOverlay" class="menu-overlay"></div>
+
+      <div id="loginSection" class="card login-card">
         <div class="section-title login-title">Вхід адміністратора</div>
         <input type="email" id="loginEmail" placeholder="Ваш Email" />
-        <input
-          type="password"
-          id="loginPass"
-          placeholder="Пароль"
-          class="login-input-mt"
-        />
+        <input type="password" id="loginPass" placeholder="Пароль" class="login-input-mt" />
         <button id="loginBtn" class="primary-btn login-btn">Увійти</button>
         <div id="loginError" class="login-error"></div>
       </div>
 
       <div id="status" class="status-bar">Підключення...</div>
+
+      <!-- === TAB: DASHBOARD === -->
       <div id="tab-dashboard" class="tab-content active">
         <div class="card experience-card">
           <div class="experience-title"><img src="assets/icons/fire.svg" class="section-icon themed-icon" alt=""> Тренуюсь вже:</div>
@@ -103,80 +87,41 @@
           <div class="experience-total" id="expTotalDays"></div>
         </div>
 
-        <div
-          class="card status-card"
-          id="sportStatusCard"
-          style="display: none"
-        >
+        <div class="card status-card" id="sportStatusCard">
           <div class="status-title"><img src="assets/icons/medal.svg" class="section-icon themed-icon" alt=""> Спортивний статус (Відносна сила)</div>
           <div class="status-level" id="statusLevelName">Новачок</div>
           <div class="status-coef" id="statusCoefValue">Коефіцієнт: 0.0</div>
-          <div class="status-bar-bg">
-            <div class="status-bar-fill" id="statusBarFill"></div>
-          </div>
+          <div class="status-bar-bg"><div class="status-bar-fill" id="statusBarFill"></div></div>
           <div class="status-hint" id="statusHint">Завантаження...</div>
         </div>
+
         <div class="section-title"><img src="assets/icons/trophy.svg" class="section-icon themed-icon" alt=""> Абсолютні рекорди</div>
         <div id="pedestalContainer" class="pedestal-grid"></div>
 
         <div class="section-title"><img src="assets/icons/globe.svg" class="section-icon themed-icon" alt=""> Зал Слави</div>
         <div id="globalStatsContainer" class="stats-grid"></div>
-        <div class="sober-section" style="margin-top: 30px; text-align: center">
+
+        <div class="sober-section">
           <div class="section-title"><img src="assets/icons/shield.svg" class="section-icon themed-icon" alt=""> Чистий</div>
-          <div
-            class="stats-grid"
-            style="
-              display: flex;
-              justify-content: center;
-              flex-wrap: wrap;
-              gap: 15px;
-            "
-          >
-            <div class="stat-card" style="min-width: 160px; flex: 0 1 auto">
+          <div class="sober-flex">
+            <div class="stat-card sober-card">
               <div class="stat-title"><img src="assets/noalcohol.png" alt="" class="sober-icon"> Без алкоголю</div>
-              <div
-                id="soberAlcohol"
-                class="stat-value"
-                style="font-size: 1.3rem"
-              >
-                Рахуємо...
-              </div>
-              <div
-                id="soberAlcoholDays"
-                class="stat-title"
-                style="
-                  font-size: 0.7rem;
-                  margin-top: 5px;
-                  color: var(--success);
-                "
-              ></div>
+              <div id="soberAlcohol" class="stat-value sober-value">Рахуємо...</div>
+              <div id="soberAlcoholDays" class="stat-title sober-days"></div>
             </div>
-            <div class="stat-card" style="min-width: 160px; flex: 0 1 auto">
+            <div class="stat-card sober-card">
               <div class="stat-title"><img src="assets/nosmoking.png" alt="" class="sober-icon"> Без куріння</div>
-              <div
-                id="soberSmoking"
-                class="stat-value"
-                style="font-size: 1.3rem"
-              >
-                Рахуємо...
-              </div>
-              <div
-                id="soberSmokingDays"
-                class="stat-title"
-                style="
-                  font-size: 0.7rem;
-                  margin-top: 5px;
-                  color: var(--success);
-                "
-              ></div>
+              <div id="soberSmoking" class="stat-value sober-value">Рахуємо...</div>
+              <div id="soberSmokingDays" class="stat-title sober-days"></div>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- === TAB: HISTORY === -->
       <div id="tab-history" class="tab-content">
-        <div class="card" id="adminPanel" style="display: none">
-          <div class="section-title" style="margin-bottom: 0">
+        <div class="card" id="adminPanel">
+          <div class="section-title section-title-flush">
             <img src="assets/icons/bolt.svg" class="section-icon themed-icon" alt=""> Додати новий рекорд
           </div>
 
@@ -191,164 +136,72 @@
             <option value="custom">Інше...</option>
           </select>
 
-          <input
-            type="text"
-            id="customEx"
-            placeholder="Введіть назву вправи"
-            style="display: none; margin-top: 15px"
-          />
+          <input type="text" id="customEx" placeholder="Введіть назву вправи" />
 
           <label>Дата</label>
           <input type="date" id="workoutDate" />
 
           <div id="countContainer">
             <label>Результат (кількість)</label>
-            <input
-              type="number"
-              id="workoutCount"
-              placeholder="0"
-              min="0"
-              oninput="update1RM()"
-            />
-
+            <input type="number" id="workoutCount" placeholder="0" min="0" oninput="update1RM()" />
             <label>Додаткова вага (кг, необов'язково)</label>
-            <input
-              type="number"
-              id="addWeight"
-              placeholder="0"
-              min="0"
-              step="0.5"
-              oninput="update1RM()"
-            />
-
-            <div
-              id="oneRmContainer"
-              style="
-                display: none;
-                margin-top: 15px;
-                padding: 12px;
-                background: rgba(16, 185, 129, 0.15);
-                border: 1px dashed var(--success);
-                border-radius: 12px;
-                color: var(--success);
-                font-weight: 800;
-                font-size: 0.95rem;
-                text-align: center;
-                box-shadow: 0 4px 15px rgba(16, 185, 129, 0.1);
-              "
-            >
-              <img src="assets/icons/lightbulb.svg" class="themed-icon" style="width:1em;height:1em;vertical-align:middle;" alt=""> Теоретичний максимум (1ПМ): <span id="oneRmValue">0</span> кг
+            <input type="number" id="addWeight" placeholder="0" min="0" step="0.5" oninput="update1RM()" />
+            <div id="oneRmContainer">
+              <img src="assets/icons/lightbulb.svg" class="themed-icon onerm-icon" alt=""> Теоретичний максимум (1ПМ): <span id="oneRmValue">0</span> кг
             </div>
-
             <label>Час виконання (необов'язково)</label>
             <div class="time-inputs">
               <input type="number" id="exMin" placeholder="Хв" min="0" />
-              <input
-                type="number"
-                id="exSec"
-                placeholder="Сек"
-                min="0"
-                max="59"
-              />
+              <input type="number" id="exSec" placeholder="Сек" min="0" max="59" />
             </div>
           </div>
 
-          <div id="timeContainer" style="display: none">
+          <div id="timeContainer">
             <label>Відстань (км)</label>
-            <input
-              type="number"
-              id="runDistance"
-              placeholder="0"
-              min="0"
-              step="0.1"
-            />
+            <input type="number" id="runDistance" placeholder="0" min="0" step="0.1" />
             <label>Час (хв:сек)</label>
             <div class="time-inputs">
               <input type="number" id="runMin" placeholder="Хв" min="0" />
-              <input
-                type="number"
-                id="runSec"
-                placeholder="Сек"
-                min="0"
-                max="59"
-              />
+              <input type="number" id="runSec" placeholder="Сек" min="0" max="59" />
             </div>
           </div>
-          <div id="sprintContainer" style="display: none; margin-top: 15px">
+
+          <div id="sprintContainer">
             <label>Дистанція Спринту (метри)</label>
-            <input
-              type="number"
-              id="sprintDistance"
-              placeholder="Напр. 100"
-              min="0"
-            />
+            <input type="number" id="sprintDistance" placeholder="Напр. 100" min="0" />
             <label>Час (секунди з мілісекундами)</label>
-            <input
-              type="number"
-              id="sprintSec"
-              placeholder="Напр. 12.5"
-              min="0"
-              step="0.1"
-            />
+            <input type="number" id="sprintSec" placeholder="Напр. 12.5" min="0" step="0.1" />
           </div>
 
-          <div id="shuttleContainer" style="display: none; margin-top: 15px">
+          <div id="shuttleContainer">
             <label>Схема відрізків (напр. 10х10)</label>
             <input type="text" id="shuttleScheme" placeholder="10х10" />
             <label>Час (секунди з мілісекундами)</label>
-            <input
-              type="number"
-              id="shuttleSec"
-              placeholder="Напр. 24.5"
-              min="0"
-              step="0.1"
-            />
+            <input type="number" id="shuttleSec" placeholder="Напр. 24.5" min="0" step="0.1" />
           </div>
-          <div id="customResultContainer" style="display: none">
+
+          <div id="customResultContainer">
             <label>Результат</label>
-            <input
-              type="text"
-              id="customResultStr"
-              placeholder="Ваш результат"
-            />
+            <input type="text" id="customResultStr" placeholder="Ваш результат" />
             <label>Час виконання (необов'язково)</label>
             <div class="time-inputs">
               <input type="number" id="customMin" placeholder="Хв" min="0" />
-              <input
-                type="number"
-                id="customSec"
-                placeholder="Сек"
-                min="0"
-                max="59"
-              />
+              <input type="number" id="customSec" placeholder="Сек" min="0" max="59" />
             </div>
           </div>
 
           <button id="saveBtn" class="primary-btn">Зберегти рекорд</button>
-
-          <button
-            id="cancelEditBtn"
-            class="primary-btn btn-outline-danger"
-            style="display: none"
-          >
+          <button id="cancelEditBtn" class="primary-btn btn-outline-danger">
             <img src="assets/icons/close.svg" class="btn-icon themed-icon" alt=""> Скасувати редагування
           </button>
 
-          <div id="noteContainer" style="margin-top: 15px">
+          <div id="noteContainer">
             <label><img src="assets/icons/note.svg" class="btn-icon themed-icon" alt=""> Нотатка (самопочуття, погода...)</label>
-            <input
-              type="text"
-              id="workoutNote"
-              placeholder="Напр.: Після наряду"
-            />
+            <input type="text" id="workoutNote" placeholder="Напр.: Після наряду" />
           </div>
-          <div id="videoContainer" style="margin-top: 15px">
+          <div id="videoContainer">
             <label><img src="assets/icons/video.svg" class="btn-icon themed-icon" alt=""> Посилання на відео-доказ (необов'язково)</label>
-            <input
-              type="url"
-              id="workoutVideoUrl"
-              placeholder="Напр.: https://youtu.be/..."
-            />
+            <input type="url" id="workoutVideoUrl" placeholder="Напр.: https://youtu.be/..." />
           </div>
 
           <button id="exportBtn" class="btn-outline-accent">
@@ -362,278 +215,94 @@
             <option value="all">Усі рекорди</option>
           </select>
         </div>
-        <div class="card">
-          <div class="chart-container">
-            <canvas id="progressChart"></canvas>
-          </div>
-        </div>
+        <div class="card"><div class="chart-container"><canvas id="progressChart"></canvas></div></div>
         <div id="timelineContainer" class="timeline-container"></div>
-        <button
-          id="loadMoreBtn"
-          class="primary-btn"
-          style="
-            display: none;
-            margin: 0 auto 30px auto;
-            width: auto;
-            padding: 10px 20px;
-            font-size: 0.9rem;
-          "
-          onclick="loadMoreWorkouts()"
-        >
+        <button id="loadMoreBtn" class="primary-btn load-more-btn" onclick="loadMoreWorkouts()">
           <img src="assets/icons/chevron-down.svg" class="btn-icon themed-icon" alt=""> Завантажити старіші
         </button>
       </div>
 
+      <!-- === TAB: WEIGHT === -->
       <div id="tab-weight" class="tab-content">
-        <div class="card" id="weightAdminPanel" style="display: none">
-          <div class="section-title" style="margin-bottom: 0">
+        <div class="card" id="weightAdminPanel">
+          <div class="section-title section-title-flush">
             <img src="assets/icons/scale.svg" class="section-icon themed-icon" alt=""> Тіло та Вага
           </div>
-
           <label>Дата зважування та замірів</label>
           <input type="date" id="weightDate" />
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px">
+          <div class="weight-grid">
             <div>
               <label>Вага (кг)</label>
-              <input
-                type="number"
-                id="weightValue"
-                placeholder="0"
-                min="0"
-                step="0.1"
-              />
+              <input type="number" id="weightValue" placeholder="0" min="0" step="0.1" />
             </div>
             <div>
               <label>Зріст (см)</label>
               <input type="number" id="userHeight" placeholder="180" min="0" />
             </div>
           </div>
-
-          <div
-            style="
-              margin-top: 15px;
-              padding: 15px;
-              background: rgba(99, 102, 241, 0.05);
-              border-radius: 16px;
-              border: 1px dashed var(--border);
-            "
-          >
-            <div
-              style="
-                font-size: 0.85rem;
-                font-weight: 800;
-                color: var(--accent);
-                margin-bottom: 10px;
-                text-transform: uppercase;
-              "
-            >
+          <div class="body-measurements">
+            <div class="body-measurements-title">
               <img src="assets/icons/ruler.svg" class="section-icon themed-icon" alt=""> Заміри тіла (см)
             </div>
-            <div
-              style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px"
-            >
-              <input
-                type="number"
-                id="mNeck"
-                placeholder="Шия"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mShoulders"
-                placeholder="Плечі"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mChest"
-                placeholder="Груди"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mWaist"
-                placeholder="Талія"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mBicep"
-                placeholder="Біцепс"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mThigh"
-                placeholder="Стегно"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mCalf"
-                placeholder="Гомілка"
-                min="0"
-                step="0.1"
-              />
-              <input
-                type="number"
-                id="mForearm"
-                placeholder="Передпліччя"
-                min="0"
-                step="0.1"
-              />
+            <div class="measurements-grid">
+              <input type="number" id="mNeck" placeholder="Шия" min="0" step="0.1" />
+              <input type="number" id="mShoulders" placeholder="Плечі" min="0" step="0.1" />
+              <input type="number" id="mChest" placeholder="Груди" min="0" step="0.1" />
+              <input type="number" id="mWaist" placeholder="Талія" min="0" step="0.1" />
+              <input type="number" id="mBicep" placeholder="Біцепс" min="0" step="0.1" />
+              <input type="number" id="mThigh" placeholder="Стегно" min="0" step="0.1" />
+              <input type="number" id="mCalf" placeholder="Гомілка" min="0" step="0.1" />
+              <input type="number" id="mForearm" placeholder="Передпліччя" min="0" step="0.1" />
             </div>
           </div>
-
-          <button
-            id="saveWeightBtn"
-            class="primary-btn"
-            style="
-              background: linear-gradient(135deg, var(--highlight), #d97706);
-            "
-          >
-            Зберегти дані тіла
-          </button>
+          <button id="saveWeightBtn" class="primary-btn save-weight-btn">Зберегти дані тіла</button>
         </div>
 
-        <div
-          class="card"
-          id="bodyMapCard"
-          style="
-            padding: 15px;
-            display: none;
-            background: rgba(30, 41, 59, 0.4);
-          "
-        >
-          <div class="section-title" style="font-size: 1rem">
+        <div class="card" id="bodyMapCard">
+          <div class="section-title section-title-body-map">
             <img src="assets/icons/map.svg" class="section-icon themed-icon" alt=""> Карта пропорцій
           </div>
-          <div
-            style="
-              position: relative;
-              width: 100%;
-              max-width: 220px;
-              margin: 0 auto;
-            "
-          >
-            <svg
-              viewBox="0 0 200 380"
-              xmlns="http://www.w3.org/2000/svg"
-              style="
-                width: 100%;
-                height: auto;
-                filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.2));
-              "
-            >
-              <path
-                d="M100,10 c12,0 16,8 16,18 c0,12 -6,18 -16,18 c-10,0 -16,-6 -16,-18 c0,-10 4,-18 16,-18 Z"
-                fill="rgba(99, 102, 241, 0.15)"
-                stroke="var(--accent)"
-                stroke-width="2.5"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M90,45 C75,45 55,55 45,75 C40,90 30,150 25,185 C23,205 45,205 45,185 C45,150 55,110 65,95 C70,120 75,150 70,190 C65,220 60,280 65,340 C65,360 85,360 85,340 C85,280 95,250 95,230 C97,215 103,215 105,230 C105,250 115,280 115,340 C115,360 135,360 135,340 C140,280 135,220 130,190 C125,150 130,120 135,95 C145,110 155,150 155,185 C155,205 177,205 175,185 C170,150 160,90 155,75 C145,55 125,45 110,45 Z"
-                fill="rgba(99, 102, 241, 0.1)"
-                stroke="var(--accent)"
-                stroke-width="2.5"
-                stroke-linejoin="round"
-              />
+          <div class="body-map-wrapper">
+            <svg viewBox="0 0 200 380" xmlns="http://www.w3.org/2000/svg" class="body-map-svg">
+              <path d="M100,10 c12,0 16,8 16,18 c0,12 -6,18 -16,18 c-10,0 -16,-6 -16,-18 c0,-10 4,-18 16,-18 Z" fill="rgba(99, 102, 241, 0.15)" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" />
+              <path d="M90,45 C75,45 55,55 45,75 C40,90 30,150 25,185 C23,205 45,205 45,185 C45,150 55,110 65,95 C70,120 75,150 70,190 C65,220 60,280 65,340 C65,360 85,360 85,340 C85,280 95,250 95,230 C97,215 103,215 105,230 C105,250 115,280 115,340 C115,360 135,360 135,340 C140,280 135,220 130,190 C125,150 130,120 135,95 C145,110 155,150 155,185 C155,205 177,205 175,185 C170,150 160,90 155,75 C145,55 125,45 110,45 Z" fill="rgba(99, 102, 241, 0.1)" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" />
             </svg>
-            <div
-              id="bodyMarkersContainer"
-              style="
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                pointer-events: none;
-              "
-            ></div>
+            <div id="bodyMarkersContainer" class="body-markers"></div>
           </div>
         </div>
-        <div class="card">
-          <div class="chart-container">
-            <canvas id="weightChart"></canvas>
-          </div>
-        </div>
-        <div
-          id="bmiContainer"
-          style="text-align: center; margin-top: 15px; margin-bottom: 20px"
-        ></div>
+
+        <div class="card"><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
+        <div id="bmiContainer"></div>
         <div class="section-title"><img src="assets/icons/calendar.svg" class="section-icon themed-icon" alt=""> Історія зважувань</div>
         <div id="weightTimelineContainer" class="timeline-container"></div>
-        <button
-          id="loadMoreWeightBtn"
-          class="primary-btn"
-          style="
-            display: none;
-            margin: 0 auto 30px auto;
-            width: auto;
-            padding: 10px 20px;
-            font-size: 0.9rem;
-          "
-          onclick="loadMoreWeight()"
-        >
+        <button id="loadMoreWeightBtn" class="primary-btn load-more-btn" onclick="loadMoreWeight()">
           <img src="assets/icons/chevron-down.svg" class="btn-icon themed-icon" alt=""> Завантажити старіші
         </button>
       </div>
+
+      <!-- === TAB: PHOTOS === -->
       <div id="tab-photos" class="tab-content">
         <div class="card" id="photoAdminPanel">
-          <div class="section-title" style="margin-bottom: 0">
+          <div class="section-title section-title-flush">
             <img src="assets/icons/camera.svg" class="section-icon themed-icon" alt=""> Додати прогрес-фото
           </div>
-
           <label>Дата фото</label>
           <input type="date" id="photoDate" />
-
           <label>Посилання на Google Диск</label>
-          <div
-            style="
-              font-size: 0.8rem;
-              color: var(--highlight);
-              margin-bottom: 10px;
-            "
-          >
-            <img src="assets/icons/warning.svg" class="btn-icon" style="filter:none;color:var(--highlight);opacity:1;vertical-align:middle;" alt=""> Увага: у налаштуваннях доступу фотографії на Диску має бути
-            ввімкнено <b>"Усі, хто має посилання"</b>.
+          <div class="photo-warning">
+            <img src="assets/icons/warning.svg" class="btn-icon warning-icon-raw" alt=""> Увага: у налаштуваннях доступу фотографії на Диску має бути ввімкнено <b>"Усі, хто має посилання"</b>.
           </div>
-          <input
-            type="url"
-            id="photoUrl"
-            placeholder="https://drive.google.com/file/d/.../view"
-          />
-
-          <button id="savePhotoBtn" class="primary-btn">
-            Додати в галерею
-          </button>
+          <input type="url" id="photoUrl" placeholder="https://drive.google.com/file/d/.../view" />
+          <button id="savePhotoBtn" class="primary-btn">Додати в галерею</button>
         </div>
-
         <div class="section-title"><img src="assets/icons/calendar.svg" class="section-icon themed-icon" alt=""> Візуальний щоденник</div>
         <div id="photoGalleryContainer" class="photo-grid"></div>
-        <button
-          id="loadMorePhotosBtn"
-          class="primary-btn"
-          style="
-            display: none;
-            margin: 0 auto 30px auto;
-            width: auto;
-            padding: 10px 20px;
-            font-size: 0.9rem;
-          "
-          onclick="loadMorePhotos()"
-        >
+        <button id="loadMorePhotosBtn" class="primary-btn load-more-btn" onclick="loadMorePhotos()">
           <img src="assets/icons/chevron-down.svg" class="btn-icon themed-icon" alt=""> Завантажити старіші
         </button>
       </div>
+
+      <!-- === BOTTOM NAV === -->
       <nav class="bottom-nav">
         <button class="nav-btn active" data-tab="tab-dashboard">
           <img src="assets/icons/trophy.svg" class="nav-icon themed-icon" alt=""><span>Головна</span>
@@ -644,224 +313,81 @@
         <button class="nav-btn" data-tab="tab-weight">
           <img src="assets/icons/scale.svg" class="nav-icon themed-icon" alt=""><span>Вага</span>
         </button>
-        <button
-          class="nav-btn"
-          id="nav-photos"
-          data-tab="tab-photos"
-          style="display: none"
-        >
+        <button class="nav-btn" id="nav-photos" data-tab="tab-photos">
           <img src="assets/icons/camera.svg" class="nav-icon themed-icon" alt=""><span>Фото</span>
         </button>
       </nav>
 
+      <!-- === MODALS === -->
       <div id="infoModal" class="modal-overlay">
         <div class="card modal-content">
           <div class="modal-header">
             <div class="section-title">Як це працює?</div>
             <button id="closeInfoBtn" class="btn-del modal-close-btn"><img src="assets/icons/close.svg" class="btn-icon themed-icon" alt=""></button>
           </div>
-          <div
-            class="modal-body"
-            style="
-              color: var(--text-main);
-              font-size: 0.95rem;
-              line-height: 1.6;
-              text-align: left;
-            "
-          >
-            <div
-              style="
-                background: rgba(99, 102, 241, 0.1);
-                border-left: 3px solid var(--accent);
-                padding: 10px;
-                border-radius: 0 8px 8px 0;
-                margin-bottom: 20px;
-              "
-            >
+          <div class="modal-body info-body">
+            <div class="info-intro">
               Персональна аналітична система для відстеження спортивних рекордів, тіла, фінансів та особистих досягнень. Працює офлайн, синхронізується через хмару.
             </div>
-
-            <h3 style="color: var(--highlight); margin-bottom: 10px; font-size: 1.1rem;">
-              Доступ та авторизація
-            </h3>
-            <ul style="padding-left: 20px; margin-bottom: 20px; color: var(--text-muted);">
-              <li>
-                <b>Гостьовий режим:</b> Будь-хто може переглядати рекорди, графіки, Зал Слави та лічильники тверезості.
-              </li>
-              <li>
-                <b>Адмін-режим:</b> Натисни на заголовок "Кімната Рекордів", щоб відкрити панель входу. Після першого входу дані запам'ятовуються — наступного разу вхід автоматичний.
-              </li>
-              <li>
-                <b>Адмін бачить:</b> форму додавання рекордів, редагування та видалення записів, вкладку "Вага" з картою тіла, галерею фото, панель внесків у Фундаменті.
-              </li>
+            <h3>Доступ та авторизація</h3>
+            <ul>
+              <li><b>Гостьовий режим:</b> Будь-хто може переглядати рекорди, графіки, Зал Слави та лічильники тверезості.</li>
+              <li><b>Адмін-режим:</b> Натисни на заголовок "Кімната Рекордів", щоб відкрити панель входу. Після першого входу дані запам'ятовуються — наступного разу вхід автоматичний.</li>
+              <li><b>Адмін бачить:</b> форму додавання рекордів, редагування та видалення записів, вкладку "Вага" з картою тіла, галерею фото, панель внесків у Фундаменті.</li>
             </ul>
-
-            <h3 style="color: var(--highlight); margin-bottom: 10px; font-size: 1.1rem;">
-              Розумні рекорди
-            </h3>
-            <ul style="padding-left: 20px; margin-bottom: 20px; color: var(--text-muted);">
-              <li>
-                <b>Силовий Індекс:</b> 10 підтягувань з +16 кг оцінюється вище, ніж 15 без ваги. Коронка в історії — за найкращий результат за Індексом, а не за кількістю.
-              </li>
-              <li>
-                <b>1ПМ (формула Еплі):</b> Автоматично розраховує теоретичний максимум на 1 повторення з урахуванням ваги тіла.
-              </li>
-              <li>
-                <b>Спортивний статус:</b> Коефіцієнт відносної сили (1ПМ / вага тіла) визначає звання — Рекрут, Атлет, КМС або Еліта.
-              </li>
-              <li>
-                <b>Бігові дисципліни:</b> Кожна дистанція (3 км, 5 км, 100 м спринт) — окрема вправа з власним рекордом. Графік показує час, а не відстань. Менше часу = прогрес.
-              </li>
-              <li>
-                <b>Цілі:</b> На П'єдесталі натисни "Задати ціль" — з'явиться прогрес-бар. Для бігових ціль задається в секундах.
-              </li>
+            <h3>Розумні рекорди</h3>
+            <ul>
+              <li><b>Силовий Індекс:</b> 10 підтягувань з +16 кг оцінюється вище, ніж 15 без ваги. Коронка в історії — за найкращий результат за Індексом, а не за кількістю.</li>
+              <li><b>1ПМ (формула Еплі):</b> Автоматично розраховує теоретичний максимум на 1 повторення з урахуванням ваги тіла.</li>
+              <li><b>Спортивний статус:</b> Коефіцієнт відносної сили (1ПМ / вага тіла) визначає звання — Рекрут, Атлет, КМС або Еліта.</li>
+              <li><b>Бігові дисципліни:</b> Кожна дистанція (3 км, 5 км, 100 м спринт) — окрема вправа з власним рекордом.</li>
+              <li><b>Цілі:</b> На П'єдесталі натисни "Задати ціль" — з'явиться прогрес-бар.</li>
             </ul>
-
-            <h3 style="color: var(--highlight); margin-bottom: 10px; font-size: 1.1rem;">
-              Тіло та здоров'я
-            </h3>
-            <ul style="padding-left: 20px; margin-bottom: 20px; color: var(--text-muted);">
-              <li>
-                <b>Вага та ІМТ:</b> Зріст запам'ятовується автоматично. ІМТ рахується в реальному часі з категорією (Норма, Зайва вага тощо).
-              </li>
-              <li>
-                <b>Карта пропорцій:</b> Введи заміри м'язів — додаток намалює силует з мітками. Різниця з минулим виміром показується стрілками.
-              </li>
-              <li>
-                <b>Тверезість:</b> Автоматичні лічильники днів без алкоголю та куріння.
-              </li>
+            <h3>Тіло та здоров'я</h3>
+            <ul>
+              <li><b>Вага та ІМТ:</b> Зріст запам'ятовується автоматично. ІМТ рахується в реальному часі з категорією.</li>
+              <li><b>Карта пропорцій:</b> Введи заміри м'язів — додаток намалює силует з мітками.</li>
+              <li><b>Тверезість:</b> Автоматичні лічильники днів без алкоголю та куріння.</li>
             </ul>
-
-            <h3 style="color: var(--highlight); margin-bottom: 10px; font-size: 1.1rem;">
-              Фундамент
-            </h3>
-            <ul style="padding-left: 20px; margin-bottom: 20px; color: var(--text-muted);">
-              <li>
-                <b>Трекер накопичень:</b> Ціль $200,000 на будівництво. Кожен внесок фіксується в грамах золота за курсом на момент внесення.
-              </li>
-              <li>
-                <b>Мультивалюта:</b> Внески в гривнях, доларах, євро, Bitcoin та USDT. Курси оновлюються автоматично кожні 90 секунд.
-              </li>
-              <li>
-                <b>Прогрес:</b> Дашборд показує суму в трьох валютах одночасно, відсоток досягнення цілі та залишок.
-              </li>
+            <h3>Фундамент</h3>
+            <ul>
+              <li><b>Трекер накопичень:</b> Ціль $200,000. Мультивалютні внески (₴, $, €, BTC, USDT).</li>
+              <li><b>Курси:</b> Оновлюються автоматично кожні 90 секунд.</li>
             </ul>
-
-            <h3 style="color: var(--highlight); margin-bottom: 10px; font-size: 1.1rem;">
-              Фото та бекапи
-            </h3>
-            <ul style="padding-left: 20px; margin-bottom: 20px; color: var(--text-muted);">
-              <li>
-                <b>Галерея:</b> Завантаж фото на Google Диск, увімкни доступ за посиланням, встав лінк. Фото групуються за датами.
-              </li>
-              <li>
-                <b>CSV-бекап:</b> У вкладці "Тренування" є кнопка для завантаження резервної копії всіх рекордів.
-              </li>
+            <h3>Фото та бекапи</h3>
+            <ul>
+              <li><b>Галерея:</b> Фото через Google Диск.</li>
+              <li><b>CSV-бекап:</b> У вкладці "Тренування".</li>
             </ul>
-
-            <h3 style="color: var(--highlight); margin-bottom: 10px; font-size: 1.1rem;">
-              Музика та додаток
-            </h3>
-            <ul style="padding-left: 20px; margin-bottom: 20px; color: var(--text-muted);">
-              <li>
-                <b>Фоновий плеєр:</b> Вибір треку, регулювання гучності. Музика продовжує грати при переході між сторінками з того ж місця.
-              </li>
-              <li>
-                <b>PWA:</b> Додаток можна встановити на головний екран. Працює офлайн завдяки кешуванню.
-              </li>
-              <li>
-                <b>Теми:</b> Перемикач темної та світлої теми зберігається між сесіями.
-              </li>
+            <h3>Музика та додаток</h3>
+            <ul>
+              <li><b>Фоновий плеєр:</b> Вибір треку, гучність, продовжує грати між сторінками.</li>
+              <li><b>PWA:</b> Можна встановити на головний екран. Працює офлайн.</li>
             </ul>
           </div>
         </div>
       </div>
 
       <div id="donateModal" class="modal-overlay">
-        <div
-          class="card modal-content"
-          style="max-width: 400px; text-align: center"
-        >
+        <div class="card modal-content modal-content-sm">
           <div class="modal-header">
             <div class="section-title"><img src="assets/icons/handshake.svg" class="section-icon themed-icon" alt=""> Підтримати автора</div>
-            <button id="closeDonateBtn" class="btn-del modal-close-btn">
-              <img src="assets/icons/close.svg" class="btn-icon themed-icon" alt="">
-            </button>
+            <button id="closeDonateBtn" class="btn-del modal-close-btn"><img src="assets/icons/close.svg" class="btn-icon themed-icon" alt=""></button>
           </div>
-
-          <div
-            style="
-              font-size: 0.95rem;
-              color: var(--text-muted);
-              margin-bottom: 25px;
-              line-height: 1.6;
-            "
-          >
-            На сервери
-          </div>
-
-          <a
-            href="https://donatello.to/RonziBi"
-            target="_blank"
-            class="primary-btn"
-            style="
-              display: block;
-              text-decoration: none;
-              box-sizing: border-box;
-              width: 100%;
-              background: linear-gradient(135deg, #f59e0b, #d97706);
-            "
-          >
-            Підтримати через Donatello
-          </a>
+          <div class="donate-text">На сервери</div>
+          <a href="https://donatello.to/RonziBi" target="_blank" class="primary-btn donate-link">Підтримати через Donatello</a>
         </div>
       </div>
 
       <div id="goalModal" class="modal-overlay">
-        <div
-          class="card modal-content"
-          style="max-width: 350px; text-align: center"
-        >
+        <div class="card modal-content modal-content-xs">
           <div class="modal-header">
             <div class="section-title" id="goalModalTitle"><img src="assets/icons/target.svg" class="section-icon themed-icon" alt=""> Задати ціль</div>
             <button id="closeGoalBtn" class="btn-del modal-close-btn"><img src="assets/icons/close.svg" class="btn-icon themed-icon" alt=""></button>
           </div>
-
-          <div
-            style="
-              font-size: 0.9rem;
-              color: var(--text-muted);
-              margin-bottom: 15px;
-              line-height: 1.5;
-            "
-          >
-            Введіть бажану кількість. Залиште поле порожнім, щоб повністю
-            видалити ціль.
-          </div>
-
-          <input
-            type="number"
-            id="goalInput"
-            placeholder="Наприклад: 50"
-            style="
-              margin-bottom: 15px;
-              text-align: center;
-              font-size: 1.5rem;
-              font-weight: 800;
-              padding: 10px;
-            "
-          />
-
-          <button
-            id="saveGoalBtn"
-            class="primary-btn"
-            style="
-              margin-top: 0;
-              background: linear-gradient(135deg, var(--success), #059669);
-            "
-          >
-            Зберегти ціль
-          </button>
+          <div class="goal-desc">Введіть бажану кількість. Залиште поле порожнім, щоб повністю видалити ціль.</div>
+          <input type="number" id="goalInput" placeholder="Наприклад: 50" />
+          <button id="saveGoalBtn" class="primary-btn save-goal-btn">Зберегти ціль</button>
         </div>
       </div>
     </div>
