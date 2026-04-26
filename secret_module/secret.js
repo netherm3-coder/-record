@@ -1,6 +1,6 @@
 // ================================================================
-//  secret_module/secret.js — Архів (Статистика + Медіа)
-//  Firebase: колекція private_logs
+//  secret_module/secret.js — Архів v2
+//  Firebase: private_logs { timestamp, type, note, is_hardcore, userId }
 // ================================================================
 
 import { getApps, getApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -11,28 +11,116 @@ import {
 
 const MEDIA_FILES = [
   "assets/redvid_io_violating_that_throatpussy_of_hers.gif",
-  "assets/RDT_20260421_2301107487583688953369648.jpg",
-  "assets/RDT_20260421_2304236334329579471223536.jpg",
+  "RDT_20260421_2301107487583688953369648.jpg",
+  "RDT_20260421_2304236334329579471223536.jpg",
 ];
 
 var _keyHandler = null;
 var _unsub = null;
 var _allLogs = [];
 
-// ---------------------------------------------------------------
 export async function openSecretModule() {
-  if (getApps().length === 0 || !getAuth(getApp()).currentUser) {
-    _show404(); return;
-  }
+  if (getApps().length === 0 || !getAuth(getApp()).currentUser) { _show404(); return; }
   _showContent();
 }
+
+// ================================================================
+//  CLIPBOARD EXPORT FOR AI
+// ================================================================
+function copyAiPrompt() {
+  var totalCount = _allLogs.length;
+  var hardcoreCount = _allLogs.filter(function (l) { return _isHardcore(l); }).length;
+  var now = new Date();
+
+  // R_dop (без впливу +)
+  var S = _getStreak(now);
+  var sevenAgo = now.getTime() - 7 * 86400000;
+  var N_7d = 0;
+  _allLogs.forEach(function (l) { if (l.timestamp >= sevenAgo && !_isHardcore(l)) N_7d++; });
+  var R_dop = Math.log(S + 1) * 5 - (N_7d * 2.5);
+  R_dop = Math.round(R_dop * 100) / 100;
+
+  // Останні 10
+  var last10 = _allLogs.slice(0, 10).map(function (l) {
+    var d = new Date(l.timestamp);
+    var ds = String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + " " +
+      String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    var tag = _isHardcore(l) ? " [+]" : "";
+    return ds + tag;
+  }).join("\n");
+
+  var text = "Дій як нейробіолог. Проаналізуй мої дані.\n" +
+    "Метрики: Поточний індекс R_dop=" + R_dop + ", Всього записів " + totalCount +
+    ", З них з обтяженням (+) " + hardcoreCount + ".\n" +
+    "Стрік (днів без зривів): " + S + "\n" +
+    "Останні 10 записів:\n" + last10 + "\n\n" +
+    "Завдання: Дай коротку критичну, суху оцінку мого стану. Вкажи на слабкість, якщо динаміка негативна. Без дипломатії.";
+
+  // Clipboard API з fallback
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () {
+      _showToast("Скопійовано в буфер");
+    }).catch(function () { _fallbackCopy(text); });
+  } else {
+    _fallbackCopy(text);
+  }
+}
+
+function _fallbackCopy(text) {
+  var ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0";
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); _showToast("Скопійовано в буфер"); }
+  catch (e) { _showToast("Не вдалось скопіювати"); }
+  document.body.removeChild(ta);
+}
+
+function _showToast(msg) {
+  var old = document.querySelector(".sm-toast");
+  if (old) old.remove();
+  var el = document.createElement("div");
+  el.className = "sm-toast";
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(function () { el.classList.add("sm-toast-visible"); });
+  setTimeout(function () { el.classList.remove("sm-toast-visible"); setTimeout(function () { el.remove(); }, 300); }, 2000);
+}
+
+// ================================================================
+//  HELPERS
+// ================================================================
+function _isHardcore(log) {
+  // Підтримка нового поля is_hardcore та старого формату через note
+  if (log.is_hardcore === true) return true;
+  if (log.note && log.note.indexOf("+") !== -1) return true;
+  return false;
+}
+
+function _getStreak(now) {
+  if (_allLogs.length === 0) return 252;
+  // Тільки НЕ-hardcore записи впливають на стрік
+  var nonHC = _allLogs.filter(function (l) { return !_isHardcore(l); });
+  if (nonHC.length === 0) return 252;
+  var lastTs = Math.max.apply(null, nonHC.map(function (l) { return l.timestamp; }));
+  var s = Math.floor((now.getTime() - lastTs) / 86400000);
+  return s < 0 ? 0 : s;
+}
+
+function _fmtDate(ts) {
+  var d = new Date(ts);
+  return String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." +
+    d.getFullYear() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+function _esc(s) { return s ? String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : ""; }
 
 // ================================================================
 //  MAIN CONTENT
 // ================================================================
 function _showContent() {
-  _ensureStyles();
-  _removeExisting();
+  _ensureStyles(); _removeExisting();
 
   var overlay = document.createElement("div");
   overlay.id = "smOverlay";
@@ -48,42 +136,42 @@ function _showContent() {
         '<button class="sm-tab active" data-tab="stats">Статистика</button>' +
         '<button class="sm-tab" data-tab="media">Медіа</button>' +
       '</div>' +
-      '<div class="sm-body" id="smBody">' +
+      '<div class="sm-body">' +
         '<div class="sm-panel active" id="smPanelStats"></div>' +
         '<div class="sm-panel" id="smPanelMedia"></div>' +
       '</div>' +
     '</div>';
 
   // Tabs
-  var tabs = overlay.querySelectorAll(".sm-tab");
-  var panels = overlay.querySelectorAll(".sm-panel");
-  tabs.forEach(function (t) {
+  overlay.querySelectorAll(".sm-tab").forEach(function (t) {
     t.addEventListener("click", function () {
-      tabs.forEach(function (x) { x.classList.remove("active"); });
-      panels.forEach(function (x) { x.classList.remove("active"); });
+      overlay.querySelectorAll(".sm-tab").forEach(function (x) { x.classList.remove("active"); });
+      overlay.querySelectorAll(".sm-panel").forEach(function (x) { x.classList.remove("active"); });
       t.classList.add("active");
-      overlay.querySelector("#smPanel" + cap(t.dataset.tab)).classList.add("active");
+      var id = t.dataset.tab;
+      overlay.querySelector("#smPanel" + id.charAt(0).toUpperCase() + id.slice(1)).classList.add("active");
     });
   });
-  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-  // Close
   overlay.querySelector("#smX").addEventListener("click", _removeExisting);
   _keyHandler = function (e) { if (e.key === "Escape") _removeExisting(); };
   document.addEventListener("keydown", _keyHandler);
 
-  // Mount
+  document.querySelectorAll("body > :not(script):not(style)").forEach(function (el) {
+    if (el.id !== "smOverlay") el.style.pointerEvents = "none";
+  });
+
   document.body.style.overflow = "hidden";
   document.body.appendChild(overlay);
+  overlay.style.pointerEvents = "auto";
   requestAnimationFrame(function () { overlay.classList.add("sm-visible"); });
 
-  // Init content
   _initMedia(overlay.querySelector("#smPanelMedia"));
   _listenLogs(overlay.querySelector("#smPanelStats"));
 }
 
 // ================================================================
-//  MEDIA TAB (slider)
+//  MEDIA TAB
 // ================================================================
 function _initMedia(container) {
   var total = MEDIA_FILES.length;
@@ -112,313 +200,316 @@ function _initMedia(container) {
   function goTo(idx) {
     if (idx < 0) idx = total - 1;
     if (idx >= total) idx = 0;
-    frames[current].classList.remove("active");
-    dots[current].classList.remove("active");
+    frames[current].classList.remove("active"); dots[current].classList.remove("active");
     current = idx;
-    frames[current].classList.add("active");
-    dots[current].classList.add("active");
+    frames[current].classList.add("active"); dots[current].classList.add("active");
   }
 
   track.addEventListener("touchstart", function (e) { tx0 = e.touches[0].clientX; dragging = true; dx = 0; }, { passive: true });
   track.addEventListener("touchmove", function (e) { if (dragging) dx = e.touches[0].clientX - tx0; }, { passive: true });
   track.addEventListener("touchend", function () {
     if (!dragging) return; dragging = false;
-    if (Math.abs(dx) > 45) { dx < 0 ? goTo(current + 1) : goTo(current - 1); }
-    dx = 0;
+    if (Math.abs(dx) > 45) { dx < 0 ? goTo(current + 1) : goTo(current - 1); } dx = 0;
   }, { passive: true });
-
   track.addEventListener("click", function (e) {
     if (Math.abs(dx) > 8) return;
     var r = track.getBoundingClientRect();
     var x = (e.clientX - r.left) / r.width;
-    if (x < 0.35) goTo(current - 1);
-    else if (x > 0.65) goTo(current + 1);
+    if (x < 0.35) goTo(current - 1); else if (x > 0.65) goTo(current + 1);
   });
-
-  dots.forEach(function (d) {
-    d.addEventListener("click", function (e) { e.stopPropagation(); goTo(parseInt(d.dataset.i)); });
-  });
-
+  dots.forEach(function (d) { d.addEventListener("click", function (e) { e.stopPropagation(); goTo(parseInt(d.dataset.i)); }); });
   track.addEventListener("contextmenu", function (e) { e.preventDefault(); });
 }
 
 // ================================================================
-//  FIREBASE LISTENER
+//  FIREBASE
 // ================================================================
 function _listenLogs(statsPanel) {
-  var app = getApp();
-  var db = getFirestore(app);
+  var app = getApp(); var db = getFirestore(app);
   var uid = getAuth(app).currentUser.uid;
   var q = query(collection(db, "private_logs"), orderBy("timestamp", "desc"), limit(500));
-
   _unsub = onSnapshot(q, function (snap) {
     _allLogs = snap.docs
-      .map(function (d) { return { id: d.id, ...d.data() }; })
+      .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
       .filter(function (l) { return l.userId === uid; });
     _renderStats(statsPanel);
+  }, function () {
+    statsPanel.innerHTML = '<div class="sm-err">Помилка доступу. Перевір Firestore rules для private_logs</div>';
   });
 }
 
 // ================================================================
-//  STATISTICS TAB
+//  STATS PANEL
 // ================================================================
 function _renderStats(container) {
-  var logs = _allLogs;
   var now = new Date();
 
-  // --- Heatmap data (252 days = 36 weeks) ---
+  // --- Counters ---
+  var totalCount = _allLogs.length;
+  var hardcoreCount = _allLogs.filter(function (l) { return _isHardcore(l); }).length;
+
+  // --- Heatmap ---
   var heatmap = {};
-  logs.forEach(function (l) {
-    var d = new Date(l.timestamp).toISOString().slice(0, 10);
-    heatmap[d] = (heatmap[d] || 0) + 1;
+  _allLogs.forEach(function (l) {
+    var d = new Date(l.timestamp);
+    var key = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    if (!heatmap[key]) heatmap[key] = { count: 0, notes: [] };
+    heatmap[key].count++;
+    if (l.note) heatmap[key].notes.push(l.note);
   });
 
   var cells = [];
   for (var i = 251; i >= 0; i--) {
     var dt = new Date(now); dt.setDate(dt.getDate() - i);
-    var key = dt.toISOString().slice(0, 10);
-    var count = heatmap[key] || 0;
-    var lvl = count === 0 ? 0 : count === 1 ? 1 : count <= 3 ? 2 : 3;
-    var dow = dt.getDay();
-    cells.push({ key: key, count: count, lvl: lvl, dow: dow });
+    var key = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+    var info = heatmap[key] || { count: 0, notes: [] };
+    var lvl = info.count === 0 ? 0 : info.count === 1 ? 1 : info.count === 2 ? 2 : info.count === 3 ? 3 : 4;
+    cells.push({ key: key, count: info.count, notes: info.notes, lvl: lvl, dow: dt.getDay() });
   }
 
-  // --- Streak calc ---
-  var streak = 0;
-  var d2 = new Date(now);
-  while (true) {
-    var k = d2.toISOString().slice(0, 10);
-    if (!heatmap[k]) break;
-    streak++;
-    d2.setDate(d2.getDate() - 1);
-  }
-  // If nothing today, check yesterday-based streak
-  if (streak === 0) {
-    var yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-    d2 = yesterday;
-    while (true) {
-      var k2 = d2.toISOString().slice(0, 10);
-      if (!heatmap[k2]) break;
-      streak++;
-      d2.setDate(d2.getDate() - 1);
-    }
-  }
+  // --- S (clean streak, hardcore NOT counted as reset) ---
+  var S = _getStreak(now);
 
-  // --- All streaks for S_avg ---
-  var allStreaks = [];
-  var tempStreak = 0;
-  for (var j = 251; j >= 0; j--) {
-    var dt2 = new Date(now); dt2.setDate(dt2.getDate() - j);
-    var k3 = dt2.toISOString().slice(0, 10);
-    if (heatmap[k3]) {
-      if (tempStreak > 0) allStreaks.push(tempStreak);
-      tempStreak = 0;
-    } else {
-      tempStreak++;
-    }
-  }
-  if (tempStreak > 0) allStreaks.push(tempStreak);
-  // S_avg = average clean streak (inverted: streaks of NO resets)
-  // Actually we need clean streaks (days without logs)
-  var S_avg = allStreaks.length > 0 ? allStreaks.reduce(function (a, b) { return a + b; }, 0) / allStreaks.length : 0;
-
-  // --- D_clean / D_total ---
-  var D_total = Math.min(252, logs.length > 0 ? Math.ceil((now - new Date(logs[logs.length - 1].timestamp)) / 86400000) + 1 : 1);
-  var D_clean = D_total - Object.keys(heatmap).length;
+  // --- D_total / D_clean ---
+  var D_total, D_clean;
+  if (_allLogs.length > 0) {
+    var firstTs = Math.min.apply(null, _allLogs.map(function (l) { return l.timestamp; }));
+    D_total = Math.ceil((now.getTime() - firstTs) / 86400000) + 1;
+    if (D_total > 252) D_total = 252;
+    D_clean = D_total - Object.keys(heatmap).length;
+  } else { D_total = 1; D_clean = 0; }
   if (D_clean < 0) D_clean = 0;
   var D_ratio = D_total > 0 ? D_clean / D_total : 0;
 
-  // --- R_7d (last 7 days, with + bonus) ---
+  // --- R_7d (ТІЛЬКИ не-hardcore записи впливають на формулу) ---
+  var sevenDaysAgo = now.getTime() - 7 * 86400000;
   var R_7d = 0;
-  var sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  logs.forEach(function (l) {
-    if (new Date(l.timestamp) >= sevenDaysAgo) {
-      R_7d += (l.note && l.note.includes("+")) ? 0.5 : 1;
-    }
+  _allLogs.forEach(function (l) {
+    if (l.timestamp >= sevenDaysAgo && !_isHardcore(l)) R_7d++;
   });
 
-  // --- Current clean streak (S) = days since last log ---
-  var S = 0;
-  if (logs.length > 0) {
-    var lastLog = new Date(logs[0].timestamp);
-    S = Math.floor((now - lastLog) / 86400000);
-  } else {
-    S = D_total;
+  // --- S_avg ---
+  var nonHC = _allLogs.filter(function (l) { return !_isHardcore(l); });
+  var sortedAsc = nonHC.slice().sort(function (a, b) { return a.timestamp - b.timestamp; });
+  var gaps = [];
+  for (var g = 1; g < sortedAsc.length; g++) {
+    var gap = Math.floor((sortedAsc[g].timestamp - sortedAsc[g - 1].timestamp) / 86400000);
+    if (gap > 0) gaps.push(gap);
   }
-  // --- K_ns = (D_clean/D_total)^2 * sqrt(S) * 10 - (R_7d * 15) ---
+  var S_avg = gaps.length > 0 ? gaps.reduce(function (a, b) { return a + b; }, 0) / gaps.length : S;
+
+  // --- K_ns (+ НЕ впливає) ---
   var K_ns = Math.pow(D_ratio, 2) * Math.sqrt(S) * 10 - (R_7d * 15);
   K_ns = Math.round(K_ns * 100) / 100;
 
-  // --- R_dop = (ln(S+1) * D_ratio/1.5) - (N_7d/(S_avg+1) * 10) ---
+  // --- R_dop (+ НЕ впливає) ---
   var R_dop = (Math.log(S + 1) * (D_ratio / 1.5)) - (R_7d / (S_avg + 1) * 10);
   R_dop = Math.round(R_dop * 100) / 100;
 
-  // --- Colors ---
   var kColor = K_ns < 0 ? "#ef4444" : K_ns > 50 ? "#38bdf8" : "#10b981";
   var rColor = R_dop < 0 ? "#ef4444" : R_dop > 5 ? "#38bdf8" : "#10b981";
 
   // --- Heatmap HTML ---
-  // Group cells by columns (weeks)
-  var grid = '';
-  for (var ci = 0; ci < cells.length; ci++) {
-    var c = cells[ci];
-    var colors = ["rgba(255,255,255,.04)", "#0e4429", "#006d32", "#26a641", "#39d353"];
-    var bg = colors[c.lvl];
-    var tip = c.key + (c.count > 0 ? " (" + c.count + ")" : "");
-    grid += '<div class="sm-hm-cell" style="background:' + bg + ';grid-row:' + (c.dow + 1) + '" title="' + tip + '"></div>';
-  }
+  var colors = ["rgba(255,255,255,.04)", "#0e4429", "#006d32", "#26a641", "#39d353"];
+  var grid = "";
+  cells.forEach(function (c) {
+    var notesStr = c.notes.length > 0 ? "\n" + c.notes.join("; ") : "";
+    var tip = c.key + (c.count > 0 ? " (" + c.count + ")" : "") + notesStr;
+    grid += '<div class="sm-hm-cell" style="background:' + colors[c.lvl] + ';grid-row:' + (c.dow + 1) + '" title="' + _esc(tip) + '"></div>';
+  });
 
   container.innerHTML =
+    // Counters
+    '<div class="sm-counters">' +
+      '<div class="sm-counter-box"><span class="sm-counter-num">' + totalCount + '</span><span class="sm-counter-lbl">всього</span></div>' +
+      '<div class="sm-counter-box"><span class="sm-counter-num sm-counter-hc">' + hardcoreCount + '</span><span class="sm-counter-lbl">з (+)</span></div>' +
+      '<div class="sm-counter-box"><span class="sm-counter-num sm-counter-streak">' + S + '</span><span class="sm-counter-lbl">стрік (д)</span></div>' +
+    '</div>' +
+
     // Heatmap
     '<div class="sm-section">' +
       '<div class="sm-section-title">Активність (36 тижнів)</div>' +
       '<div class="sm-heatmap">' + grid + '</div>' +
       '<div class="sm-hm-legend">' +
-        '<span style="opacity:.5">Менше</span>' +
-        '<div class="sm-hm-cell" style="background:rgba(255,255,255,.04)"></div>' +
-        '<div class="sm-hm-cell" style="background:#0e4429"></div>' +
-        '<div class="sm-hm-cell" style="background:#006d32"></div>' +
-        '<div class="sm-hm-cell" style="background:#26a641"></div>' +
-        '<div class="sm-hm-cell" style="background:#39d353"></div>' +
-        '<span style="opacity:.5">Більше</span>' +
+        '<span>менше</span>' +
+        colors.map(function (c) { return '<div class="sm-hm-cell" style="background:' + c + '"></div>'; }).join("") +
+        '<span>більше</span>' +
       '</div>' +
     '</div>' +
 
     // Coefficients
     '<div class="sm-coefs">' +
       '<div class="sm-coef-card">' +
-        '<div class="sm-coef-label">K<sub>ns</sub> Нейронна Стабільність</div>' +
+        '<div class="sm-coef-top"><span class="sm-coef-label">K<sub>ns</sub></span></div>' +
+        '<div class="sm-coef-sub">Нейронна стабільність</div>' +
         '<div class="sm-coef-val" style="color:' + kColor + '">' + K_ns.toFixed(2) + '</div>' +
-        '<div class="sm-coef-meta">Стрік: ' + S + 'д · Чистих: ' + D_clean + '/' + D_total + ' · R7d: ' + R_7d + '</div>' +
+        '<div class="sm-coef-meta">S=' + S + ' · D=' + D_clean + '/' + D_total + ' · R₇=' + R_7d + '</div>' +
       '</div>' +
       '<div class="sm-coef-card">' +
-        '<div class="sm-coef-label">R<sub>dop</sub> Дофамінова Резистентність</div>' +
+        '<div class="sm-coef-top"><span class="sm-coef-label">R<sub>dop</sub></span>' +
+          '<button class="sm-info-btn" id="smInfoBtn" aria-label="Формула">i</button>' +
+        '</div>' +
+        '<div class="sm-coef-sub">Дофамінова резистентність</div>' +
         '<div class="sm-coef-val" style="color:' + rColor + '">' + R_dop.toFixed(2) + '</div>' +
         '<div class="sm-coef-meta">ln(' + (S + 1) + ')=' + Math.log(S + 1).toFixed(2) + ' · S<sub>avg</sub>=' + S_avg.toFixed(1) + '</div>' +
       '</div>' +
     '</div>' +
 
-    // Add record
+    // Tooltip (hidden by default)
+    '<div class="sm-tooltip" id="smTooltip">' +
+      'R<sub>dop</sub> = ln(Δt + 1) · 5 − (N<sub>7d</sub> · 2.5)<br>' +
+      'Δt — час без зривів (дні)<br>N<sub>7d</sub> — зриви за тиждень<br>' +
+      '<b>(+) на розрахунок не впливає</b>' +
+    '</div>' +
+
+    // Buttons
     '<div class="sm-add-section">' +
       '<button class="sm-add-btn" id="smAddNow">Зараз</button>' +
       '<button class="sm-add-btn sm-add-manual" id="smAddManual">Вручну</button>' +
     '</div>' +
-    '<div class="sm-manual-form" id="smManualForm" style="display:none">' +
-      '<input type="datetime-local" id="smManualDate" class="sm-input" />' +
-      '<div class="sm-manual-row">' +
-        '<label class="sm-plus-label"><input type="checkbox" id="smManualPlus" /> маркер +</label>' +
-        '<input type="text" id="smManualNote" class="sm-input sm-input-note" placeholder="нотатка" />' +
+    '<div class="sm-add-section">' +
+      '<button class="sm-add-btn sm-add-ai" id="smAiBtn">Аналізувати дані</button>' +
+    '</div>' +
+
+    // Quick form
+    '<div class="sm-form sm-hidden-form" id="smQuickForm">' +
+      '<div class="sm-form-row">' +
+        '<label class="sm-plus"><input type="checkbox" id="smQuickPlus" /><span>+</span></label>' +
+        '<input type="text" id="smQuickNote" class="sm-input" placeholder="нотатка" />' +
       '</div>' +
-      '<button class="sm-add-btn sm-add-save" id="smManualSave">Зберегти</button>' +
+      '<button class="sm-add-btn sm-save" id="smQuickSave">Записати</button>' +
     '</div>' +
 
-    // Quick + toggle for "Зараз"
-    '<div class="sm-quick-opts" id="smQuickOpts" style="display:none">' +
-      '<label class="sm-plus-label"><input type="checkbox" id="smQuickPlus" /> маркер +</label>' +
-      '<input type="text" id="smQuickNote" class="sm-input sm-input-note" placeholder="нотатка" />' +
-      '<button class="sm-add-btn sm-add-save" id="smQuickSave">Записати</button>' +
+    // Manual form
+    '<div class="sm-form sm-hidden-form" id="smManualForm">' +
+      '<input type="datetime-local" id="smManualDate" class="sm-input" />' +
+      '<div class="sm-form-row">' +
+        '<label class="sm-plus"><input type="checkbox" id="smManualPlus" /><span>+</span></label>' +
+        '<input type="text" id="smManualNote" class="sm-input" placeholder="нотатка" />' +
+      '</div>' +
+      '<button class="sm-add-btn sm-save" id="smManualSave">Зберегти</button>' +
     '</div>' +
 
-    // History
-    '<div class="sm-section" style="margin-top:16px">' +
+    // Logs
+    '<div class="sm-section sm-logs-section">' +
       '<div class="sm-section-title">Останні записи</div>' +
       '<div id="smLogList" class="sm-log-list"></div>' +
     '</div>';
 
-  // --- Event handlers ---
+  // --- Events ---
   var db = getFirestore(getApp());
   var uid = getAuth(getApp()).currentUser.uid;
 
-  // "Зараз" button
+  // Tooltip toggle
+  var tipBtn = container.querySelector("#smInfoBtn");
+  var tipEl = container.querySelector("#smTooltip");
+  if (tipBtn && tipEl) {
+    tipBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      tipEl.classList.toggle("sm-tooltip-visible");
+    });
+    container.addEventListener("click", function () { tipEl.classList.remove("sm-tooltip-visible"); });
+  }
+
+  // AI button
+  container.querySelector("#smAiBtn").addEventListener("click", copyAiPrompt);
+
+  // "Зараз"
   container.querySelector("#smAddNow").addEventListener("click", function () {
-    var opts = container.querySelector("#smQuickOpts");
-    var manual = container.querySelector("#smManualForm");
-    manual.style.display = "none";
-    opts.style.display = opts.style.display === "none" ? "flex" : "none";
+    var q = container.querySelector("#smQuickForm");
+    var m = container.querySelector("#smManualForm");
+    m.classList.add("sm-hidden-form");
+    q.classList.toggle("sm-hidden-form");
   });
 
   container.querySelector("#smQuickSave").addEventListener("click", async function () {
-    var now2 = new Date();
-    var min = now2.getMinutes();
-    now2.setMinutes(min - (min % 10), 0, 0); // Округлення до десятка вниз
+    var btn = container.querySelector("#smQuickSave");
+    if (btn.disabled) return; btn.disabled = true;
+    var d = new Date();
+    d.setMinutes(d.getMinutes() - (d.getMinutes() % 10), 0, 0);
     var plus = container.querySelector("#smQuickPlus").checked;
     var note = container.querySelector("#smQuickNote").value.trim();
-    if (plus && !note) note = "+";
-    else if (plus) note = "+ " + note;
     try {
       await addDoc(collection(db, "private_logs"), {
-        timestamp: now2.getTime(), type: "reset", note: note, userId: uid
+        timestamp: d.getTime(), type: "reset", note: note, is_hardcore: plus, userId: uid
       });
-      container.querySelector("#smQuickOpts").style.display = "none";
+      container.querySelector("#smQuickForm").classList.add("sm-hidden-form");
       container.querySelector("#smQuickNote").value = "";
       container.querySelector("#smQuickPlus").checked = false;
-    } catch (e) { console.error(e); }
+    } catch (e) { alert("Помилка: " + e.message); } finally { btn.disabled = false; }
   });
 
-  // "Вручну" button
+  // "Вручну"
   container.querySelector("#smAddManual").addEventListener("click", function () {
-    var form = container.querySelector("#smManualForm");
-    var opts = container.querySelector("#smQuickOpts");
-    opts.style.display = "none";
-    form.style.display = form.style.display === "none" ? "flex" : "none";
-    if (form.style.display === "flex") {
-      var inp = container.querySelector("#smManualDate");
+    var q = container.querySelector("#smQuickForm");
+    var m = container.querySelector("#smManualForm");
+    q.classList.add("sm-hidden-form");
+    m.classList.toggle("sm-hidden-form");
+    if (!m.classList.contains("sm-hidden-form")) {
       var n = new Date();
-      inp.value = n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" +
+      container.querySelector("#smManualDate").value =
+        n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" +
         String(n.getDate()).padStart(2, "0") + "T" + String(n.getHours()).padStart(2, "0") + ":" +
         String(n.getMinutes()).padStart(2, "0");
     }
   });
 
   container.querySelector("#smManualSave").addEventListener("click", async function () {
+    var btn = container.querySelector("#smManualSave");
+    if (btn.disabled) return;
     var val = container.querySelector("#smManualDate").value;
-    if (!val) return;
-    var ts = new Date(val).getTime();
+    if (!val) { alert("Вкажи дату та час"); return; }
+    btn.disabled = true;
     var plus = container.querySelector("#smManualPlus").checked;
     var note = container.querySelector("#smManualNote").value.trim();
-    if (plus && !note) note = "+";
-    else if (plus) note = "+ " + note;
     try {
       await addDoc(collection(db, "private_logs"), {
-        timestamp: ts, type: "reset", note: note, userId: uid
+        timestamp: new Date(val).getTime(), type: "reset", note: note, is_hardcore: plus, userId: uid
       });
-      container.querySelector("#smManualForm").style.display = "none";
+      container.querySelector("#smManualForm").classList.add("sm-hidden-form");
       container.querySelector("#smManualNote").value = "";
       container.querySelector("#smManualPlus").checked = false;
-    } catch (e) { console.error(e); }
+    } catch (e) { alert("Помилка: " + e.message); } finally { btn.disabled = false; }
   });
 
-  // --- Render log list ---
-  var listEl = container.querySelector("#smLogList");
-  var recent = _allLogs.slice(0, 20);
-  if (recent.length === 0) {
-    listEl.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,.2);padding:12px">Записів немає</div>';
-  } else {
-    listEl.innerHTML = recent.map(function (l) {
-      var d = new Date(l.timestamp);
-      var dateStr = String(d.getDate()).padStart(2, "0") + "." +
-        String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear() + " " +
-        String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-      var noteStr = l.note ? ' <span class="sm-log-note">' + _esc(l.note) + '</span>' : '';
-      return '<div class="sm-log-item">' +
-        '<span class="sm-log-date">' + dateStr + '</span>' + noteStr +
-        '<button class="sm-log-del" data-id="' + l.id + '">×</button>' +
-      '</div>';
-    }).join("");
-
-    listEl.querySelectorAll(".sm-log-del").forEach(function (btn) {
-      btn.addEventListener("click", async function () {
-        if (!confirm("Видалити?")) return;
-        try { await deleteDoc(doc(db, "private_logs", btn.dataset.id)); } catch (e) { console.error(e); }
-      });
-    });
-  }
+  // --- Logs ---
+  _renderLogs(container.querySelector("#smLogList"), db);
 }
 
-function _esc(s) { return s ? String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : ""; }
-
 // ================================================================
-//  404
+//  RENDER LOGS
+// ================================================================
+function _renderLogs(listEl, db) {
+  var recent = _allLogs.slice(0, 20);
+  if (recent.length === 0) {
+    listEl.innerHTML = '<div class="sm-empty">Записів немає</div>';
+    return;
+  }
+
+  listEl.innerHTML = recent.map(function (l) {
+    var hc = _isHardcore(l);
+    var badge = hc ? '<span class="sm-badge-plus">+</span>' : '';
+    var noteText = l.note ? l.note.replace(/^\+\s*/, "") : "";
+    var noteStr = noteText ? '<span class="sm-log-note">' + _esc(noteText) + '</span>' : '';
+
+    return '<div class="sm-log-item">' +
+      '<div class="sm-log-left">' +
+        badge +
+        '<span class="sm-log-date">' + _fmtDate(l.timestamp) + '</span>' +
+        noteStr +
+      '</div>' +
+      '<button class="sm-log-del" data-id="' + l.id + '" aria-label="Видалити">&times;</button>' +
+    '</div>';
+  }).join("");
+
+  listEl.querySelectorAll(".sm-log-del").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      if (!confirm("Видалити?")) return;
+      try { await deleteDoc(doc(db, "private_logs", btn.dataset.id)); } catch (e) { console.error(e); }
+    });
+  });
+}
+
 // ================================================================
 function _show404() {
   _ensureStyles(); _removeExisting();
@@ -431,13 +522,11 @@ function _show404() {
   setTimeout(_removeExisting, 2500);
 }
 
-// ================================================================
-//  CLEANUP
-// ================================================================
 function _removeExisting() {
   var el = document.getElementById("smOverlay");
   if (!el) return;
   document.body.style.overflow = "";
+  document.querySelectorAll("body > *").forEach(function (e) { if (e.id !== "smOverlay") e.style.pointerEvents = ""; });
   if (_keyHandler) { document.removeEventListener("keydown", _keyHandler); _keyHandler = null; }
   if (_unsub) { _unsub(); _unsub = null; }
   el.classList.remove("sm-visible");
@@ -453,79 +542,99 @@ function _ensureStyles() {
   var s = document.createElement("style");
   s.id = "sm-styles";
   s.textContent =
-    /* overlay */
-    '.sm-overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0);backdrop-filter:blur(0px);transition:background .25s,backdrop-filter .25s;overflow-y:auto;-webkit-overflow-scrolling:touch}' +
+    '.sm-overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0);backdrop-filter:blur(0);transition:background .25s,backdrop-filter .25s;overflow-y:auto;-webkit-overflow-scrolling:touch;font-family:inherit}' +
     '.sm-overlay.sm-visible{background:rgba(13,17,23,.97);backdrop-filter:blur(12px)}' +
-
-    /* shell */
-    '.sm-shell{max-width:480px;margin:0 auto;padding:16px;padding-top:calc(16px + env(safe-area-inset-top));padding-bottom:calc(16px + env(safe-area-inset-bottom));min-height:100%}' +
-
-    /* header */
-    '.sm-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}' +
-    '.sm-title{color:#e6edf3;font-size:1.3rem;font-weight:800;margin:0;font-family:inherit}' +
-    '.sm-x{background:none;border:none;color:rgba(255,255,255,.4);font-size:1.8rem;cursor:pointer;padding:4px 8px;line-height:1;border-radius:8px;-webkit-tap-highlight-color:transparent}' +
+    '.sm-shell{max-width:480px;margin:0 auto;padding:16px;padding-top:calc(16px + env(safe-area-inset-top));padding-bottom:calc(24px + env(safe-area-inset-bottom));min-height:100%;box-sizing:border-box}' +
+    '.sm-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}' +
+    '.sm-title{color:#e6edf3;font-size:1.3rem;font-weight:800;margin:0}' +
+    '.sm-x{background:none;border:none;color:rgba(255,255,255,.4);font-size:1.8rem;cursor:pointer;padding:2px 10px;line-height:1;border-radius:8px;-webkit-tap-highlight-color:transparent}' +
     '.sm-x:active{color:#fff;background:rgba(255,255,255,.08)}' +
-
-    /* tabs */
-    '.sm-tabs{display:flex;gap:4px;margin-bottom:16px;background:rgba(255,255,255,.05);border-radius:10px;padding:3px}' +
-    '.sm-tab{flex:1;padding:8px 0;border:none;background:none;color:rgba(255,255,255,.4);font-size:.85rem;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:all .2s}' +
+    '.sm-tabs{display:flex;gap:4px;margin-bottom:14px;background:rgba(255,255,255,.04);border-radius:10px;padding:3px}' +
+    '.sm-tab{flex:1;padding:9px 0;border:none;background:none;color:rgba(255,255,255,.4);font-size:.85rem;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:all .2s}' +
     '.sm-tab.active{background:rgba(255,255,255,.1);color:#e6edf3}' +
+    '.sm-panel{display:none}.sm-panel.active{display:block}' +
+    '.sm-section{margin-bottom:14px}' +
+    '.sm-section-title{font-size:.7rem;font-weight:800;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}' +
+    '.sm-logs-section{margin-top:14px}' +
 
-    /* panels */
-    '.sm-panel{display:none}' +
-    '.sm-panel.active{display:block}' +
-    '.sm-body{min-height:300px}' +
-
-    /* sections */
-    '.sm-section{margin-bottom:16px}' +
-    '.sm-section-title{font-size:.75rem;font-weight:800;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}' +
+    /* counters */
+    '.sm-counters{display:flex;gap:8px;margin-bottom:14px}' +
+    '.sm-counter-box{flex:1;text-align:center;padding:10px 4px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:10px}' +
+    '.sm-counter-num{display:block;font-size:1.4rem;font-weight:900;color:#e6edf3;line-height:1}' +
+    '.sm-counter-hc{color:#f59e0b}' +
+    '.sm-counter-streak{color:#10b981}' +
+    '.sm-counter-lbl{display:block;font-size:.6rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px}' +
 
     /* heatmap */
-    '.sm-heatmap{display:grid;grid-template-rows:repeat(7,1fr);grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;margin-bottom:6px}' +
+    '.sm-heatmap{display:grid;grid-template-rows:repeat(7,1fr);grid-auto-flow:column;grid-auto-columns:1fr;gap:2px}' +
     '.sm-hm-cell{aspect-ratio:1;border-radius:2px;min-width:0}' +
-    '.sm-hm-legend{display:flex;align-items:center;justify-content:flex-end;gap:3px;font-size:.65rem;color:rgba(255,255,255,.3)}' +
-    '.sm-hm-legend .sm-hm-cell{width:10px;height:10px;flex-shrink:0;aspect-ratio:auto}' +
+    '.sm-hm-legend{display:flex;align-items:center;justify-content:flex-end;gap:3px;font-size:.6rem;color:rgba(255,255,255,.25);margin-top:6px}' +
+    '.sm-hm-legend .sm-hm-cell{width:9px;height:9px;flex-shrink:0;aspect-ratio:auto}' +
 
-    /* coefficients */
-    '.sm-coefs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}' +
-    '.sm-coef-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:12px;text-align:center}' +
-    '.sm-coef-label{font-size:.65rem;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;line-height:1.3}' +
-    '.sm-coef-val{font-size:1.8rem;font-weight:900;line-height:1;margin-bottom:4px;font-family:inherit}' +
-    '.sm-coef-meta{font-size:.6rem;color:rgba(255,255,255,.2);line-height:1.4}' +
+    /* coefs */
+    '.sm-coefs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}' +
+    '.sm-coef-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px 10px;text-align:center;min-width:0}' +
+    '.sm-coef-top{display:flex;align-items:center;justify-content:center;gap:6px}' +
+    '.sm-coef-label{font-size:1.1rem;font-weight:800;color:rgba(255,255,255,.7);line-height:1}' +
+    '.sm-coef-sub{font-size:.55rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.5px;margin-top:4px;margin-bottom:10px;line-height:1.3}' +
+    '.sm-coef-val{font-size:1.9rem;font-weight:900;line-height:1;margin-bottom:6px}' +
+    '.sm-coef-meta{font-size:.55rem;color:rgba(255,255,255,.25);line-height:1.4;overflow:hidden;text-overflow:ellipsis}' +
 
-    /* add buttons */
+    /* info button */
+    '.sm-info-btn{width:18px;height:18px;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:none;color:rgba(255,255,255,.4);font-size:.65rem;font-weight:800;font-style:italic;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;font-family:Georgia,serif;line-height:1;padding:0}' +
+    '.sm-info-btn:active{color:#fff;border-color:rgba(255,255,255,.5)}' +
+
+    /* tooltip */
+    '.sm-tooltip{display:none;padding:10px 12px;background:rgba(30,41,59,.95);border:1px solid rgba(99,102,241,.3);border-radius:10px;font-size:.75rem;color:rgba(255,255,255,.6);line-height:1.5;margin-bottom:14px}' +
+    '.sm-tooltip-visible{display:block}' +
+
+    /* buttons */
     '.sm-add-section{display:flex;gap:8px;margin-bottom:8px}' +
     '.sm-add-btn{flex:1;padding:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:rgba(255,255,255,.6);font-size:.85rem;font-weight:700;border-radius:10px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:all .15s}' +
-    '.sm-add-btn:active{background:rgba(255,255,255,.1);color:#fff}' +
+    '.sm-add-btn:active:not(:disabled){background:rgba(255,255,255,.1);color:#fff}' +
+    '.sm-add-btn:disabled{opacity:.5;cursor:not-allowed}' +
     '.sm-add-manual{border-style:dashed}' +
-    '.sm-add-save{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#10b981}' +
-    '.sm-add-save:active{background:rgba(16,185,129,.3)}' +
+    '.sm-add-ai{background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.25);color:rgba(99,102,241,.8)}' +
+    '.sm-add-ai:active{background:rgba(99,102,241,.2);color:#818cf8}' +
+    '.sm-save{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#10b981;margin-top:6px}' +
+    '.sm-save:active{background:rgba(16,185,129,.25)}' +
 
-    /* manual form */
-    '.sm-manual-form{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;padding:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px}' +
-    '.sm-quick-opts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;padding:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;align-items:center}' +
-    '.sm-input{padding:8px 10px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.3);color:#e6edf3;border-radius:8px;font-size:.85rem;font-family:inherit;outline:none;box-sizing:border-box;width:100%}' +
+    /* forms */
+    '.sm-form{flex-direction:column;gap:8px;margin-bottom:12px;padding:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px}' +
+    '.sm-hidden-form{display:none!important}' +
+    '.sm-form:not(.sm-hidden-form){display:flex}' +
+    '.sm-form-row{display:flex;gap:8px;align-items:center}' +
+    '.sm-input{padding:9px 10px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.3);color:#e6edf3;border-radius:8px;font-size:.85rem;font-family:inherit;outline:none;box-sizing:border-box;width:100%;flex:1}' +
     '.sm-input:focus{border-color:rgba(99,102,241,.5)}' +
-    '.sm-input-note{flex:1;min-width:100px}' +
-    '.sm-manual-row{display:flex;gap:8px;align-items:center}' +
-    '.sm-plus-label{display:flex;align-items:center;gap:4px;color:rgba(255,255,255,.4);font-size:.8rem;white-space:nowrap;cursor:pointer}' +
+    '.sm-plus{display:flex;align-items:center;gap:6px;color:rgba(255,255,255,.4);font-size:.9rem;cursor:pointer;white-space:nowrap;padding:8px 10px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(0,0,0,.2)}' +
+    '.sm-plus input{margin:0;cursor:pointer}' +
+    '.sm-plus span{font-weight:900;color:rgba(255,255,255,.5)}' +
+    '.sm-plus input:checked+span{color:#f59e0b}' +
 
     /* log list */
-    '.sm-log-list{max-height:200px;overflow-y:auto}' +
-    '.sm-log-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.8rem}' +
-    '.sm-log-date{color:rgba(255,255,255,.4);font-weight:600;white-space:nowrap}' +
-    '.sm-log-note{color:rgba(255,255,255,.25);font-style:italic;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
-    '.sm-log-del{background:none;border:none;color:rgba(255,255,255,.15);font-size:1.1rem;cursor:pointer;padding:2px 6px;flex-shrink:0;-webkit-tap-highlight-color:transparent}' +
-    '.sm-log-del:active{color:#ef4444}' +
+    '.sm-log-list{max-height:260px;overflow-y:auto}' +
+    '.sm-log-item{display:flex;flex-direction:row;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);gap:8px}' +
+    '.sm-log-left{display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden}' +
+    '.sm-log-date{color:rgba(255,255,255,.45);font-size:.8rem;font-weight:600;white-space:nowrap}' +
+    '.sm-log-note{color:rgba(255,255,255,.25);font-style:italic;font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '.sm-badge-plus{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border-radius:4px;background:rgba(245,158,11,.15);color:#f59e0b;font-size:.7rem;font-weight:900;text-shadow:0 0 6px rgba(245,158,11,.4);flex-shrink:0}' +
+    '.sm-log-del{background:none;border:none;color:rgba(255,255,255,.15);font-size:1.4rem;cursor:pointer;min-width:28px;min-height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;line-height:1;border-radius:6px}' +
+    '.sm-log-del:active{color:#ef4444;background:rgba(239,68,68,.1)}' +
+    '.sm-empty{text-align:center;color:rgba(255,255,255,.2);padding:14px;font-size:.85rem}' +
+    '.sm-err{text-align:center;color:#ef4444;padding:20px;font-size:.9rem}' +
 
-    /* media tab */
-    '.sm-track{position:relative;width:100%;aspect-ratio:4/3;border-radius:12px;overflow:hidden;background:rgba(255,255,255,.03);-webkit-tap-highlight-color:transparent;margin-bottom:10px}' +
+    /* toast */
+    '.sm-toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(16,185,129,.9);color:#fff;padding:8px 20px;border-radius:8px;font-size:.85rem;font-weight:700;z-index:10001;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}' +
+    '.sm-toast-visible{opacity:1;transform:translateX(-50%) translateY(0)}' +
+
+    /* media */
+    '.sm-track{position:relative;width:100%;aspect-ratio:4/3;border-radius:12px;overflow:hidden;background:rgba(255,255,255,.03);-webkit-tap-highlight-color:transparent;margin-bottom:10px;cursor:pointer}' +
     '.sm-frame{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .3s;pointer-events:none}' +
     '.sm-frame.active{opacity:1;pointer-events:auto}' +
     '.sm-img{max-width:100%;max-height:100%;object-fit:contain;-webkit-user-drag:none;user-select:none;-webkit-user-select:none;opacity:0;transition:opacity .3s}' +
     '.sm-frame.loaded .sm-img{opacity:1}' +
     '.sm-frame.error .sm-img{display:none}' +
-    '.sm-frame.error::after{content:"Помилка";color:rgba(255,255,255,.2);font-size:.9rem}' +
+    '.sm-frame.error::after{content:"Помилка";color:rgba(255,255,255,.2);font-size:.85rem}' +
     '.sm-spinner{position:absolute;width:24px;height:24px;border:2px solid rgba(255,255,255,.08);border-top-color:rgba(255,255,255,.4);border-radius:50%;animation:smSpin .7s linear infinite}' +
     '.sm-frame.loaded .sm-spinner,.sm-frame.error .sm-spinner{display:none}' +
     '@keyframes smSpin{to{transform:rotate(360deg)}}' +
@@ -534,12 +643,8 @@ function _ensureStyles() {
     '.sm-dot.active{background:#fff;width:18px;border-radius:3px}' +
 
     /* 404 */
-    '.sm-404{margin:auto;text-align:center}' +
+    '.sm-404{text-align:center;padding-top:35vh}' +
     '.sm-404-code{font-size:5rem;font-weight:800;color:rgba(255,255,255,.15);margin:0;line-height:1}' +
-    '.sm-404-msg{color:rgba(255,255,255,.15);font-size:1rem;margin:8px 0 0}' +
-
-    /* scrollbar */
-    '.sm-overlay::-webkit-scrollbar{width:4px}' +
-    '.sm-overlay::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}';
+    '.sm-404-msg{color:rgba(255,255,255,.15);font-size:1rem;margin:8px 0 0}';
   document.head.appendChild(s);
 }
