@@ -1,0 +1,39 @@
+# Firebase
+firebase-config.js
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Секретний модуль
+secret_module/
+
+# Залежності
+node_modules/
+package-lock.json
+
+# Кеш та збірки
+.cache/
+dist/
+build/
+
+# Середовище
+.env
+.env.local
+.env.production
+
+# IDE та редактори
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
+npm-debug.log*
+
+# Тести
+stress.test.js
+coverage/
