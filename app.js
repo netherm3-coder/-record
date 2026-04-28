@@ -1821,6 +1821,25 @@ if (heightInput) {
     renderWeightUI();
   });
 }
+
+// --- АВТОЗАПОВНЕННЯ ФОРМИ З ОСТАННЬОГО ЗВАЖУВАННЯ ---
+window.autofillWeightForm = () => {
+  if (!allWeights || allWeights.length === 0) return;
+  const last = allWeights[0]; // найновіше зважування
+  const fields = ["mNeck", "mShoulders", "mChest", "mWaist", "mBicep", "mThigh", "mCalf", "mForearm"];
+  fields.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el && !el.value && last[id.slice(1).toLowerCase()] !== undefined) {
+      const key = id.slice(1).toLowerCase();
+      if (last[key] && last[key] > 0) el.value = last[key];
+    }
+  });
+  // Зріст з останнього зважування якщо в localStorage немає
+  if (heightInput && !heightInput.value && last.height) {
+    heightInput.value = last.height;
+    localStorage.setItem("userHeight", last.height);
+  }
+};
 // Збереження нової ваги
 const saveWeightBtn = document.getElementById("saveWeightBtn");
 if (saveWeightBtn) {
@@ -1916,6 +1935,7 @@ window.listenToWeight = () => {
     }));
 
     renderWeightUI();
+    if (window.autofillWeightForm) window.autofillWeightForm();
 
     // Логіка показу кнопки "Завантажити ще"
     const loadMoreBtn = document.getElementById("loadMoreWeightBtn");
