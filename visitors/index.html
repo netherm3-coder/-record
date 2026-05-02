@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Відвідувачі</title>
+    <link rel="icon" type="image/svg+xml" href="../assets/icon.svg" />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="visitors.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="vis-header">
+        <a href="../index.html" class="vis-back">← Назад</a>
+        <h1 class="vis-title">Відвідувачі</h1>
+        <button id="themeToggle" class="theme-btn" aria-label="Тема">☀️</button>
+      </div>
+
+      <div id="status" class="status-bar">Перевірка доступу...</div>
+
+      <!-- 404 -->
+      <div id="vis404" class="vis-404">
+        <div class="vis-404-code">404</div>
+        <div class="vis-404-msg">Not Found</div>
+      </div>
+
+      <!-- CONTENT (тільки для адміна) -->
+      <div id="visContent" class="vis-content">
+        <!-- STATS -->
+        <div class="card vis-stats-card">
+          <div class="vis-stats-grid">
+            <div class="vis-stat">
+              <div class="vis-stat-num" id="visTotal">—</div>
+              <div class="vis-stat-lbl">всього</div>
+            </div>
+            <div class="vis-stat">
+              <div class="vis-stat-num" id="visToday">—</div>
+              <div class="vis-stat-lbl">сьогодні</div>
+            </div>
+            <div class="vis-stat">
+              <div class="vis-stat-num" id="visWeek">—</div>
+              <div class="vis-stat-lbl">за тиждень</div>
+            </div>
+            <div class="vis-stat">
+              <div class="vis-stat-num" id="visUnique">—</div>
+              <div class="vis-stat-lbl">унік. IP</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FILTERS -->
+        <div class="vis-filters">
+          <button class="vis-filter active" data-filter="all">Всі</button>
+          <button class="vis-filter" data-filter="today">Сьогодні</button>
+          <button class="vis-filter" data-filter="week">Тиждень</button>
+          <button class="vis-filter" data-filter="month">Місяць</button>
+        </div>
+
+        <!-- LIST -->
+        <div class="section-title">Журнал відвідувань</div>
+        <div id="visList" class="vis-list"></div>
+        <div id="visEmpty" class="empty-state vis-hidden">Немає записів</div>
+      </div>
+    </div>
+
+    <script type="module" src="visitors.js"></script>
+  </body>
+</html>
