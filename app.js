@@ -156,6 +156,8 @@ onAuthStateChanged(auth, (user) => {
     if (navPhotos) navPhotos.style.display = "flex";
 
   if (adminSecretBtn && localStorage.getItem("isAdmin") === "true") adminSecretBtn.style.display = "flex";
+  const adminVisitorsBtn = document.getElementById("adminVisitorsBtn");
+  if (adminVisitorsBtn) adminVisitorsBtn.style.display = "flex";
   } else {
     isAdmin = false;
     localStorage.removeItem("isAdmin"); // Знімаємо прапор при виході
@@ -164,6 +166,8 @@ onAuthStateChanged(auth, (user) => {
     if (weightPanel) weightPanel.style.display = "none";
 
   if (adminSecretBtn) adminSecretBtn.style.display = "none";
+  const adminVisitorsBtnHide = document.getElementById("adminVisitorsBtn");
+  if (adminVisitorsBtnHide) adminVisitorsBtnHide.style.display = "none";
 
     // ХОВАЄМО ВКЛАДКУ ФОТО ТА ВИКИДАЄМО З НЕЇ, ЯКЩО ГІСТЬ
     if (navPhotos) {
@@ -1235,10 +1239,62 @@ window.listenToWorkouts = () => {
 
 window.loadMoreWorkouts = () => {
   workoutLimit += 50;
-  listenToWorkouts();
-};
-
 listenToWorkouts();
+
+// === ТРЕКЕР ВІДВІДУВАЧІВ ===
+{
+  const sessionKey = "visitorLogged_" + new Date().toDateString();
+  if (!sessionStorage.getItem(sessionKey)) {
+    (async () => {
+      try {
+        let ip = "unknown", country = "", city = "";
+        try {
+          const res = await fetch("https://ipapi.co/json/");
+          if (res.ok) {
+            const d = await res.json();
+            ip = d.ip || "unknown";
+            country = d.country_name || "";
+            city = d.city || "";
+          }
+        } catch (e) {}
+
+        const ua = navigator.userAgent;
+        let device = "Desktop", os = "Unknown", browser = "Unknown";
+
+        if (/Android/i.test(ua)) { os = "Android"; device = "Mobile"; }
+        else if (/iPhone|iPad|iPod/i.test(ua)) { os = "iOS"; device = "Mobile"; }
+        else if (/Windows/i.test(ua)) os = "Windows";
+        else if (/Mac OS/i.test(ua)) os = "macOS";
+        else if (/Linux/i.test(ua)) os = "Linux";
+
+        if (/Edg/i.test(ua)) browser = "Edge";
+        else if (/OPR|Opera/i.test(ua)) browser = "Opera";
+        else if (/Brave/i.test(ua)) browser = "Brave";
+        else if (/Chrome/i.test(ua)) browser = "Chrome";
+        else if (/Firefox/i.test(ua)) browser = "Firefox";
+        else if (/Safari/i.test(ua)) browser = "Safari";
+
+        const verMatch = ua.match(/(Chrome|Firefox|Safari|Edg|Opera|OPR)\/(\d+)/);
+        const browserVer = verMatch ? verMatch[2] : "";
+
+        await addDoc(collection(db, "visitor_logs"), {
+          timestamp: Date.now(),
+          ip, country, city,
+          device, os, browser,
+          browserVer,
+          screen: window.screen.width + "x" + window.screen.height,
+          referrer: document.referrer || "direct",
+          isAdmin: !!auth.currentUser,
+          userAgent: ua.substring(0, 250),
+        });
+
+        sessionStorage.setItem(sessionKey, "1");
+      } catch (err) {
+        console.warn("Visitor log failed:", err);
+      }
+    })();
+  }
+}
 
 // Завантаження цілей та глобальної статистики
 var _goalsUnsub = null;
