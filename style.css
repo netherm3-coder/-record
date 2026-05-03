@@ -522,19 +522,25 @@ body {
   color: var(--text-muted);
   font-size: 1.5rem;
   cursor: pointer;
-  padding: 10px 20px;
+  padding: 10px 8px;
   border-radius: 16px;
   transition: var(--transition);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 .nav-btn span {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 800;
   font-family: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .nav-btn.active {
@@ -1712,3 +1718,294 @@ body {
 
 /* SVG іконка ока в меню */
 #adminSecretBtn .btn-icon { flex-shrink: 0; }
+
+/* ================================================================
+   ВКЛАДКА ДОСЯГНЕНЬ
+   ================================================================ */
+.achievements-container {
+  padding: 0 4px;
+}
+
+/* Заголовок зі статистикою */
+.ach-header {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.03));
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.ach-stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ach-stat-item {
+  text-align: center;
+}
+
+.ach-stat-num {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.ach-stat-lbl {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+.ach-overall-bar {
+  height: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ach-overall-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  transition: width 0.5s ease;
+  border-radius: 4px;
+}
+
+/* Фільтри */
+.ach-filters {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.ach-filters::-webkit-scrollbar { height: 0; }
+
+.ach-filter-btn {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 20px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+.ach-filter-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* Сітка */
+.ach-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 600px) {
+  .ach-grid { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+@media (min-width: 900px) {
+  .ach-grid { grid-template-columns: 1fr 1fr 1fr 1fr; }
+}
+
+/* Картка досягнення */
+.ach-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 10px;
+  text-align: center;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.ach-card.unlocked {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), var(--card-bg));
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.1);
+}
+
+.ach-card.locked {
+  opacity: 0.65;
+}
+
+.ach-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+  margin-bottom: 6px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.ach-card.locked .ach-icon {
+  filter: grayscale(0.7);
+  opacity: 0.5;
+}
+
+.ach-locked-icon {
+  font-size: 1.6rem !important;
+}
+
+.ach-name {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.ach-desc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 10px;
+  min-height: 30px;
+}
+
+.ach-status {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--success);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.ach-progress {
+  margin-bottom: 6px;
+}
+
+.ach-progress-bar {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.ach-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--highlight));
+  transition: width 0.5s ease;
+  border-radius: 3px;
+}
+
+.ach-progress-text {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.ach-reward {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--highlight);
+}
+
+.ach-reward.locked-reward {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+}
+
+/* TOAST при розблокуванні */
+.ach-toast {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%) translateY(40px);
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.5);
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  z-index: 10001;
+  max-width: 320px;
+}
+
+.ach-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.ach-toast-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.ach-toast-title {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+}
+
+.ach-toast-name {
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 2px 0;
+}
+
+.ach-toast-reward {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+/* Емодзі іконка в нав-меню */
+.nav-icon-emoji {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  font-size: 1.3rem;
+  line-height: 1;
+  margin: 0 auto 2px;
+}
+
+/* МОДАЛЬНЕ ВІКНО ЕКСПОРТУ */
+.export-info {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: center;
+  margin: 10px 0 18px;
+}
+
+.export-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.export-btn-csv {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+}
+
+.export-btn-pdf {
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+}

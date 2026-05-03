@@ -11,6 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet" />
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="style.css" />
@@ -59,6 +60,14 @@
           <button id="donateBtn" class="side-menu__item">
             <img src="assets/icons/donate.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
             <span class="btn-fallback">☕</span> Підтримати автора
+          </button>
+          <button id="exportRecordsBtn" class="side-menu__item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Експорт рекордів
           </button>
           <button id="adminLoginBtn" class="side-menu__item">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
@@ -325,6 +334,11 @@
         </button>
       </div>
 
+      <!-- === TAB: ACHIEVEMENTS === -->
+      <div id="tab-achievements" class="tab-content">
+        <div id="achievementsContainer" class="achievements-container"></div>
+      </div>
+
       <!-- === BOTTOM NAV === -->
       <nav class="bottom-nav">
         <button class="nav-btn active" data-tab="tab-dashboard">
@@ -335,6 +349,9 @@
         </button>
         <button class="nav-btn" data-tab="tab-weight">
           <img src="assets/icons/scale.svg" class="nav-icon themed-icon" alt=""><span>Вага</span>
+        </button>
+        <button class="nav-btn" data-tab="tab-achievements">
+          <span class="nav-icon-emoji">🏆</span><span>Досягнення</span>
         </button>
         <button class="nav-btn" id="nav-photos" data-tab="tab-photos">
           <img src="assets/icons/camera.svg" class="nav-icon themed-icon" alt=""><span>Фото</span>
@@ -415,6 +432,7 @@
       </div>
     </div>
     <script type="module" src="app.js"></script>
+    <script defer src="achievements.js"></script>
     <script defer src="music.js"></script>
   </body>
 </html>

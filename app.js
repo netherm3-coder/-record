@@ -49,6 +49,11 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
 
     // 4. Підсвічуємо натиснуту кнопку
     btn.classList.add("active");
+
+    // 5. Рендеримо вкладку Досягнень при її відкритті
+    if (tabId === "tab-achievements" && window.renderAchievementsTab) {
+      window.renderAchievementsTab();
+    }
   });
 });
 
@@ -145,6 +150,18 @@ if (donateBtn && donateModal && closeDonateBtn) {
         loginSection.scrollIntoView({ behavior: "smooth", block: "center" });
         document.getElementById("loginEmail")?.focus();
       }, 100);
+    });
+  }
+
+  // Кнопка експорту
+  const exportBtn = document.getElementById("exportRecordsBtn");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => {
+      document.getElementById("sideMenu")?.classList.remove("open");
+      document.getElementById("menuOverlay")?.classList.remove("active");
+      document.getElementById("menuTrigger")?.classList.remove("active");
+      document.body.style.overflow = "";
+      if (window.showExportModal) window.showExportModal();
     });
   }
 }
@@ -1223,6 +1240,11 @@ window.listenToWorkouts = () => {
 
   unsubscribeWorkouts = onSnapshot(q, (snapshot) => {
     allWorkouts = snapshot.docs.map((d) => migrateWorkout({ id: d.id, ...d.data() }));
+    window.allWorkouts = allWorkouts;
+    if (window.checkNewAchievements) window.checkNewAchievements(allWorkouts);
+    if (window.renderAchievementsTab && document.getElementById("tab-achievements")?.classList.contains("active")) {
+      window.renderAchievementsTab();
+    }
 
     updateDropdowns();
     renderUI();
