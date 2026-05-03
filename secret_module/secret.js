@@ -14,8 +14,8 @@ const MEDIA_FILES = [
   "assets/RDT_20260421_2301107487583688953369648.jpg",
   "assets/RDT_20260421_2304236334329579471223536.jpg",
   "assets/hrer.gif",
-  "assets/",
-  "assets/"
+  "assets/Final1.mp4",
+  "assets/final2.mp4"
 ];
 
 var _keyHandler = null;
