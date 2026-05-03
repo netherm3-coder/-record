@@ -19,7 +19,7 @@
     <div class="container">
       <div class="header-box">
         <button id="menuTrigger" class="hamburger" aria-label="Відкрити меню"><span></span><span></span><span></span></button>
-        <h1 id="secretDoor" class="main-title">Кімната<span> Рекордів</span> <img src="assets/icons/trophy.svg" class="title-trophy themed-icon" alt="" onerror="this.style.display='none'"></h1>
+        <h1 class="main-title">Кімната<span> Рекордів</span> <img src="assets/icons/trophy.svg" class="title-trophy themed-icon" alt="" onerror="this.style.display='none'" draggable="false"></h1>
         <button id="themeToggle" class="theme-btn" aria-label="Змінити тему"><img id="themeIcon" src="assets/icons/sun.svg" class="theme-icon themed-icon" alt=""></button>
       </div>
 
@@ -59,6 +59,14 @@
           <button id="donateBtn" class="side-menu__item">
             <img src="assets/icons/donate.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
             <span class="btn-fallback">☕</span> Підтримати автора
+          </button>
+          <button id="adminLoginBtn" class="side-menu__item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+              <polyline points="10 17 15 12 10 7"/>
+              <line x1="15" y1="12" x2="3" y2="12"/>
+            </svg>
+            Увійти як адмін
           </button>
           <button id="adminSecretBtn" class="side-menu__item">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">

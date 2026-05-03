@@ -939,65 +939,7 @@ body {
   background: var(--text-main);
   box-shadow: 0 0 8px var(--text-main);
 }
-/* --- СТИЛЬНА ПІДКАЗКА ДЛЯ КУБКА (відкривається вниз) --- */
-#secretDoor::before {
-  content: attr(data-label);
-  position: absolute;
-  top: 50%;
-  /* Зменшуємо відступ, щоб прибрати "мертву зону" */
-  left: 115%;
-  transform: translateY(-50%) translateX(-10px);
-  background: var(--bg-color);
-  color: var(--highlight);
-  padding: 5px 12px;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transition: var(--transition);
-  border: 1px solid var(--highlight);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
-  z-index: 100;
-  font-family: "Nunito", sans-serif;
-  font-weight: 800;
-  letter-spacing: normal;
-  /* Робимо підказку візуально клікабельною */
-  cursor: pointer;
-  pointer-events: auto;
-}
 
-/* Стрілочка, що вказує на кубок */
-#secretDoor::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  /* Притискаємо стрілочку впритул до кубка */
-  left: 95%;
-  transform: translateY(-50%);
-  border-width: 6px;
-  border-style: solid;
-  border-color: transparent var(--highlight) transparent transparent;
-  opacity: 0;
-  visibility: hidden;
-  transition: var(--transition);
-  cursor: pointer;
-}
-/* Анімація появи */
-#secretDoor:hover::before {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(-50%) translateX(0);
-}
-
-#secretDoor:hover::after {
-  opacity: 1;
-  visibility: visible;
-}
-#secretDoor.admin-mode::before,
-#secretDoor.admin-mode::after {
-  display: none !important;
-}
 /* --- КНОПКА "ФУНКЦІОНАЛ" (Підказка) --- */
 #infoBtn {
   position: relative;
@@ -1169,8 +1111,15 @@ body {
   text-align: center;
   letter-spacing: -0.5px;
   white-space: nowrap;
-  position: relative;
-  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.main-title img {
+  pointer-events: none;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 @media (min-width: 600px) {
@@ -1568,8 +1517,7 @@ body {
 /* Адмін секція */
 .section-title-flush { margin-bottom: 0; }
 
-/* Кастом вправа */
-.custom-ex-input { margin-top: 15px; }
+/* Кастом вправа — стилі тепер через #customEx */
 
 /* 1RM контейнер */
 #oneRmContainer {

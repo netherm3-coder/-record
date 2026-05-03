@@ -128,15 +128,23 @@ if (donateBtn && donateModal && closeDonateBtn) {
 
 // === СИСТЕМА АВТОРИЗАЦІЇ ===
 
-// Клік по заголовку — показати/сховати форму входу
+// Кнопка "Увійти як адмін" у бургер-меню
 {
-  const secretDoor = document.getElementById("secretDoor");
   const loginSection = document.getElementById("loginSection");
-  if (secretDoor && loginSection) {
-    secretDoor.addEventListener("click", () => {
-      if (!isAdmin) {
-        loginSection.style.display = loginSection.style.display === "block" ? "none" : "block";
-      }
+  const adminLoginBtn = document.getElementById("adminLoginBtn");
+  if (adminLoginBtn && loginSection) {
+    adminLoginBtn.addEventListener("click", () => {
+      // Закриваємо меню
+      document.getElementById("sideMenu")?.classList.remove("open");
+      document.getElementById("menuOverlay")?.classList.remove("active");
+      document.getElementById("menuTrigger")?.classList.remove("active");
+      document.body.style.overflow = "";
+      // Показуємо форму
+      loginSection.style.display = "block";
+      setTimeout(() => {
+        loginSection.scrollIntoView({ behavior: "smooth", block: "center" });
+        document.getElementById("loginEmail")?.focus();
+      }, 100);
     });
   }
 }
@@ -158,6 +166,8 @@ onAuthStateChanged(auth, (user) => {
   if (adminSecretBtn && localStorage.getItem("isAdmin") === "true") adminSecretBtn.style.display = "flex";
   const adminVisitorsBtn = document.getElementById("adminVisitorsBtn");
   if (adminVisitorsBtn) adminVisitorsBtn.style.display = "flex";
+  const adminLoginBtnHide = document.getElementById("adminLoginBtn");
+  if (adminLoginBtnHide) adminLoginBtnHide.style.display = "none";
   } else {
     isAdmin = false;
     localStorage.removeItem("isAdmin"); // Знімаємо прапор при виході
@@ -168,6 +178,8 @@ onAuthStateChanged(auth, (user) => {
   if (adminSecretBtn) adminSecretBtn.style.display = "none";
   const adminVisitorsBtnHide = document.getElementById("adminVisitorsBtn");
   if (adminVisitorsBtnHide) adminVisitorsBtnHide.style.display = "none";
+  const adminLoginBtnShow = document.getElementById("adminLoginBtn");
+  if (adminLoginBtnShow) adminLoginBtnShow.style.display = "flex";
 
     // ХОВАЄМО ВКЛАДКУ ФОТО ТА ВИКИДАЄМО З НЕЇ, ЯКЩО ГІСТЬ
     if (navPhotos) {
@@ -233,7 +245,6 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
 });
 
 // === АВТОЛОГІН ===
-onAuthStateChanged(auth, () => {}, { onlyOnce: false });
 {
   const savedEmail = localStorage.getItem("adminEmail");
   const savedPass = localStorage.getItem("adminPass");
@@ -1239,6 +1250,9 @@ window.listenToWorkouts = () => {
 
 window.loadMoreWorkouts = () => {
   workoutLimit += 50;
+  listenToWorkouts();
+};
+
 listenToWorkouts();
 
 // === ТРЕКЕР ВІДВІДУВАЧІВ ===
@@ -1299,7 +1313,6 @@ listenToWorkouts();
 // Завантаження цілей та глобальної статистики
 var _goalsUnsub = null;
 var _globalUnsub = null;
-var _pedestalUnsub = null;
 
 function listenToMeta() {
   // Знімаємо старі слухачі щоб не дублювати
