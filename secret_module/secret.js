@@ -15,9 +15,8 @@ const MEDIA_FILES = [
   "assets/RDT_20260421_2304236334329579471223536.jpg",
   "assets/hrer.gif",
   "assets/Final1.mp4",
-  "assets/final2.mp4"
+  "assets/final2.mp4",
 ];
-
 
 var _keyHandler = null;
 var _unsub = null;
@@ -170,8 +169,18 @@ function _showContent() {
   overlay.style.pointerEvents = "auto";
   requestAnimationFrame(function () { overlay.classList.add("sm-visible"); });
 
-  _initMedia(overlay.querySelector("#smPanelMedia"));
+  var mediaPanelEl = overlay.querySelector("#smPanelMedia");
+  _initMedia(mediaPanelEl);
   _listenLogs(overlay.querySelector("#smPanelStats"));
+
+  // Зупиняємо медіа при перемиканні на вкладку Статистика
+  overlay.querySelectorAll(".sm-tab").forEach(function (t) {
+    t.addEventListener("click", function () {
+      if (t.dataset.tab !== "media" && mediaPanelEl._mediaCleanup) {
+        mediaPanelEl._mediaCleanup();
+      }
+    });
+  });
 }
 
 // ================================================================
@@ -181,25 +190,29 @@ function _initMedia(container) {
   var total = MEDIA_FILES.length;
   var current = 0;
   var tx0 = 0, dragging = false, dx = 0;
+  var globalMuted = true;          // Звук вимкнений за замовчуванням
+  var inactivityTimer = null;
+  var INACTIVITY_LIMIT = 34000;    // 34 секунди
 
+  // ---- Визначення типу файлу ----
   function isVideo(url) {
     return /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(url);
   }
 
-  function makeMediaEl(url, active) {
-    var frameClass = "sm-frame" + (active ? " active" : "");
+  // ---- Рендер слайдів ----
+  // Відео рендеруються без src — завантажуються лише при переході
+  function makeFrame(url, active) {
+    var cls = "sm-frame" + (active ? " active" : "");
     if (isVideo(url)) {
-      // MP4 → автоплей, беззвучний, цикл — поводиться як GIF
-      return '<div class="' + frameClass + '">' +
+      return '<div class="' + cls + '" data-src="' + url + '" data-type="video">' +
         '<div class="sm-spinner"></div>' +
-        '<video class="sm-img" src="' + url + '" ' +
-          'autoplay loop muted playsinline preload="auto" ' +
+        '<video class="sm-img" loop muted playsinline preload="none" ' +
           'oncanplay="this.parentNode.classList.add(\'loaded\')" ' +
           'onerror="this.parentNode.classList.add(\'error\')">' +
         '</video>' +
       '</div>';
     }
-    return '<div class="' + frameClass + '">' +
+    return '<div class="' + cls + '" data-type="image">' +
       '<div class="sm-spinner"></div>' +
       '<img src="' + url + '" alt="" class="sm-img" draggable="false" ' +
         'onload="this.parentNode.classList.add(\'loaded\')" ' +
@@ -207,27 +220,83 @@ function _initMedia(container) {
     '</div>';
   }
 
+  // SVG динаміка
+  var SOUND_ON_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>' +
+    '<path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>' +
+    '<path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>' +
+    '</svg>';
+  var SOUND_OFF_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>' +
+    '<line x1="23" y1="9" x2="17" y2="15"/>' +
+    '<line x1="17" y1="9" x2="23" y2="15"/>' +
+    '</svg>';
+
   container.innerHTML =
     '<div class="sm-track" id="smTrack">' +
-      MEDIA_FILES.map(function (u, i) { return makeMediaEl(u, i === 0); }).join("") +
+      MEDIA_FILES.map(function (u, i) { return makeFrame(u, i === 0); }).join("") +
     '</div>' +
-    '<div class="sm-dots">' +
-      MEDIA_FILES.map(function (_, i) {
-        return '<span class="sm-dot ' + (i === 0 ? "active" : "") + '" data-i="' + i + '"></span>';
-      }).join("") +
+    '<div class="sm-media-footer">' +
+      '<div class="sm-dots" id="smDots">' +
+        MEDIA_FILES.map(function (_, i) {
+          return '<span class="sm-dot ' + (i === 0 ? "active" : "") + '" data-i="' + i + '"></span>';
+        }).join("") +
+      '</div>' +
+      '<button class="sm-sound-btn" id="smSoundBtn" style="display:none" aria-label="Звук">' +
+        SOUND_OFF_SVG +
+      '</button>' +
     '</div>';
 
   var track = container.querySelector("#smTrack");
-  var frames = container.querySelectorAll(".sm-frame");
+  var frames = Array.prototype.slice.call(container.querySelectorAll(".sm-frame"));
   var dots = container.querySelectorAll(".sm-dot");
+  var soundBtn = container.querySelector("#smSoundBtn");
 
+  // ---- Lazy load відео ----
+  function loadVideo(frame) {
+    var video = frame.querySelector("video");
+    if (!video || video.src) return; // вже завантажено
+    var src = frame.dataset.src;
+    if (src) video.src = src;
+  }
+
+  // ---- Застосувати muted до всіх відео ----
+  function applyMute(muted) {
+    frames.forEach(function (f) {
+      var v = f.querySelector("video");
+      if (v) v.muted = muted;
+    });
+    soundBtn.innerHTML = muted ? SOUND_OFF_SVG : SOUND_ON_SVG;
+    soundBtn.classList.toggle("sm-sound-on", !muted);
+  }
+
+  // ---- Скинути звук (вимкнути + кнопка) ----
+  function muteAll() {
+    globalMuted = true;
+    applyMute(true);
+  }
+
+  // ---- Таймер бездіяльності ----
+  function resetInactivityTimer() {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(function () {
+      muteAll();
+    }, INACTIVITY_LIMIT);
+  }
+
+  // ---- Перехід на слайд ----
   function goTo(idx) {
     if (idx < 0) idx = total - 1;
     if (idx >= total) idx = 0;
 
-    // Пауза попереднього відео
+    // Зупиняємо поточне відео і перемотуємо на початок
     var prevVideo = frames[current].querySelector("video");
-    if (prevVideo) prevVideo.pause();
+    if (prevVideo) {
+      prevVideo.pause();
+      prevVideo.currentTime = 0;
+    }
 
     frames[current].classList.remove("active");
     dots[current].classList.remove("active");
@@ -235,25 +304,97 @@ function _initMedia(container) {
     frames[current].classList.add("active");
     dots[current].classList.add("active");
 
-    // Запускаємо нове відео
+    // Lazy load + запуск нового відео
     var nextVideo = frames[current].querySelector("video");
-    if (nextVideo) nextVideo.play().catch(function () {});
+    var hasVideos = MEDIA_FILES.some(function(u) { return isVideo(u); });
+
+    if (nextVideo) {
+      loadVideo(frames[current]);
+      nextVideo.muted = globalMuted;
+      nextVideo.currentTime = 0;
+      nextVideo.play().catch(function () {});
+      soundBtn.style.display = "flex";
+      resetInactivityTimer();
+    } else {
+      // Якщо поточний слайд не відео — ховаємо кнопку тільки якщо взагалі немає відео
+      if (!hasVideos) soundBtn.style.display = "none";
+    }
   }
 
-  track.addEventListener("touchstart", function (e) { tx0 = e.touches[0].clientX; dragging = true; dx = 0; }, { passive: true });
-  track.addEventListener("touchmove", function (e) { if (dragging) dx = e.touches[0].clientX - tx0; }, { passive: true });
+  // ---- Ініціалізація першого слайду ----
+  (function init() {
+    // Завантажуємо перший слайд якщо це відео
+    var firstVideo = frames[0] && frames[0].querySelector("video");
+    if (firstVideo) {
+      loadVideo(frames[0]);
+      firstVideo.play().catch(function () {});
+      soundBtn.style.display = "flex";
+      resetInactivityTimer();
+    }
+    // Попереднє завантаження другого слайду
+    if (frames[1] && frames[1].dataset.src) {
+      var v = frames[1].querySelector("video");
+      if (v) v.src = frames[1].dataset.src;
+    }
+    // Показати кнопку звуку якщо в списку є відео
+    var hasAnyVideo = MEDIA_FILES.some(function(u) { return isVideo(u); });
+    if (hasAnyVideo) soundBtn.style.display = "flex";
+  })();
+
+  // ---- Кнопка звуку ----
+  soundBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    globalMuted = !globalMuted;
+    applyMute(globalMuted);
+
+    // Якщо щойно увімкнули звук — скидаємо таймер бездіяльності
+    if (!globalMuted) resetInactivityTimer();
+  });
+
+  // ---- Свайп ----
+  track.addEventListener("touchstart", function (e) {
+    tx0 = e.touches[0].clientX; dragging = true; dx = 0;
+    if (!globalMuted) resetInactivityTimer();
+  }, { passive: true });
+  track.addEventListener("touchmove", function (e) {
+    if (dragging) dx = e.touches[0].clientX - tx0;
+  }, { passive: true });
   track.addEventListener("touchend", function () {
     if (!dragging) return; dragging = false;
-    if (Math.abs(dx) > 45) { dx < 0 ? goTo(current + 1) : goTo(current - 1); } dx = 0;
+    if (Math.abs(dx) > 45) { dx < 0 ? goTo(current + 1) : goTo(current - 1); }
+    dx = 0;
   }, { passive: true });
+
+  // ---- Тап по зонах ----
   track.addEventListener("click", function (e) {
     if (Math.abs(dx) > 8) return;
     var r = track.getBoundingClientRect();
     var x = (e.clientX - r.left) / r.width;
-    if (x < 0.35) goTo(current - 1); else if (x > 0.65) goTo(current + 1);
+    if (x < 0.30) { goTo(current - 1); }
+    else if (x > 0.70) { goTo(current + 1); }
+    if (!globalMuted) resetInactivityTimer();
   });
-  dots.forEach(function (d) { d.addEventListener("click", function (e) { e.stopPropagation(); goTo(parseInt(d.dataset.i)); }); });
+
+  // ---- Крапки ----
+  dots.forEach(function (d) {
+    d.addEventListener("click", function (e) {
+      e.stopPropagation();
+      goTo(parseInt(d.dataset.i));
+    });
+  });
+
+  // ---- Довгий тап — заборона контекстного меню ----
   track.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  // ---- Пауза при виході з вкладки / overlay ----
+  container._mediaCleanup = function () {
+    clearTimeout(inactivityTimer);
+    muteAll();
+    frames.forEach(function (f) {
+      var v = f.querySelector("video");
+      if (v) { v.pause(); v.currentTime = 0; }
+    });
+  };
 }
 
 // ================================================================
@@ -564,6 +705,11 @@ function _removeExisting() {
   document.querySelectorAll("body > *").forEach(function (e) { if (e.id !== "smOverlay") e.style.pointerEvents = ""; });
   if (_keyHandler) { document.removeEventListener("keydown", _keyHandler); _keyHandler = null; }
   if (_unsub) { _unsub(); _unsub = null; }
+
+  // Зупиняємо всі відео та скидаємо звук перед закриттям
+  var mediaPanel = el.querySelector("#smPanelMedia");
+  if (mediaPanel && mediaPanel._mediaCleanup) mediaPanel._mediaCleanup();
+
   el.classList.remove("sm-visible");
   el.addEventListener("transitionend", function () { el.remove(); }, { once: true });
   setTimeout(function () { var x = document.getElementById("smOverlay"); if (x) x.remove(); }, 500);
@@ -674,7 +820,11 @@ function _ensureStyles() {
     '.sm-spinner{position:absolute;width:24px;height:24px;border:2px solid rgba(255,255,255,.08);border-top-color:rgba(255,255,255,.4);border-radius:50%;animation:smSpin .7s linear infinite}' +
     '.sm-frame.loaded .sm-spinner,.sm-frame.error .sm-spinner{display:none}' +
     '@keyframes smSpin{to{transform:rotate(360deg)}}' +
+    '.sm-media-footer{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:10px;position:relative}' +
     '.sm-dots{display:flex;gap:8px;justify-content:center}' +
+    '.sm-sound-btn{display:none;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:1.5px solid rgba(255,255,255,.18);background:rgba(0,0,0,.35);color:rgba(255,255,255,.45);cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;transition:all .2s;padding:0;position:absolute;right:0}' +
+    '.sm-sound-btn:active{background:rgba(255,255,255,.12);color:#fff}' +
+    '.sm-sound-btn.sm-sound-on{border-color:rgba(99,102,241,.6);color:#818cf8;background:rgba(99,102,241,.15)}' +
     '.sm-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.15);cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}' +
     '.sm-dot.active{background:#fff;width:18px;border-radius:3px}' +
 
