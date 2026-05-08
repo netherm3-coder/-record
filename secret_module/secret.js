@@ -15,6 +15,7 @@ const MEDIA_FILES = [
   "assets/RDT_20260421_2304236334329579471223536.jpg",
   "assets/Fkfg.jpg",
   "assets/hrer.gif",
+  "assets/Mkgon.mp4",
   "assets/Final1.mp4",
   "assets/final2.mp4",
 ];
