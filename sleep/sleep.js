@@ -173,6 +173,69 @@ document.getElementById("sleepQuickNow").addEventListener("click", () => {
   updateDurationPreview();
 });
 
+// === ВЕЛИКА КНОПКА «ЗАСНУВ / ПРОКИНУВСЯ» ===
+function refreshTrackingBtn() {
+  const btn = document.getElementById("sleepTrackBtn");
+  if (!btn) return;
+  const startedAt = localStorage.getItem("sleepStartedAt");
+  if (startedAt) {
+    btn.classList.add("tracking");
+    const startDate = new Date(parseInt(startedAt));
+    const dur = Math.round((Date.now() - startDate.getTime()) / 60000);
+    const h = Math.floor(dur / 60);
+    const m = dur % 60;
+    btn.innerHTML = '<div class="sleep-track-icon">☀️</div>' +
+      '<div class="sleep-track-label">Прокинувся!</div>' +
+      '<div class="sleep-track-meta">Спиш ' + h + 'г ' + m + 'хв</div>';
+  } else {
+    btn.classList.remove("tracking");
+    btn.innerHTML = '<div class="sleep-track-icon">🌙</div>' +
+      '<div class="sleep-track-label">Заснути зараз</div>' +
+      '<div class="sleep-track-meta">Зафіксувати початок сну</div>';
+  }
+}
+refreshTrackingBtn();
+setInterval(refreshTrackingBtn, 60000);
+
+const trackBtn = document.getElementById("sleepTrackBtn");
+if (trackBtn) {
+  trackBtn.addEventListener("click", async () => {
+    if (!isAdmin) { alert("Потрібно увійти як адмін"); return; }
+
+    const startedAt = localStorage.getItem("sleepStartedAt");
+    if (!startedAt) {
+      // Початок сну
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - (now.getMinutes() % 5), 0, 0);
+      localStorage.setItem("sleepStartedAt", String(now.getTime()));
+      refreshTrackingBtn();
+    } else {
+      // Кінець сну → автозбереження
+      const start = parseInt(startedAt);
+      const end = Date.now();
+      const dur = (end - start) / 60000;
+
+      if (dur < 30) {
+        if (!confirm("Сон менше 30 хвилин. Все одно зберегти?")) return;
+      }
+
+      try {
+        await addDoc(colRef, {
+          start, end,
+          duration: dur,
+          quality: 3,
+          note: "",
+          createdAt: Date.now(),
+        });
+        localStorage.removeItem("sleepStartedAt");
+        refreshTrackingBtn();
+        document.getElementById("status").innerText = "Сон збережено: " + Math.round(dur / 60 * 10) / 10 + " год";
+        setTimeout(() => { document.getElementById("status").innerText = "Хмара синхронізована"; }, 2500);
+      } catch (e) { alert("Помилка: " + e.message); }
+    }
+  });
+}
+
 // === DEFAULTS ===
 {
   const now = new Date();
