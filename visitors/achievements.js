@@ -137,7 +137,7 @@ const MILESTONES = [
     condition: (w, sd, logs) => maxLogsInWindow(logs, 45 * 60000) >= 3,
     progress: (w, sd, logs) => Math.min(1, maxLogsInWindow(logs, 45 * 60000) / 3) },
 
-  { id: "archive_mythic_s", name: "Ціль життя", description: "Зафіксувати запис із рангом «S»", icon: "💞", category: "archive", reward: 500,
+  { id: "archive_mythic_s", name: "Сенс життя", description: "Зафіксувати запис із рангом «S»", icon: "💞", category: "archive", reward: 500,
     condition: (w, sd, logs) => logs.some(l => l.is_s === true),
     progress: (w, sd, logs) => logs.some(l => l.is_s === true) ? 1 : 0 },
 ];
@@ -233,7 +233,6 @@ function maxRecordsPerExercise(workouts) {
   return Math.max(0, ...Object.values(buckets));
 }
 
-// === Хелпери для Архіву ===
 function maxLogsPerDay(logs) {
   if (!logs || logs.length === 0) return 0;
   const buckets = {};
@@ -278,7 +277,6 @@ function getSobrietyDays() {
 window.computeAchievements = (workouts) => {
   const sd = getSobrietyDays();
   const logs = window.allPrivateLogs || [];
-  console.log("🎯 Computing achievements: workouts=" + (workouts || []).length + ", logs=" + logs.length);
   return MILESTONES.map(m => {
     const isUnlocked = m.condition(workouts || [], sd, logs);
     const progress = m.progress(workouts || [], sd, logs);
@@ -295,10 +293,6 @@ window.renderAchievementsTab = () => {
   const unlockedCount = achievements.filter(a => a.isUnlocked).length;
   const totalReward = achievements.filter(a => a.isUnlocked).reduce((s, a) => s + a.reward, 0);
   const maxReward = achievements.reduce((s, a) => s + a.reward, 0);
-
-  console.log("📊 RENDER ACHIEVEMENTS:");
-  console.log("  Total:", achievements.length, "| Unlocked:", unlockedCount, "| Reward:", totalReward + "/" + maxReward);
-  console.log("  All achievements:", achievements.map(a => a.id + ":" + (a.isUnlocked ? "✅" : "❌")).join(" | "));
 
   const filter = container.dataset.filter || "all";
   const sort = container.dataset.sort || "default";
@@ -339,8 +333,6 @@ window.renderAchievementsTab = () => {
     }
   }).join("");
 
-  console.log("  Cards to render:", cards.length, "html chars:", cards.length);
-
   container.innerHTML =
     '<div class="ach-header">' +
       '<div class="ach-stats-row">' +
@@ -351,8 +343,6 @@ window.renderAchievementsTab = () => {
     '</div>' +
     '<div class="ach-filters">' + filterBtns + '</div>' +
     '<div class="ach-grid">' + cards + '</div>';
-
-  console.log("  ✅ HTML inserted into container");
 
   // Filter buttons
   container.querySelectorAll(".ach-filter-btn").forEach(btn => {
