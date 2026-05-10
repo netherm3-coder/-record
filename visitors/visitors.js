@@ -100,14 +100,14 @@ function getFiltered() {
 function renderStats() {
   const now = Date.now();
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const todayCount = allVisits.filter((v) => v.timestamp >= today.getTime()).length;
-  const weekCount = allVisits.filter((v) => v.timestamp >= now - 7 * 86400000).length;
-  const uniqueIPs = new Set(allVisits.map((v) => v.ip).filter((ip) => ip && ip !== "unknown")).size;
+  const todayCount = allVisits.filter((v) => (v.lastVisit || v.timestamp) >= today.getTime()).length;
+  const weekCount = allVisits.filter((v) => (v.lastVisit || v.timestamp) >= now - 7 * 86400000).length;
+  const totalVisits = allVisits.reduce((s, v) => s + (v.visitCount || 1), 0);
 
-  document.getElementById("visTotal").textContent = allVisits.length;
+  document.getElementById("visTotal").textContent = totalVisits;
   document.getElementById("visToday").textContent = todayCount;
   document.getElementById("visWeek").textContent = weekCount;
-  document.getElementById("visUnique").textContent = uniqueIPs;
+  document.getElementById("visUnique").textContent = allVisits.length;
 }
 
 // LIST
@@ -124,11 +124,16 @@ function renderList() {
   empty.classList.add("vis-hidden");
 
   list.innerHTML = filtered.map((v) => {
-    const d = new Date(v.timestamp);
+    const lastTs = v.lastVisit || v.timestamp;
+    const firstTs = v.firstVisit || v.timestamp;
+    const d = new Date(lastTs);
     const time = String(d.getDate()).padStart(2, "0") + "." +
       String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear() + " " +
       String(d.getHours()).padStart(2, "0") + ":" +
       String(d.getMinutes()).padStart(2, "0");
+
+    const visitCount = v.visitCount || 1;
+    const firstStr = new Date(firstTs).toLocaleDateString("uk-UA");
 
     const location = [v.city, v.country].filter(Boolean).join(", ");
     const cls = (v.isAdmin ? "is-admin " : "") + (v.device === "Mobile" ? "is-mobile" : "is-desktop");
@@ -140,9 +145,13 @@ function renderList() {
     if (v.device) tags += '<span class="vis-tag">' + esc(v.device) + '</span>';
     if (v.screen) tags += '<span class="vis-tag">' + esc(v.screen) + '</span>';
 
+    const visitBadge = visitCount > 1
+      ? '<span class="vis-count-badge">×' + visitCount + '</span>'
+      : '';
+
     return '<div class="vis-item ' + cls + '">' +
-      '<div class="vis-item-time">' + time + '</div>' +
-      '<div class="vis-item-ip">' + esc(v.ip || "—") + '</div>' +
+      '<div class="vis-item-time">Останній: ' + time + (visitCount > 1 ? ' · вперше: ' + firstStr : '') + '</div>' +
+      '<div class="vis-item-ip">' + esc(v.ip || "—") + visitBadge + '</div>' +
       (location ? '<div class="vis-item-location">📍 ' + esc(location) + '</div>' : '') +
       '<div class="vis-item-tags">' + tags + '</div>' +
     '</div>';
