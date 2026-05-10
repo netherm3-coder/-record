@@ -13,9 +13,7 @@ const MEDIA_FILES = [
   "assets/redvid_io_violating_that_throatpussy_of_hers.gif",
   "assets/RDT_20260421_2301107487583688953369648.jpg",
   "assets/RDT_20260421_2304236334329579471223536.jpg",
-  "assets/Fkfg.jpg",
   "assets/hrer.gif",
-  "assets/Mkgon.mp4",
   "assets/Final1.mp4",
   "assets/final2.mp4",
 ];
@@ -33,20 +31,22 @@ export async function openSecretModule() {
 //  CLIPBOARD EXPORT FOR AI
 // ================================================================
 function copyAiPrompt() {
-  var totalCount = _allLogs.length;
-  var hardcoreCount = _allLogs.filter(function (l) { return _isHardcore(l); }).length;
+  var normal = _normalLogs();
+  var totalCount = normal.length;
+  var hardcoreCount = normal.filter(function (l) { return _isHardcore(l); }).length;
+  var sCount = _allLogs.filter(function (l) { return _isS(l); }).length;
   var now = new Date();
 
-  // R_dop (без впливу +)
+  // R_dop (без впливу + та S)
   var S = _getStreak(now);
   var sevenAgo = now.getTime() - 7 * 86400000;
   var N_7d = 0;
-  _allLogs.forEach(function (l) { if (l.timestamp >= sevenAgo && !_isHardcore(l)) N_7d++; });
+  normal.forEach(function (l) { if (l.timestamp >= sevenAgo && !_isHardcore(l)) N_7d++; });
   var R_dop = Math.log(S + 1) * 5 - (N_7d * 2.5);
   R_dop = Math.round(R_dop * 100) / 100;
 
-  // Останні 10
-  var last10 = _allLogs.slice(0, 10).map(function (l) {
+  // Останні 10 (без S)
+  var last10 = normal.slice(0, 10).map(function (l) {
     var d = new Date(l.timestamp);
     var ds = String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + " " +
       String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
@@ -56,7 +56,8 @@ function copyAiPrompt() {
 
   var text = "Дій як нейробіолог. Проаналізуй мої дані.\n" +
     "Метрики: Поточний індекс R_dop=" + R_dop + ", Всього записів " + totalCount +
-    ", З них з обтяженням (+) " + hardcoreCount + ".\n" +
+    ", З них з обтяженням (+) " + hardcoreCount +
+    (sCount > 0 ? ", Окремих S-записів: " + sCount : "") + ".\n" +
     "Стрік (днів без зривів): " + S + "\n" +
     "Останні 10 записів:\n" + last10 + "\n\n" +
     "Завдання: Дай коротку критичну, суху оцінку мого стану. Вкажи на слабкість, якщо динаміка негативна. Без дипломатії.";
@@ -103,10 +104,19 @@ function _isHardcore(log) {
   return false;
 }
 
+function _isS(log) {
+  return log.is_s === true;
+}
+
+function _normalLogs() {
+  // Логи без S-рангу — використовуються в усіх формулах
+  return _allLogs.filter(function (l) { return !_isS(l); });
+}
+
 function _getStreak(now) {
   if (_allLogs.length === 0) return 252;
-  // Тільки НЕ-hardcore записи впливають на стрік
-  var nonHC = _allLogs.filter(function (l) { return !_isHardcore(l); });
+  // Тільки НЕ-hardcore і НЕ-S записи впливають на стрік
+  var nonHC = _allLogs.filter(function (l) { return !_isHardcore(l) && !_isS(l); });
   if (nonHC.length === 0) return 252;
   var lastTs = Math.max.apply(null, nonHC.map(function (l) { return l.timestamp; }));
   var s = Math.floor((now.getTime() - lastTs) / 86400000);
@@ -421,14 +431,16 @@ function _listenLogs(statsPanel) {
 // ================================================================
 function _renderStats(container) {
   var now = new Date();
+  var normal = _normalLogs(); // Без S-записів
 
   // --- Counters ---
-  var totalCount = _allLogs.length;
-  var hardcoreCount = _allLogs.filter(function (l) { return _isHardcore(l); }).length;
+  var totalCount = normal.length;
+  var hardcoreCount = normal.filter(function (l) { return _isHardcore(l); }).length;
+  var sCount = _allLogs.filter(function (l) { return _isS(l); }).length;
 
-  // --- Heatmap ---
+  // --- Heatmap (тільки звичайні записи, без S) ---
   var heatmap = {};
-  _allLogs.forEach(function (l) {
+  normal.forEach(function (l) {
     var d = new Date(l.timestamp);
     var key = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
     if (!heatmap[key]) heatmap[key] = { count: 0, notes: [] };
@@ -445,13 +457,13 @@ function _renderStats(container) {
     cells.push({ key: key, count: info.count, notes: info.notes, lvl: lvl, dow: dt.getDay() });
   }
 
-  // --- S (clean streak, hardcore NOT counted as reset) ---
+  // --- S (clean streak) ---
   var S = _getStreak(now);
 
   // --- D_total / D_clean ---
   var D_total, D_clean;
-  if (_allLogs.length > 0) {
-    var firstTs = Math.min.apply(null, _allLogs.map(function (l) { return l.timestamp; }));
+  if (normal.length > 0) {
+    var firstTs = Math.min.apply(null, normal.map(function (l) { return l.timestamp; }));
     D_total = Math.ceil((now.getTime() - firstTs) / 86400000) + 1;
     if (D_total > 252) D_total = 252;
     D_clean = D_total - Object.keys(heatmap).length;
@@ -459,15 +471,15 @@ function _renderStats(container) {
   if (D_clean < 0) D_clean = 0;
   var D_ratio = D_total > 0 ? D_clean / D_total : 0;
 
-  // --- R_7d (ТІЛЬКИ не-hardcore записи впливають на формулу) ---
+  // --- R_7d (без + та S) ---
   var sevenDaysAgo = now.getTime() - 7 * 86400000;
   var R_7d = 0;
-  _allLogs.forEach(function (l) {
+  normal.forEach(function (l) {
     if (l.timestamp >= sevenDaysAgo && !_isHardcore(l)) R_7d++;
   });
 
   // --- S_avg ---
-  var nonHC = _allLogs.filter(function (l) { return !_isHardcore(l); });
+  var nonHC = normal.filter(function (l) { return !_isHardcore(l); });
   var sortedAsc = nonHC.slice().sort(function (a, b) { return a.timestamp - b.timestamp; });
   var gaps = [];
   for (var g = 1; g < sortedAsc.length; g++) {
@@ -502,6 +514,7 @@ function _renderStats(container) {
       '<div class="sm-counter-box"><span class="sm-counter-num">' + totalCount + '</span><span class="sm-counter-lbl">всього</span></div>' +
       '<div class="sm-counter-box"><span class="sm-counter-num sm-counter-hc">' + hardcoreCount + '</span><span class="sm-counter-lbl">з (+)</span></div>' +
       '<div class="sm-counter-box"><span class="sm-counter-num sm-counter-streak">' + S + '</span><span class="sm-counter-lbl">стрік (д)</span></div>' +
+      (sCount > 0 ? '<div class="sm-counter-box sm-counter-s-box"><span class="sm-counter-num sm-counter-s">' + sCount + '</span><span class="sm-counter-lbl">S-ранг</span></div>' : '') +
     '</div>' +
 
     // Heatmap
@@ -553,6 +566,7 @@ function _renderStats(container) {
     '<div class="sm-form sm-hidden-form" id="smQuickForm">' +
       '<div class="sm-form-row">' +
         '<label class="sm-plus"><input type="checkbox" id="smQuickPlus" /><span>+</span></label>' +
+        '<label class="sm-plus sm-rank-s"><input type="checkbox" id="smQuickS" /><span>S</span></label>' +
         '<input type="text" id="smQuickNote" class="sm-input" placeholder="нотатка" />' +
       '</div>' +
       '<button class="sm-add-btn sm-save" id="smQuickSave">Записати</button>' +
@@ -563,6 +577,7 @@ function _renderStats(container) {
       '<input type="datetime-local" id="smManualDate" class="sm-input" />' +
       '<div class="sm-form-row">' +
         '<label class="sm-plus"><input type="checkbox" id="smManualPlus" /><span>+</span></label>' +
+        '<label class="sm-plus sm-rank-s"><input type="checkbox" id="smManualS" /><span>S</span></label>' +
         '<input type="text" id="smManualNote" class="sm-input" placeholder="нотатка" />' +
       '</div>' +
       '<button class="sm-add-btn sm-save" id="smManualSave">Зберегти</button>' +
@@ -606,14 +621,17 @@ function _renderStats(container) {
     var d = new Date();
     d.setMinutes(d.getMinutes() - (d.getMinutes() % 10), 0, 0);
     var plus = container.querySelector("#smQuickPlus").checked;
+    var isS = container.querySelector("#smQuickS").checked;
     var note = container.querySelector("#smQuickNote").value.trim();
     try {
       await addDoc(collection(db, "private_logs"), {
-        timestamp: d.getTime(), type: "reset", note: note, is_hardcore: plus, userId: uid
+        timestamp: d.getTime(), type: "reset", note: note,
+        is_hardcore: plus, is_s: isS, userId: uid
       });
       container.querySelector("#smQuickForm").classList.add("sm-hidden-form");
       container.querySelector("#smQuickNote").value = "";
       container.querySelector("#smQuickPlus").checked = false;
+      container.querySelector("#smQuickS").checked = false;
     } catch (e) { alert("Помилка: " + e.message); } finally { btn.disabled = false; }
   });
 
@@ -639,14 +657,17 @@ function _renderStats(container) {
     if (!val) { alert("Вкажи дату та час"); return; }
     btn.disabled = true;
     var plus = container.querySelector("#smManualPlus").checked;
+    var isS = container.querySelector("#smManualS").checked;
     var note = container.querySelector("#smManualNote").value.trim();
     try {
       await addDoc(collection(db, "private_logs"), {
-        timestamp: new Date(val).getTime(), type: "reset", note: note, is_hardcore: plus, userId: uid
+        timestamp: new Date(val).getTime(), type: "reset", note: note,
+        is_hardcore: plus, is_s: isS, userId: uid
       });
       container.querySelector("#smManualForm").classList.add("sm-hidden-form");
       container.querySelector("#smManualNote").value = "";
       container.querySelector("#smManualPlus").checked = false;
+      container.querySelector("#smManualS").checked = false;
     } catch (e) { alert("Помилка: " + e.message); } finally { btn.disabled = false; }
   });
 
@@ -666,13 +687,16 @@ function _renderLogs(listEl, db) {
 
   listEl.innerHTML = recent.map(function (l) {
     var hc = _isHardcore(l);
-    var badge = hc ? '<span class="sm-badge-plus">+</span>' : '';
+    var isS = _isS(l);
+    var plusBadge = hc ? '<span class="sm-badge-plus">+</span>' : '';
+    var sBadge = isS ? '<span class="sm-badge-s">S</span>' : '';
     var noteText = l.note ? l.note.replace(/^\+\s*/, "") : "";
     var noteStr = noteText ? '<span class="sm-log-note">' + _esc(noteText) + '</span>' : '';
+    var itemClass = "sm-log-item" + (isS ? " sm-log-mythic" : "");
 
-    return '<div class="sm-log-item">' +
+    return '<div class="' + itemClass + '">' +
       '<div class="sm-log-left">' +
-        badge +
+        sBadge + plusBadge +
         '<span class="sm-log-date">' + _fmtDate(l.timestamp) + '</span>' +
         noteStr +
       '</div>' +
@@ -801,6 +825,20 @@ function _ensureStyles() {
     '.sm-log-date{color:rgba(255,255,255,.45);font-size:.8rem;font-weight:600;white-space:nowrap}' +
     '.sm-log-note{color:rgba(255,255,255,.25);font-style:italic;font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
     '.sm-badge-plus{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border-radius:4px;background:rgba(245,158,11,.15);color:#f59e0b;font-size:.7rem;font-weight:900;text-shadow:0 0 6px rgba(245,158,11,.4);flex-shrink:0}' +
+
+    /* S-rank — міфічний */
+    '.sm-rank-s span{color:#ef4444!important;text-shadow:0 0 8px rgba(239,68,68,.5)}' +
+    '.sm-rank-s input:checked + span{color:#fff!important;text-shadow:0 0 12px rgba(239,68,68,.9),0 0 4px #fff}' +
+
+    '.sm-counter-s{background:linear-gradient(45deg,#ef4444,#f59e0b,#ef4444,#dc2626);background-size:300% 300%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:smShimmer 3s ease infinite}' +
+    '.sm-counter-s-box{border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.05)}' +
+    '@keyframes smShimmer{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}' +
+
+    '.sm-badge-s{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:5px;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:.75rem;font-weight:900;flex-shrink:0;box-shadow:0 0 12px rgba(239,68,68,.6),inset 0 1px 0 rgba(255,255,255,.3);text-shadow:0 1px 2px rgba(0,0,0,.5);letter-spacing:.5px;font-family:Georgia,serif;font-style:italic}' +
+
+    '.sm-log-mythic{position:relative;background:rgba(239,68,68,.04);border-radius:10px;padding:8px 10px!important;margin:6px -4px;border-bottom:none!important;overflow:hidden;animation:smMythicGlow 4s ease-in-out infinite}' +
+    '.sm-log-mythic::before{content:"";position:absolute;inset:0;border-radius:10px;padding:2px;background:linear-gradient(45deg,#ef4444,#f59e0b,#ef4444,#dc2626,#ef4444,#7f1d1d,#ef4444);background-size:300% 300%;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:smShimmer 3s linear infinite;pointer-events:none}' +
+    '@keyframes smMythicGlow{0%,100%{box-shadow:0 0 8px rgba(239,68,68,.15)}50%{box-shadow:0 0 20px rgba(239,68,68,.4)}}' +
     '.sm-log-del{background:none;border:none;color:rgba(255,255,255,.15);font-size:1.4rem;cursor:pointer;min-width:28px;min-height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;line-height:1;border-radius:6px}' +
     '.sm-log-del:active{color:#ef4444;background:rgba(239,68,68,.1)}' +
     '.sm-empty{text-align:center;color:rgba(255,255,255,.2);padding:14px;font-size:.85rem}' +
