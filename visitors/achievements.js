@@ -115,31 +115,6 @@ const MILESTONES = [
 
   { id: "perfectionist", name: "Перфекціоніст", description: "20+ записів у одній дисципліні", icon: "🎯", category: "progress", reward: 25,
     condition: (w) => maxRecordsPerExercise(w) >= 20, progress: (w) => Math.min(1, maxRecordsPerExercise(w) / 20) },
-
-  // === АРХІВ (private_logs) ===
-  { id: "archive_pioneer", name: "Першопроходець", description: "Додати 2 записи в архів за день", icon: "🌱", category: "archive", reward: 10,
-    condition: (w, sd, logs) => maxLogsPerDay(logs) >= 2,
-    progress: (w, sd, logs) => Math.min(1, maxLogsPerDay(logs) / 2) },
-
-  { id: "archive_focused", name: "Зосереджений", description: "Додати 5 записів в архів за день", icon: "🔬", category: "archive", reward: 25,
-    condition: (w, sd, logs) => maxLogsPerDay(logs) >= 5,
-    progress: (w, sd, logs) => Math.min(1, maxLogsPerDay(logs) / 5) },
-
-  { id: "archive_obsessed", name: "Одержимий", description: "Додати 10 записів в архів за день", icon: "🌀", category: "archive", reward: 50,
-    condition: (w, sd, logs) => maxLogsPerDay(logs) >= 10,
-    progress: (w, sd, logs) => Math.min(1, maxLogsPerDay(logs) / 10) },
-
-  { id: "archive_burst", name: "Сплеск", description: "2 записи в архів за 45 хвилин", icon: "⚡", category: "archive", reward: 15,
-    condition: (w, sd, logs) => maxLogsInWindow(logs, 45 * 60000) >= 2,
-    progress: (w, sd, logs) => Math.min(1, maxLogsInWindow(logs, 45 * 60000) / 2) },
-
-  { id: "archive_storm", name: "Шторм", description: "3 записи в архів за 45 хвилин", icon: "🌪️", category: "archive", reward: 35,
-    condition: (w, sd, logs) => maxLogsInWindow(logs, 45 * 60000) >= 3,
-    progress: (w, sd, logs) => Math.min(1, maxLogsInWindow(logs, 45 * 60000) / 3) },
-
-  { id: "archive_mythic_s", name: "Сенс життя", description: "Зафіксувати запис із рангом «S»", icon: "💞", category: "archive", reward: 500,
-    condition: (w, sd, logs) => logs.some(l => l.is_s === true),
-    progress: (w, sd, logs) => logs.some(l => l.is_s === true) ? 1 : 0 },
 ];
 
 // ================================================================
@@ -233,28 +208,6 @@ function maxRecordsPerExercise(workouts) {
   return Math.max(0, ...Object.values(buckets));
 }
 
-function maxLogsPerDay(logs) {
-  if (!logs || logs.length === 0) return 0;
-  const buckets = {};
-  logs.forEach(l => {
-    const d = new Date(l.timestamp);
-    const key = d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
-    buckets[key] = (buckets[key] || 0) + 1;
-  });
-  return Math.max(0, ...Object.values(buckets));
-}
-
-function maxLogsInWindow(logs, windowMs) {
-  if (!logs || logs.length < 2) return logs ? logs.length : 0;
-  const sorted = [...logs].map(l => l.timestamp).sort((a, b) => a - b);
-  let max = 1, left = 0;
-  for (let right = 0; right < sorted.length; right++) {
-    while (sorted[right] - sorted[left] > windowMs) left++;
-    if (right - left + 1 > max) max = right - left + 1;
-  }
-  return max;
-}
-
 // ================================================================
 //  ЛОГІКА ДОСЯГНЕНЬ
 // ================================================================
@@ -264,7 +217,6 @@ const CATEGORIES = {
   speed: "Швидкість",
   endurance: "Витривалість",
   sober: "Тверезість",
-  archive: "Архів",
   general: "Загальні",
   progress: "Прогресія",
 };
@@ -276,10 +228,9 @@ function getSobrietyDays() {
 
 window.computeAchievements = (workouts) => {
   const sd = getSobrietyDays();
-  const logs = window.allPrivateLogs || [];
   return MILESTONES.map(m => {
-    const isUnlocked = m.condition(workouts || [], sd, logs);
-    const progress = m.progress(workouts || [], sd, logs);
+    const isUnlocked = m.condition(workouts || [], sd);
+    const progress = m.progress(workouts || [], sd);
     return { ...m, isUnlocked, progress };
   });
 };
@@ -499,6 +450,7 @@ window.showExportModal = () => {
   const m = document.createElement("div");
   m.id = "exportModal";
   m.className = "modal-overlay";
+  m.style.display = "flex";
   m.innerHTML =
     '<div class="card modal-content modal-content-sm">' +
       '<div class="modal-header">' +
@@ -508,24 +460,21 @@ window.showExportModal = () => {
       '<p class="export-info">Виберіть формат файлу для завантаження. Експортуються всі ваші ' +
         (window.allWorkouts ? window.allWorkouts.length : 0) + ' записів.</p>' +
       '<div class="export-btns">' +
-        '<button class="primary-btn export-btn-csv" id="expCsv">📊 CSV</button>' +
+        '<button class="primary-btn export-btn export-btn-csv" id="expCsv">📊 CSV</button>' +
         '<button class="primary-btn export-btn-pdf" id="expPdf">📄 PDF</button>' +
       '</div>' +
     '</div>';
   document.body.appendChild(m);
-  requestAnimationFrame(() => m.classList.add("show"));
 
-  function close() { m.classList.remove("show"); setTimeout(() => m.remove(), 300); }
-
-  document.getElementById("exportClose").addEventListener("click", close);
-  m.addEventListener("click", e => { if (e.target === m) close(); });
+  document.getElementById("exportClose").addEventListener("click", () => m.remove());
+  m.addEventListener("click", e => { if (e.target === m) m.remove(); });
 
   document.getElementById("expCsv").addEventListener("click", () => {
     window.exportRecordsToCSV(window.allWorkouts || []);
-    close();
+    m.remove();
   });
   document.getElementById("expPdf").addEventListener("click", async () => {
     await window.exportRecordsToPDF(window.allWorkouts || []);
-    close();
+    m.remove();
   });
 };
