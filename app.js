@@ -12,6 +12,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
   setDoc,
+  getDoc,
   updateDoc,
   increment,
   limit,
@@ -1313,16 +1314,39 @@ listenToWorkouts();
         const verMatch = ua.match(/(Chrome|Firefox|Safari|Edg|Opera|OPR)\/(\d+)/);
         const browserVer = verMatch ? verMatch[2] : "";
 
-        await addDoc(collection(db, "visitor_logs"), {
-          timestamp: Date.now(),
+        // IP як ID документа — кожен IP має один запис, лічильник зростає
+        const docId = ip.replace(/[^a-zA-Z0-9.:_-]/g, "_") || "unknown_" + Date.now();
+        const ref = doc(db, "visitor_logs", docId);
+        const snap = await getDoc(ref);
+
+        const baseData = {
           ip, country, city,
-          device, os, browser,
-          browserVer,
+          device, os, browser, browserVer,
           screen: window.screen.width + "x" + window.screen.height,
           referrer: document.referrer || "direct",
           isAdmin: !!auth.currentUser,
           userAgent: ua.substring(0, 250),
-        });
+          lastVisit: Date.now(),
+        };
+
+        if (snap.exists()) {
+          // Існуючий IP — оновлюємо лічильник і дані
+          const old = snap.data();
+          await setDoc(ref, {
+            ...baseData,
+            visitCount: (old.visitCount || 1) + 1,
+            firstVisit: old.firstVisit || old.timestamp || Date.now(),
+            timestamp: Date.now(), // для сортування
+          });
+        } else {
+          // Новий IP
+          await setDoc(ref, {
+            ...baseData,
+            visitCount: 1,
+            firstVisit: Date.now(),
+            timestamp: Date.now(),
+          });
+        }
 
         sessionStorage.setItem(sessionKey, "1");
       } catch (err) {
@@ -1335,11 +1359,13 @@ listenToWorkouts();
 // Завантаження цілей та глобальної статистики
 var _goalsUnsub = null;
 var _globalUnsub = null;
+var _privateLogsUnsub = null;
 
 function listenToMeta() {
   // Знімаємо старі слухачі щоб не дублювати
   if (_goalsUnsub) _goalsUnsub();
   if (_globalUnsub) _globalUnsub();
+  if (_privateLogsUnsub) _privateLogsUnsub();
 
   _goalsUnsub = onSnapshot(collection(db, "goals"), (snapshot) => {
     allGoals = {};
@@ -1355,6 +1381,26 @@ function listenToMeta() {
       renderGlobalStats();
     }
   });
+
+  // Архів — для досягнень. Доступний лише адміну.
+  if (auth.currentUser) {
+    try {
+      const uid = auth.currentUser.uid;
+      _privateLogsUnsub = onSnapshot(
+        query(collection(db, "private_logs"), orderBy("timestamp", "desc"), limit(500)),
+        (snap) => {
+          window.allPrivateLogs = snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(l => l.userId === uid);
+          if (window.checkNewAchievements) window.checkNewAchievements(window.allWorkouts || []);
+          if (window.renderAchievementsTab && document.getElementById("tab-achievements")?.classList.contains("active")) {
+            window.renderAchievementsTab();
+          }
+        },
+        () => {} // тихо ігноруємо помилки доступу
+      );
+    } catch (e) { /* noop */ }
+  }
 }
 listenToMeta();
 let editingId = null; // Змінна, яка пам'ятає, чи ми щось редагуємо
@@ -1917,11 +1963,22 @@ if (heightInput) {
 window.autofillWeightForm = (force) => {
   if (!allWeights || allWeights.length === 0) return;
   const last = allWeights[0]; // найновіше зважування
-  const fields = ["mNeck", "mShoulders", "mChest", "mWaist", "mBicep", "mThigh", "mCalf", "mForearm"];
-  fields.forEach((id) => {
+  const fieldMap = {
+    mNeck: "neck",
+    mShoulders: "shoulders",
+    mChest: "chest",
+    mWaist: "waist",
+    mBicep: "bicep",
+    mThigh: "thigh",
+    mCalf: "calf",
+    mForearm: "forearm",
+    mPenisLength: "penisLength",
+    mPenisGirth: "penisGirth",
+  };
+  Object.keys(fieldMap).forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const key = id.slice(1).toLowerCase(); // mNeck -> neck
+    const key = fieldMap[id];
     if ((force || !el.value) && last[key] && last[key] > 0) {
       el.value = last[key];
     }
@@ -1959,6 +2016,8 @@ if (saveWeightBtn) {
       thigh: parseFloat(document.getElementById("mThigh").value) || 0,
       calf: parseFloat(document.getElementById("mCalf").value) || 0,
       forearm: parseFloat(document.getElementById("mForearm").value) || 0,
+      penisLength: parseFloat(document.getElementById("mPenisLength")?.value) || 0,
+      penisGirth: parseFloat(document.getElementById("mPenisGirth")?.value) || 0,
     };
 
     if (heightVal) localStorage.setItem("userHeight", heightVal);
