@@ -136,6 +136,10 @@ const MILESTONES = [
   { id: "archive_storm", name: "Шторм", description: "3 записи в архів за 45 хвилин", icon: "🌪️", category: "archive", reward: 35,
     condition: (w, sd, logs) => maxLogsInWindow(logs, 45 * 60000) >= 3,
     progress: (w, sd, logs) => Math.min(1, maxLogsInWindow(logs, 45 * 60000) / 3) },
+
+  { id: "archive_mythic_s", name: "Сатанинський акт", description: "Зафіксувати запис із рангом «S»", icon: "👹", category: "archive", reward: 500,
+    condition: (w, sd, logs) => logs.some(l => l.is_s === true),
+    progress: (w, sd, logs) => logs.some(l => l.is_s === true) ? 1 : 0 },
 ];
 
 // ================================================================
