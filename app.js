@@ -373,31 +373,9 @@ function _initShuttleUI() {
   if (_shuttleUIInit) return;
   _shuttleUIInit = true;
 
-  // Scheme buttons
-  document.querySelectorAll(".scheme-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".scheme-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      const schemeInput = document.getElementById("shuttleScheme");
-      if (btn.dataset.scheme === "custom") {
-        schemeInput.style.display = "block";
-        schemeInput.focus();
-      } else {
-        schemeInput.style.display = "none";
-        schemeInput.value = btn.dataset.scheme;
-      }
-      _updateShuttlePreview();
-    });
-  });
-
-  // Live preview
   ["shuttleMin", "shuttleSecVal", "shuttleMs", "shuttleScheme"].forEach(id => {
     document.getElementById(id)?.addEventListener("input", _updateShuttlePreview);
   });
-
-  // Set default scheme
-  document.getElementById("shuttleScheme").value = "4×9м";
-  _updateShuttlePreview();
 }
 
 function _updateShuttlePreview() {
@@ -405,23 +383,17 @@ function _updateShuttlePreview() {
   if (!preview) return;
   const scheme = _getShuttleScheme();
   const time = _getShuttleTimeStr();
-  if (scheme && time) {
-    preview.textContent = `⏱ ${time} — ${scheme}`;
-  } else {
-    preview.textContent = "";
-  }
+  preview.textContent = (scheme && time) ? `⏱ ${time} — ${scheme}` : "";
 }
 
 function _getShuttleScheme() {
-  const active = document.querySelector(".scheme-btn.active");
-  if (active && active.dataset.scheme !== "custom") return active.dataset.scheme;
   return document.getElementById("shuttleScheme")?.value.trim() || "";
 }
 
 function _getShuttleTimeStr() {
   const min = parseInt(document.getElementById("shuttleMin")?.value || "0") || 0;
   const sec = parseInt(document.getElementById("shuttleSecVal")?.value || "0") || 0;
-  const ms = parseInt(document.getElementById("shuttleMs")?.value || "0") || 0;
+  const ms  = parseInt(document.getElementById("shuttleMs")?.value  || "0") || 0;
   if (min === 0 && sec === 0 && ms === 0) return "";
   return `${min}:${String(sec).padStart(2, "0")}.${String(ms).padStart(2, "0")}`;
 }
@@ -429,7 +401,7 @@ function _getShuttleTimeStr() {
 function _getShuttleTotalSec() {
   const min = parseInt(document.getElementById("shuttleMin")?.value || "0") || 0;
   const sec = parseInt(document.getElementById("shuttleSecVal")?.value || "0") || 0;
-  const ms = parseInt(document.getElementById("shuttleMs")?.value || "0") || 0;
+  const ms  = parseInt(document.getElementById("shuttleMs")?.value  || "0") || 0;
   return min * 60 + sec + ms / 100;
 }
 
@@ -1623,36 +1595,20 @@ window.editEntry = (id) => {
     if (distMatch) DOM.sprintDistance.value = distMatch[1];
     if (secMatch) DOM.sprintSec.value = secMatch[1];
   } else if (baseType === EX.SHUTTLE) {
-    // Новий формат: "0:24.50 (4×9м)" або старий: "24.5 с (10х10 м)"
-    // Витягуємо схему зі скобок або з назви вправи
     const schemeFromExercise = workout.exercise.replace("Човниковий біг ", "").trim();
-    const activeSchemes = ["4×9м", "10×10м", "6×100м", "3×10м"];
-    document.querySelectorAll(".scheme-btn").forEach(b => {
-      b.classList.remove("active");
-      if (b.dataset.scheme === schemeFromExercise) b.classList.add("active");
-    });
-    if (!activeSchemes.includes(schemeFromExercise)) {
-      // Custom scheme
-      document.querySelector('.scheme-btn[data-scheme="custom"]')?.classList.add("active");
-      DOM.shuttleScheme.style.display = "block";
-      DOM.shuttleScheme.value = schemeFromExercise;
-    } else {
-      DOM.shuttleScheme.style.display = "none";
-      DOM.shuttleScheme.value = schemeFromExercise;
-    }
-    // Час
+    DOM.shuttleScheme.value = schemeFromExercise;
     const newFmt = countStr.match(/^(\d+):(\d+)\.(\d+)/);
     if (newFmt) {
-      document.getElementById("shuttleMin").value = newFmt[1];
+      document.getElementById("shuttleMin").value    = newFmt[1];
       document.getElementById("shuttleSecVal").value = newFmt[2];
-      document.getElementById("shuttleMs").value = newFmt[3];
+      document.getElementById("shuttleMs").value     = newFmt[3];
     } else {
       const oldSec = countStr.match(/([\d.]+)\s*с/);
       if (oldSec) {
         const tot = parseFloat(oldSec[1]);
-        document.getElementById("shuttleMin").value = Math.floor(tot / 60);
+        document.getElementById("shuttleMin").value    = Math.floor(tot / 60);
         document.getElementById("shuttleSecVal").value = Math.floor(tot % 60);
-        document.getElementById("shuttleMs").value = Math.round((tot % 1) * 100);
+        document.getElementById("shuttleMs").value     = Math.round((tot % 1) * 100);
       }
     }
     _updateShuttlePreview();
