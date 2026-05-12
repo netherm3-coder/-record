@@ -1,4 +1,4 @@
-const CACHE_NAME = "records-room-v4";
+const CACHE_NAME = "records-room-v5";
 
 const BYPASS = [
   /firestore\.googleapis\.com/,
@@ -14,6 +14,10 @@ const BYPASS = [
 ];
 
 self.addEventListener("install", () => self.skipWaiting());
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
+});
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(

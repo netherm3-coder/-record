@@ -2093,8 +2093,33 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("./sw.js")
-      .then((reg) => console.log("[SW] Registered, scope:", reg.scope))
+      .then((reg) => {
+        console.log("[SW] Registered, scope:", reg.scope);
+        // Примусово перевіряємо оновлення кожного разу
+        reg.update();
+        // Якщо нова версія в очікуванні — активуємо її
+        if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
+        // Слухаємо нові SW
+        reg.addEventListener("updatefound", () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener("statechange", () => {
+            if (nw.state === "installed" && navigator.serviceWorker.controller) {
+              console.log("[SW] New version ready");
+              nw.postMessage({ type: "SKIP_WAITING" });
+            }
+          });
+        });
+      })
       .catch((err) => console.error("[SW] Registration failed:", err));
+
+    // При зміні активного SW — перезавантажуємо сторінку один раз
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
   });
 }
 function calculateSobriety() {
