@@ -489,7 +489,7 @@ window.updateDropdowns = () => {
 
   const filterType = document.getElementById("filterType");
   const filterSub  = document.getElementById("filterSub");
-  if (!filterType || !filterSub) return;
+  if (!filterType || !filterSub) return; // HTML не оновлений — пропускаємо фільтр
 
   const prevType = filterType.value;
   const prevSub  = filterSub.value;
@@ -1271,24 +1271,22 @@ window.renderUI = () => {
 
   const filterType = document.getElementById("filterType");
   const filterSub  = document.getElementById("filterSub");
-  if (!filterType) return;
 
-  const typeVal = filterType.value;
-  const subVal  = filterSub?.style.display !== "none" ? filterSub?.value : "";
+  const typeVal = filterType?.value || "";
+  const subVal  = (filterSub && filterSub.style.display !== "none") ? filterSub.value : "";
 
-  // Визначаємо яку дисципліну фільтруємо
   let filterValue = "";
   if (typeVal) {
-    if (subVal) filterValue = subVal;           // "Біг 5 км"
-    else filterValue = typeVal;                 // "Підтягування" (одна дисципліна)
+    filterValue = subVal || typeVal;
   }
 
   const container = document.getElementById("timelineContainer");
+  if (!container) return;
 
   const filteredWorkouts = filterValue
     ? allWorkouts.filter(w => w.exercise === filterValue ||
         (!subVal && w.exercise.startsWith(filterValue + " ")))
-    : allWorkouts.slice(0, 50);   // без фільтра — останні 50
+    : [...allWorkouts].slice(0, 50);
 
   if (filteredWorkouts.length === 0) {
     requestAnimationFrame(() => {
