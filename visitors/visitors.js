@@ -3,6 +3,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import {
   collection, onSnapshot, query, orderBy, limit,
   initializeFirestore, persistentLocalCache,
+  doc, deleteDoc, getDocs, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword,
@@ -80,6 +81,50 @@ document.querySelectorAll(".vis-filter").forEach((btn) => {
     renderList();
   });
 });
+
+// === ОЧИСТИТИ ВСІ ЗАПИСИ ===
+const clearAllBtn = document.getElementById("visClearAll");
+if (clearAllBtn) {
+  clearAllBtn.addEventListener("click", async () => {
+    if (allVisits.length === 0) {
+      alert("Список вже порожній");
+      return;
+    }
+    if (!confirm("Видалити ВСІ " + allVisits.length + " записів відвідувачів? Дію не можна скасувати.")) return;
+    if (!confirm("Точно впевнений? Всі дані про відвідувачів зникнуть назавжди.")) return;
+
+    clearAllBtn.disabled = true;
+    clearAllBtn.textContent = "🗑️ Видалення...";
+
+    try {
+      // Видаляємо батчами по 400 (Firestore ліміт — 500 операцій на батч)
+      const snap = await getDocs(collection(db, "visitor_logs"));
+      const docs = snap.docs;
+      let deleted = 0;
+
+      for (let i = 0; i < docs.length; i += 400) {
+        const batch = writeBatch(db);
+        const chunk = docs.slice(i, i + 400);
+        chunk.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+        deleted += chunk.length;
+        clearAllBtn.textContent = "🗑️ " + deleted + "/" + docs.length;
+      }
+
+      clearAllBtn.disabled = false;
+      clearAllBtn.textContent = "🗑️ Очистити всі записи";
+      // sessionStorage щоб сьогодні не записувати знову одразу
+      sessionStorage.removeItem("visitorLogged_" + new Date().toDateString());
+      document.getElementById("status").innerText = "Видалено " + deleted + " записів";
+      setTimeout(() => { document.getElementById("status").innerText = "Хмара синхронізована"; }, 2500);
+    } catch (e) {
+      console.error("Clear failed:", e);
+      alert("Помилка: " + e.message);
+      clearAllBtn.disabled = false;
+      clearAllBtn.textContent = "🗑️ Очистити всі записи";
+    }
+  });
+}
 
 function getFiltered() {
   const now = Date.now();
