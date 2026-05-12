@@ -464,27 +464,23 @@ window.updateDropdowns = () => {
     exSelect.value = currentEx;
 
   // === ДВОРІВНЕВИЙ ФІЛЬТР ===
-  // Рахуємо частоту кожного exerciseName
   const freq = {};
   allWorkouts.forEach(w => { freq[w.exercise] = (freq[w.exercise] || 0) + 1; });
 
-  // Визначаємо "базовий тип" для групування
-  function baseType(ex) {
+  function _baseType(ex) {
     if (ex.startsWith("Біг ")) return "Біг";
     if (ex.startsWith("Спринт ")) return "Спринт";
     if (ex.startsWith("Човниковий біг ")) return "Човниковий біг";
-    return ex; // все інше — самостійна група
+    return ex;
   }
 
-  // Будуємо групи: { "Біг": ["Біг 1 км", "Біг 5 км", ...], "Підтягування": [...] }
   const groups = {};
   dbExercises.forEach(ex => {
-    const bt = baseType(ex);
+    const bt = _baseType(ex);
     if (!groups[bt]) groups[bt] = [];
     groups[bt].push(ex);
   });
 
-  // Сортуємо групи за сумарною частотою
   const groupFreq = {};
   Object.keys(groups).forEach(g => {
     groupFreq[g] = groups[g].reduce((s, ex) => s + (freq[ex] || 0), 0);
@@ -501,12 +497,10 @@ window.updateDropdowns = () => {
   filterType.innerHTML = `<option value="">— Вправа —</option>` +
     sortedGroups.map(g => `<option value="${g}">${g} (${groupFreq[g]})</option>`).join("");
 
-  // Відновлюємо попередній вибір
   if (sortedGroups.includes(prevType)) filterType.value = prevType;
 
-  // Оновлюємо другий рівень
   _rebuildSubFilter(groups, prevType, prevSub);
-}; // ← закриваємо buildExerciseOptions тут
+};
 
 // Повторна побудова sub-фільтра
 function _rebuildSubFilter(groups, typeVal, prevSub) {
@@ -552,14 +546,9 @@ function _subLabel(ex, base) {
 // Обробник зміни першого рівня фільтра
 window.onFilterTypeChange = () => {
   const filterType = document.getElementById("filterType");
-  const filterSub  = document.getElementById("filterSub");
   const typeVal = filterType.value;
 
-  const freq = {};
-  allWorkouts.forEach(w => { freq[w.exercise] = (freq[w.exercise] || 0) + 1; });
-
-  // Відбудовуємо групи для sub
-  function baseType(ex) {
+  function _baseType(ex) {
     if (ex.startsWith("Біг ")) return "Біг";
     if (ex.startsWith("Спринт ")) return "Спринт";
     if (ex.startsWith("Човниковий біг ")) return "Човниковий біг";
@@ -567,14 +556,12 @@ window.onFilterTypeChange = () => {
   }
   const groups = {};
   allWorkouts.forEach(w => {
-    const bt = baseType(w.exercise);
-    if (!groups[bt]) groups[bt] = new Set();
-    groups[bt].add(w.exercise);
+    const bt = _baseType(w.exercise);
+    if (!groups[bt]) groups[bt] = [];
+    if (!groups[bt].includes(w.exercise)) groups[bt].push(w.exercise);
   });
-  const groupsArr = {};
-  Object.keys(groups).forEach(k => groupsArr[k] = [...groups[k]]);
 
-  _rebuildSubFilter(groupsArr, typeVal, "");
+  _rebuildSubFilter(groups, typeVal, "");
   renderUI();
 };
 // Допоміжна функція для отримання числа з рядка (напр. "15 (2:00)" -> 15, "5.5 км" -> 5.5)
