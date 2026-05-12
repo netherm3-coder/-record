@@ -60,10 +60,14 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
 
 const app = initializeApp(firebaseConfig);
 
-// Вмикаємо офлайн-пам'ять для бази даних
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(),
-});
+// Вмикаємо офлайн-пам'ять для бази даних (з fallback для інкогніто)
+let db;
+try {
+  db = initializeFirestore(app, { localCache: persistentLocalCache() });
+} catch (e) {
+  // Інкогніто або заблокований IndexedDB — використовуємо пам'ять
+  db = initializeFirestore(app, {});
+}
 
 const auth = getAuth(app); // Підключаємо Auth
 

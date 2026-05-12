@@ -529,3 +529,6 @@ window.showExportModal = () => {
     close();
   });
 };
+
+// Кількість мілстоунів (для перевірки версії)
+window.ACH_MILESTONES_COUNT = MILESTONES.length;
