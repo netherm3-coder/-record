@@ -2095,17 +2095,13 @@ if ("serviceWorker" in navigator) {
       .register("./sw.js")
       .then((reg) => {
         console.log("[SW] Registered, scope:", reg.scope);
-        // Примусово перевіряємо оновлення кожного разу
         reg.update();
-        // Якщо нова версія в очікуванні — активуємо її
         if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
-        // Слухаємо нові SW
         reg.addEventListener("updatefound", () => {
           const nw = reg.installing;
           if (!nw) return;
           nw.addEventListener("statechange", () => {
             if (nw.state === "installed" && navigator.serviceWorker.controller) {
-              console.log("[SW] New version ready");
               nw.postMessage({ type: "SKIP_WAITING" });
             }
           });
@@ -2113,7 +2109,6 @@ if ("serviceWorker" in navigator) {
       })
       .catch((err) => console.error("[SW] Registration failed:", err));
 
-    // При зміні активного SW — перезавантажуємо сторінку один раз
     let refreshing = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (refreshing) return;
@@ -2122,6 +2117,71 @@ if ("serviceWorker" in navigator) {
     });
   });
 }
+
+// === PWA INSTALL PROMPT ===
+let _deferredInstall = null;
+
+// Перевіряємо чи встановлено (standalone) — одразу ховаємо кнопку
+function _isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches
+    || window.navigator.standalone === true
+    || document.referrer.includes("android-app://");
+}
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  _deferredInstall = e;
+  console.log("[PWA] Install prompt ready");
+});
+
+window.addEventListener("appinstalled", () => {
+  console.log("[PWA] Installed");
+  _deferredInstall = null;
+  const btn = document.getElementById("installPwaBtn");
+  if (btn) btn.style.display = "none";
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("installPwaBtn");
+  if (!btn) return;
+
+  // Якщо запущено як встановлений додаток — кнопку не показуємо
+  if (_isStandalone()) {
+    btn.style.display = "none";
+    return;
+  }
+
+  btn.addEventListener("click", async () => {
+    // Закриваємо меню
+    document.getElementById("sideMenu")?.classList.remove("open");
+    document.getElementById("menuOverlay")?.classList.remove("active");
+    document.getElementById("menuTrigger")?.classList.remove("active");
+    document.body.style.overflow = "";
+
+    if (_deferredInstall) {
+      // Нативний промпт від Chrome/Edge/Brave
+      _deferredInstall.prompt();
+      const { outcome } = await _deferredInstall.userChoice;
+      console.log("[PWA] User choice:", outcome);
+      if (outcome === "accepted") {
+        _deferredInstall = null;
+        btn.style.display = "none";
+      }
+    } else {
+      // Браузер не дає програмний промпт — показуємо інструкцію
+      const ua = navigator.userAgent;
+      let msg = "";
+      if (/iPhone|iPad|iPod/.test(ua)) {
+        msg = "На iPhone (Safari):\n\n1. Натисни кнопку «Поділитись» внизу екрану ⬆️\n2. Вибери «На екран Домівки»\n3. Підтверди «Додати»";
+      } else if (/Android/.test(ua)) {
+        msg = "На Android:\n\n1. Натисни ⋮ (три крапки) у меню браузера зверху справа\n2. Вибери «Встановити додаток» або «Додати на головний екран»\n3. Підтверди «Встановити»\n\nЯкщо такої опції немає — оновіть сторінку і спробуйте знову через 5 секунд.";
+      } else {
+        msg = "Натисни на меню браузера (⋮ або ☰) → «Встановити додаток» або «Додати на головний екран»";
+      }
+      alert(msg);
+    }
+  });
+});
 function calculateSobriety() {
   const alcoholStart = new Date(2023, 7, 24); // 24.08.2023 (місяці починаються з 0, тому 7 = серпень)
   const smokingStart = new Date(2024, 7, 24); // 24.08.2024
