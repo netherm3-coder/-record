@@ -343,7 +343,9 @@ const DOM = {
   sprintDistance: document.getElementById("sprintDistance"),
   sprintSec: document.getElementById("sprintSec"),
   shuttleScheme: document.getElementById("shuttleScheme"),
-  shuttleSec: document.getElementById("shuttleSec"),
+  shuttleMin: document.getElementById("shuttleMin"),
+  shuttleSecVal: document.getElementById("shuttleSecVal"),
+  shuttleMs: document.getElementById("shuttleMs"),
   customEx: document.getElementById("customEx"),
   customResultStr: document.getElementById("customResultStr"),
   customMin: document.getElementById("customMin"),
@@ -364,6 +366,72 @@ let globalStats = {
   [EX.RUN]: 0,
   otherSets: 0,
 };
+
+// === ЧОВНИКОВИЙ БІГ: ініціалізація UI ===
+let _shuttleUIInit = false;
+function _initShuttleUI() {
+  if (_shuttleUIInit) return;
+  _shuttleUIInit = true;
+
+  // Scheme buttons
+  document.querySelectorAll(".scheme-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".scheme-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const schemeInput = document.getElementById("shuttleScheme");
+      if (btn.dataset.scheme === "custom") {
+        schemeInput.style.display = "block";
+        schemeInput.focus();
+      } else {
+        schemeInput.style.display = "none";
+        schemeInput.value = btn.dataset.scheme;
+      }
+      _updateShuttlePreview();
+    });
+  });
+
+  // Live preview
+  ["shuttleMin", "shuttleSecVal", "shuttleMs", "shuttleScheme"].forEach(id => {
+    document.getElementById(id)?.addEventListener("input", _updateShuttlePreview);
+  });
+
+  // Set default scheme
+  document.getElementById("shuttleScheme").value = "4×9м";
+  _updateShuttlePreview();
+}
+
+function _updateShuttlePreview() {
+  const preview = document.getElementById("shuttlePreview");
+  if (!preview) return;
+  const scheme = _getShuttleScheme();
+  const time = _getShuttleTimeStr();
+  if (scheme && time) {
+    preview.textContent = `⏱ ${time} — ${scheme}`;
+  } else {
+    preview.textContent = "";
+  }
+}
+
+function _getShuttleScheme() {
+  const active = document.querySelector(".scheme-btn.active");
+  if (active && active.dataset.scheme !== "custom") return active.dataset.scheme;
+  return document.getElementById("shuttleScheme")?.value.trim() || "";
+}
+
+function _getShuttleTimeStr() {
+  const min = parseInt(document.getElementById("shuttleMin")?.value || "0") || 0;
+  const sec = parseInt(document.getElementById("shuttleSecVal")?.value || "0") || 0;
+  const ms = parseInt(document.getElementById("shuttleMs")?.value || "0") || 0;
+  if (min === 0 && sec === 0 && ms === 0) return "";
+  return `${min}:${String(sec).padStart(2, "0")}.${String(ms).padStart(2, "0")}`;
+}
+
+function _getShuttleTotalSec() {
+  const min = parseInt(document.getElementById("shuttleMin")?.value || "0") || 0;
+  const sec = parseInt(document.getElementById("shuttleSecVal")?.value || "0") || 0;
+  const ms = parseInt(document.getElementById("shuttleMs")?.value || "0") || 0;
+  return min * 60 + sec + ms / 100;
+}
 
 window.uiLogic = () => {
   const select = document.getElementById("exSelect").value;
@@ -392,6 +460,7 @@ window.uiLogic = () => {
     timeBox.style.display = "none";
     customResBox.style.display = "none";
     if (shuttleBox) shuttleBox.style.display = "block";
+    _initShuttleUI();
   } else if (select === "custom") {
     countBox.style.display = "none";
     timeBox.style.display = "none";
@@ -457,6 +526,20 @@ function isRunningExercise(exerciseName) {
 // Витягує час у секундах з будь-якого формату count
 function parseTimeFromCount(countStr) {
   let s = String(countStr).replace(/,/g, ".");
+
+  // Новий shuttle формат: "0:24.50 (4×9м)" → хв:сс.мс
+  let shuttleNew = s.match(/^(\d+):(\d+)\.(\d+)\s*\(/);
+  if (shuttleNew) {
+    let min = parseInt(shuttleNew[1]);
+    let sec = parseInt(shuttleNew[2]);
+    let ms = parseInt(shuttleNew[3].padEnd(2, "0").slice(0, 2));
+    return min * 60 + sec + ms / 100;
+  }
+
+  // Старий shuttle: "24.5 с (10х10 м)"
+  let oldShuttle = s.match(/^([\d.]+)\s*с\s*\(/);
+  if (oldShuttle) return parseFloat(oldShuttle[1]);
+
   // mm:ss або h:mm:ss (де завгодно у рядку)
   let timeMatch = s.match(/(\d+):(\d+)(?::(\d+))?/);
   if (timeMatch) {
@@ -465,10 +548,20 @@ function parseTimeFromCount(countStr) {
     }
     return parseInt(timeMatch[1]) * 60 + parseInt(timeMatch[2]);
   }
+
   // "12.5 с" або "12.5с"
   let secMatch = s.match(/([\d.]+)\s*с/);
   if (secMatch) return parseFloat(secMatch[1]);
   return 0;
+}
+
+// Форматує секунди у хв:сс.мс для человиного бігу
+function formatShuttleTime(totalSec) {
+  if (totalSec <= 0) return "0:00.00";
+  const min = Math.floor(totalSec / 60);
+  const sec = Math.floor(totalSec % 60);
+  const ms = Math.round((totalSec - Math.floor(totalSec)) * 100);
+  return `${min}:${String(sec).padStart(2, "0")}.${String(ms).padStart(2, "0")}`;
 }
 
 // Витягує дистанцію (км) з count (для Залу Слави)
@@ -1013,6 +1106,7 @@ function updateChart(workouts, filterValue) {
   const chartData = [...workouts].reverse();
   const labels = chartData.map((w) => formatDate(w.date));
   const isRunning = workouts.length > 0 && isRunningExercise(workouts[0].exercise);
+  const isShuttle = workouts.length > 0 && workouts[0].exercise.startsWith("Човниковий біг");
   const dataPoints = chartData.map((w) => getChartValue(w.count, w.exercise));
 
   // Знищуємо старий графік при зміні типу (бігові ↔ силові мають різні осі)
@@ -1068,7 +1162,9 @@ function updateChart(workouts, filterValue) {
           padding: 12,
           cornerRadius: 12,
           callbacks: isRunning ? {
-            label: (ctx) => `Час: ${formatSecondsToTime(ctx.parsed.y)}`
+            label: (ctx) => isShuttle
+              ? `Час: ${formatShuttleTime(ctx.parsed.y)}`
+              : `Час: ${formatSecondsToTime(ctx.parsed.y)}`
           } : undefined,
         },
       },
@@ -1081,11 +1177,16 @@ function updateChart(workouts, filterValue) {
           ticks: {
             color: textColor,
             font: { family: "Nunito" },
-            callback: isRunning ? (val) => formatSecondsToTime(val) : undefined,
+            callback: isRunning
+              ? (val) => isShuttle ? formatShuttleTime(val) : formatSecondsToTime(val)
+              : undefined,
           },
           grid: { color: gridColor, drawBorder: false, borderDash: [5, 5] },
           beginAtZero: !isRunning,
-          title: isRunning ? { display: true, text: "Час", color: textColor, font: { family: "Nunito", weight: "bold" } } : undefined,
+          reverse: isShuttle, // менший час = вище на графіку
+          title: isRunning
+            ? { display: true, text: isShuttle ? "Час (хв:сс.мс)" : "Час", color: textColor, font: { family: "Nunito", weight: "bold" } }
+            : undefined,
         },
       },
     },
@@ -1386,20 +1487,29 @@ function listenToMeta() {
   if (auth.currentUser) {
     try {
       const uid = auth.currentUser.uid;
+      console.log("🔵 Starting private_logs listener for user:", uid);
       _privateLogsUnsub = onSnapshot(
         query(collection(db, "private_logs"), orderBy("timestamp", "desc"), limit(500)),
         (snap) => {
           window.allPrivateLogs = snap.docs
             .map(d => ({ id: d.id, ...d.data() }))
             .filter(l => l.userId === uid);
+          console.log("✅ private_logs loaded:", window.allPrivateLogs.length, "записів");
+          console.log("📊 S-records:", window.allPrivateLogs.filter(l => l.is_s === true).length);
           if (window.checkNewAchievements) window.checkNewAchievements(window.allWorkouts || []);
           if (window.renderAchievementsTab && document.getElementById("tab-achievements")?.classList.contains("active")) {
             window.renderAchievementsTab();
           }
         },
-        () => {} // тихо ігноруємо помилки доступу
+        (err) => {
+          console.error("❌ private_logs listener error:", err);
+        }
       );
-    } catch (e) { /* noop */ }
+    } catch (e) {
+      console.error("❌ private_logs setup failed:", e);
+    }
+  } else {
+    console.log("⚠️ Not authenticated, skipping private_logs listener");
   }
 }
 listenToMeta();
@@ -1422,6 +1532,13 @@ function clearForm() {
   DOM.workoutNote.value = "";
   DOM.workoutVideoUrl.value = "";
   DOM.workoutDate.valueAsDate = new Date();
+  // Човниковий
+  if (DOM.shuttleMin) DOM.shuttleMin.value = "";
+  if (DOM.shuttleSecVal) DOM.shuttleSecVal.value = "";
+  if (DOM.shuttleMs) DOM.shuttleMs.value = "";
+  const shuttlePreview = document.getElementById("shuttlePreview");
+  if (shuttlePreview) shuttlePreview.textContent = "";
+  _shuttleUIInit = false; // дозволяємо реінітиалізацію для нового запису
 
   if (DOM.exSelect) {
     DOM.exSelect.selectedIndex = 0;
@@ -1506,11 +1623,39 @@ window.editEntry = (id) => {
     if (distMatch) DOM.sprintDistance.value = distMatch[1];
     if (secMatch) DOM.sprintSec.value = secMatch[1];
   } else if (baseType === EX.SHUTTLE) {
-    // "10х10 м (24.5 с)" або "24.5 с (10х10 м)"
-    let schemeMatch = countStr.match(/([\dхxХX]+[хxХX][\dхxХX]+)/i);
-    let secMatch = countStr.match(/([\d.]+)\s*с/);
-    if (schemeMatch) DOM.shuttleScheme.value = schemeMatch[1];
-    if (secMatch) DOM.shuttleSec.value = secMatch[1];
+    // Новий формат: "0:24.50 (4×9м)" або старий: "24.5 с (10х10 м)"
+    // Витягуємо схему зі скобок або з назви вправи
+    const schemeFromExercise = workout.exercise.replace("Човниковий біг ", "").trim();
+    const activeSchemes = ["4×9м", "10×10м", "6×100м", "3×10м"];
+    document.querySelectorAll(".scheme-btn").forEach(b => {
+      b.classList.remove("active");
+      if (b.dataset.scheme === schemeFromExercise) b.classList.add("active");
+    });
+    if (!activeSchemes.includes(schemeFromExercise)) {
+      // Custom scheme
+      document.querySelector('.scheme-btn[data-scheme="custom"]')?.classList.add("active");
+      DOM.shuttleScheme.style.display = "block";
+      DOM.shuttleScheme.value = schemeFromExercise;
+    } else {
+      DOM.shuttleScheme.style.display = "none";
+      DOM.shuttleScheme.value = schemeFromExercise;
+    }
+    // Час
+    const newFmt = countStr.match(/^(\d+):(\d+)\.(\d+)/);
+    if (newFmt) {
+      document.getElementById("shuttleMin").value = newFmt[1];
+      document.getElementById("shuttleSecVal").value = newFmt[2];
+      document.getElementById("shuttleMs").value = newFmt[3];
+    } else {
+      const oldSec = countStr.match(/([\d.]+)\s*с/);
+      if (oldSec) {
+        const tot = parseFloat(oldSec[1]);
+        document.getElementById("shuttleMin").value = Math.floor(tot / 60);
+        document.getElementById("shuttleSecVal").value = Math.floor(tot % 60);
+        document.getElementById("shuttleMs").value = Math.round((tot % 1) * 100);
+      }
+    }
+    _updateShuttlePreview();
   } else if (DOM.exSelect.value === EX.CUSTOM) {
     DOM.customResultStr.value = valStr;
     DOM.customMin.value = min;
@@ -1552,10 +1697,13 @@ function buildWorkoutResult(selectType) {
     finalResult = `${sec} с (${dist} м)`;
     exerciseName = `Спринт ${dist} м`;
   } else if (selectType === "Човниковий біг") {
-    const scheme = document.getElementById("shuttleScheme").value;
-    const sec = document.getElementById("shuttleSec").value;
-    if (!scheme || !sec) throw new Error("Вкажи схему (напр. 10х10) та час!");
-    finalResult = `${sec} с (${scheme} м)`;
+    const scheme = _getShuttleScheme();
+    const timeStr = _getShuttleTimeStr();
+    const totalSec = _getShuttleTotalSec();
+    if (!scheme) throw new Error("Вибери схему відрізків!");
+    if (totalSec <= 0) throw new Error("Вкажи час (хв:сек.мс)!");
+    // Формат: "0:24.50 (4×9м)" — exerciseName: "Човниковий біг 4×9м"
+    finalResult = `${timeStr} (${scheme})`;
     exerciseName = `Човниковий біг ${scheme}`;
   } else if (selectType === "custom") {
     const customRes = document.getElementById("customResultStr").value.trim();

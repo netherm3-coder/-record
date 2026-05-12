@@ -213,10 +213,24 @@
           </div>
 
           <div id="shuttleContainer">
-            <label>Схема відрізків (напр. 10х10)</label>
-            <input type="text" id="shuttleScheme" placeholder="10х10" />
-            <label>Час (секунди з мілісекундами)</label>
-            <input type="number" id="shuttleSec" placeholder="Напр. 24.5" min="0" step="0.1" />
+            <label>Схема відрізків</label>
+            <div class="shuttle-schemes" id="shuttleSchemes">
+              <button class="scheme-btn active" data-scheme="4×9м">4×9м</button>
+              <button class="scheme-btn" data-scheme="10×10м">10×10м</button>
+              <button class="scheme-btn" data-scheme="6×100м">6×100м</button>
+              <button class="scheme-btn" data-scheme="3×10м">3×10м</button>
+              <button class="scheme-btn" data-scheme="custom">✎ Своя</button>
+            </div>
+            <input type="text" id="shuttleScheme" placeholder="Напр. 5×20м" style="display:none;margin-top:8px" />
+            <label style="margin-top:12px">Час (хв : сек . мс)</label>
+            <div class="shuttle-time-row">
+              <input type="number" id="shuttleMin" placeholder="Хв" min="0" max="59" />
+              <span class="time-sep">:</span>
+              <input type="number" id="shuttleSecVal" placeholder="Сек" min="0" max="59" />
+              <span class="time-sep">.</span>
+              <input type="number" id="shuttleMs" placeholder="Мс" min="0" max="99" />
+            </div>
+            <div id="shuttlePreview" class="shuttle-preview"></div>
           </div>
 
           <div id="customResultContainer">
