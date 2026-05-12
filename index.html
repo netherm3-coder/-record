@@ -17,6 +17,36 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <!-- ВІЗУАЛЬНИЙ ДЕБАГЕР: показує помилки прямо на екрані -->
+    <div id="visualDebug" style="position:fixed;bottom:0;left:0;right:0;background:#000;color:#0f0;font-family:monospace;font-size:11px;padding:6px;max-height:35vh;overflow:auto;z-index:99999;border-top:2px solid #f00;display:none"></div>
+    <script>
+      (function() {
+        const dbg = document.getElementById("visualDebug");
+        function show(type, msg) {
+          if (!dbg) return;
+          dbg.style.display = "block";
+          const line = document.createElement("div");
+          line.style.color = type === "ERR" ? "#f55" : type === "WARN" ? "#fa0" : "#0f0";
+          line.textContent = "[" + type + "] " + msg;
+          dbg.appendChild(line);
+          dbg.scrollTop = dbg.scrollHeight;
+        }
+        window.addEventListener("error", (e) => {
+          show("ERR", (e.message || "?") + " @ " + (e.filename || "?").split("/").pop() + ":" + (e.lineno || "?"));
+        });
+        window.addEventListener("unhandledrejection", (e) => {
+          show("ERR", "Promise: " + (e.reason?.message || e.reason || "?"));
+        });
+        // Перехоплюємо console.log/warn/error
+        const _log = console.log, _warn = console.warn, _err = console.error;
+        console.log = function(...a) { show("LOG", a.map(x => typeof x === "object" ? JSON.stringify(x).slice(0,100) : String(x)).join(" ")); _log.apply(console, a); };
+        console.warn = function(...a) { show("WARN", a.map(x => String(x)).join(" ")); _warn.apply(console, a); };
+        console.error = function(...a) { show("ERR", a.map(x => String(x)).join(" ")); _err.apply(console, a); };
+        // Кнопка приховування
+        dbg.addEventListener("click", () => { dbg.style.display = "none"; });
+        show("LOG", "Debug ready. Tap to hide.");
+      })();
+    </script>
     <div class="container">
       <div class="header-box">
         <button id="menuTrigger" class="hamburger" aria-label="Відкрити меню"><span></span><span></span><span></span></button>
