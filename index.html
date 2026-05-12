@@ -257,9 +257,14 @@
 
         <div class="card filter-section">
           <label>Історія:</label>
-          <select id="filterSelect" onchange="renderUI()">
-            <option value="all">Усі рекорди</option>
-          </select>
+          <div class="filter-row">
+            <select id="filterType" onchange="onFilterTypeChange()">
+              <option value="">— Вправа —</option>
+            </select>
+            <select id="filterSub" onchange="renderUI()" style="display:none">
+              <option value="">— Дистанція —</option>
+            </select>
+          </div>
         </div>
         <div class="card"><div class="chart-container"><canvas id="progressChart"></canvas></div></div>
         <div id="timelineContainer" class="timeline-container"></div>

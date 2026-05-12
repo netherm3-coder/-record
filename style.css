@@ -1215,6 +1215,8 @@ body {
   flex-direction: column;
   gap: 12px;
   flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .side-menu__item {
   background: transparent;
@@ -2073,4 +2075,15 @@ body {
   text-align: center;
   min-height: 24px;
   letter-spacing: 0.5px;
+}
+
+/* Дворівневий фільтр */
+.filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.filter-row select {
+  width: 100%;
 }

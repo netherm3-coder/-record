@@ -463,14 +463,119 @@ window.updateDropdowns = () => {
   if (addList.includes(currentEx) || currentEx === "custom")
     exSelect.value = currentEx;
 
-  // Для фільтрації: усі реальні вправи з бази (включно з "Біг 5 км" тощо)
-  const filterSelect = document.getElementById("filterSelect");
-  const currentFilter = filterSelect.value;
-  filterSelect.innerHTML =
-    `<option value="all">Усі рекорди</option>` +
-    dbExercises.map((ex) => `<option value="${ex}">${ex}</option>`).join("");
-  if (dbExercises.includes(currentFilter) || currentFilter === "all")
-    filterSelect.value = currentFilter;
+  // === ДВОРІВНЕВИЙ ФІЛЬТР ===
+  // Рахуємо частоту кожного exerciseName
+  const freq = {};
+  allWorkouts.forEach(w => { freq[w.exercise] = (freq[w.exercise] || 0) + 1; });
+
+  // Визначаємо "базовий тип" для групування
+  function baseType(ex) {
+    if (ex.startsWith("Біг ")) return "Біг";
+    if (ex.startsWith("Спринт ")) return "Спринт";
+    if (ex.startsWith("Човниковий біг ")) return "Човниковий біг";
+    return ex; // все інше — самостійна група
+  }
+
+  // Будуємо групи: { "Біг": ["Біг 1 км", "Біг 5 км", ...], "Підтягування": [...] }
+  const groups = {};
+  dbExercises.forEach(ex => {
+    const bt = baseType(ex);
+    if (!groups[bt]) groups[bt] = [];
+    groups[bt].push(ex);
+  });
+
+  // Сортуємо групи за сумарною частотою
+  const groupFreq = {};
+  Object.keys(groups).forEach(g => {
+    groupFreq[g] = groups[g].reduce((s, ex) => s + (freq[ex] || 0), 0);
+  });
+  const sortedGroups = Object.keys(groups).sort((a, b) => groupFreq[b] - groupFreq[a]);
+
+  const filterType = document.getElementById("filterType");
+  const filterSub  = document.getElementById("filterSub");
+  if (!filterType || !filterSub) return;
+
+  const prevType = filterType.value;
+  const prevSub  = filterSub.value;
+
+  filterType.innerHTML = `<option value="">— Вправа —</option>` +
+    sortedGroups.map(g => `<option value="${g}">${g} (${groupFreq[g]})</option>`).join("");
+
+  // Відновлюємо попередній вибір
+  if (sortedGroups.includes(prevType)) filterType.value = prevType;
+
+  // Оновлюємо другий рівень
+  _rebuildSubFilter(groups, prevType, prevSub);
+}; // ← закриваємо buildExerciseOptions тут
+
+// Повторна побудова sub-фільтра
+function _rebuildSubFilter(groups, typeVal, prevSub) {
+  const filterSub = document.getElementById("filterSub");
+  if (!filterSub) return;
+
+  if (!typeVal || !groups) {
+    filterSub.style.display = "none";
+    return;
+  }
+
+  const subs = groups[typeVal] || [];
+
+  // Якщо у цього типу тільки один варіант — субфільтр не потрібен
+  if (subs.length <= 1) {
+    filterSub.style.display = "none";
+    return;
+  }
+
+  // Сортуємо дистанції розумно (числа — числово, текст — алфавітно)
+  const freq = {};
+  allWorkouts.forEach(w => { freq[w.exercise] = (freq[w.exercise] || 0) + 1; });
+  const sorted = [...subs].sort((a, b) => {
+    const na = parseFloat(a.replace(/[^\d.]/g, "")) || 0;
+    const nb = parseFloat(b.replace(/[^\d.]/g, "")) || 0;
+    return na - nb;
+  });
+
+  filterSub.innerHTML = sorted.map(s =>
+    `<option value="${s}">${_subLabel(s, typeVal)} (${freq[s] || 0})</option>`
+  ).join("");
+  filterSub.style.display = "block";
+
+  if (subs.includes(prevSub)) filterSub.value = prevSub;
+  else filterSub.value = sorted[0];
+}
+
+// Скорочена назва для sub: "Біг 5 км" → "5 км"; "Спринт 100 м" → "100 м"; "Човниковий біг 4×9м" → "4×9м"
+function _subLabel(ex, base) {
+  return ex.replace(base, "").trim() || ex;
+}
+
+// Обробник зміни першого рівня фільтра
+window.onFilterTypeChange = () => {
+  const filterType = document.getElementById("filterType");
+  const filterSub  = document.getElementById("filterSub");
+  const typeVal = filterType.value;
+
+  const freq = {};
+  allWorkouts.forEach(w => { freq[w.exercise] = (freq[w.exercise] || 0) + 1; });
+
+  // Відбудовуємо групи для sub
+  function baseType(ex) {
+    if (ex.startsWith("Біг ")) return "Біг";
+    if (ex.startsWith("Спринт ")) return "Спринт";
+    if (ex.startsWith("Човниковий біг ")) return "Човниковий біг";
+    return ex;
+  }
+  const groups = {};
+  allWorkouts.forEach(w => {
+    const bt = baseType(w.exercise);
+    if (!groups[bt]) groups[bt] = new Set();
+    groups[bt].add(w.exercise);
+  });
+  const groupsArr = {};
+  Object.keys(groups).forEach(k => groupsArr[k] = [...groups[k]]);
+
+  _rebuildSubFilter(groupsArr, typeVal, "");
+  renderUI();
 };
 // Допоміжна функція для отримання числа з рядка (напр. "15 (2:00)" -> 15, "5.5 км" -> 5.5)
 function parseValue(valStr) {
@@ -548,8 +653,17 @@ function getChartValue(countStr, exerciseName) {
   return parseValue(countStr);
 }
 
-// Форматує секунди у читабельний час
-function formatSecondsToTime(totalSec) {
+// Форматує секунди для осі Y — залежно від типу вправи
+function formatChartTime(totalSec, isShuttle) {
+  if (isShuttle) return formatShuttleTime(totalSec);
+  // Спринт і біг < 60 с: показуємо "13.50 с"
+  if (totalSec < 60) {
+    const rounded = Math.round(totalSec * 100) / 100;
+    return rounded % 1 === 0 ? rounded + " с" : rounded.toFixed(2) + " с";
+  }
+  // >= 60 с: хв:сс
+  return formatSecondsToTime(totalSec);
+}
   if (totalSec <= 0) return "0:00";
   let hours = Math.floor(totalSec / 3600);
   let min = Math.floor((totalSec % 3600) / 60);
@@ -1064,7 +1178,7 @@ function updateChart(workouts, filterValue) {
   }
 
   // Якщо вибрано "Усі рекорди" або немає тренувань
-  if (workouts.length === 0 || filterValue === "all") {
+  if (workouts.length === 0 || !filterValue || filterValue === "none") {
     chartCard.style.display = "block";
     canvas.style.display = "none";
     hint.style.display = "flex";
@@ -1134,9 +1248,10 @@ function updateChart(workouts, filterValue) {
           padding: 12,
           cornerRadius: 12,
           callbacks: isRunning ? {
-            label: (ctx) => isShuttle
-              ? `Час: ${formatShuttleTime(ctx.parsed.y)}`
-              : `Час: ${formatSecondsToTime(ctx.parsed.y)}`
+            label: (ctx) => {
+              const t = formatChartTime(ctx.parsed.y, isShuttle);
+              return `Час: ${t}`;
+            }
           } : undefined,
         },
       },
@@ -1149,9 +1264,7 @@ function updateChart(workouts, filterValue) {
           ticks: {
             color: textColor,
             font: { family: "Nunito" },
-            callback: isRunning
-              ? (val) => isShuttle ? formatShuttleTime(val) : formatSecondsToTime(val)
-              : undefined,
+            callback: isRunning ? (val) => formatChartTime(val, isShuttle) : undefined,
           },
           grid: { color: gridColor, drawBorder: false, borderDash: [5, 5] },
           beginAtZero: !isRunning,
@@ -1169,22 +1282,31 @@ window.renderUI = () => {
   renderGlobalStats();
   renderSportStatus();
 
-  const filterValue = document.getElementById("filterSelect").value;
+  const filterType = document.getElementById("filterType");
+  const filterSub  = document.getElementById("filterSub");
+  if (!filterType) return;
+
+  const typeVal = filterType.value;
+  const subVal  = filterSub?.style.display !== "none" ? filterSub?.value : "";
+
+  // Визначаємо яку дисципліну фільтруємо
+  let filterValue = "";
+  if (typeVal) {
+    if (subVal) filterValue = subVal;           // "Біг 5 км"
+    else filterValue = typeVal;                 // "Підтягування" (одна дисципліна)
+  }
+
   const container = document.getElementById("timelineContainer");
 
-  // ❌ ВИДАЛЕНО: container.innerHTML = ""; (Це викликало подвійний перерахунок макета)
-
-  const filteredWorkouts =
-    filterValue === "all"
-      ? allWorkouts
-      : allWorkouts.filter((w) => w.exercise === filterValue);
+  const filteredWorkouts = filterValue
+    ? allWorkouts.filter(w => w.exercise === filterValue ||
+        (!subVal && w.exercise.startsWith(filterValue + " ")))
+    : allWorkouts.slice(0, 50);   // без фільтра — останні 50
 
   if (filteredWorkouts.length === 0) {
-    // Відкладаємо оновлення порожнього стану до наступного кадру
     requestAnimationFrame(() => {
-      container.innerHTML =
-        '<div class="empty-state">Записів не знайдено</div>';
-      updateChart(filteredWorkouts, filterValue);
+      container.innerHTML = '<div class="empty-state">Записів не знайдено</div>';
+      updateChart([], filterValue || "none");
     });
     return;
   }
@@ -1207,7 +1329,7 @@ window.renderUI = () => {
   filteredWorkouts.forEach((w, index) => {
     let diffHTML = "";
 
-    if (filterValue !== "all" && index < filteredWorkouts.length - 1) {
+    if (filterValue && filterValue !== "none" && index < filteredWorkouts.length - 1) {
       let prevW = filteredWorkouts[index + 1];
       let currentVal = getChartValue(w.count, w.exercise);
       let prevVal = getChartValue(prevW.count, prevW.exercise);
@@ -1229,7 +1351,7 @@ window.renderUI = () => {
     const safeCount = escapeHTML(w.count);
 
     const exLabel =
-      filterValue === "all" ? `<div class="timeline-ex">${safeEx}</div>` : "";
+      filterValue && filterValue !== "none" ? `` : `<div class="timeline-ex">${safeEx}</div>`;
 
     let pbCrown = "";
     if (pbSet.has(w.id)) {
@@ -1298,7 +1420,7 @@ window.renderUI = () => {
   // 🚀 МАГІЯ ОПТИМІЗАЦІЇ: Відкладаємо важкий рендер DOM і графіків до наступного кадру
   requestAnimationFrame(() => {
     container.innerHTML = timelineHTML;
-    updateChart(filteredWorkouts, filterValue);
+    updateChart(filteredWorkouts, filterValue || "none");
   });
 };
 
