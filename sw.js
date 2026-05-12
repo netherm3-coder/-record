@@ -1,4 +1,4 @@
-const CACHE_NAME = "records-room-v3";
+const CACHE_NAME = "records-room-v4";
 
 const BYPASS = [
   /firestore\.googleapis\.com/,
