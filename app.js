@@ -655,6 +655,9 @@ function formatChartTime(totalSec, isShuttle) {
   // >= 60 с: хв:сс
   return formatSecondsToTime(totalSec);
 }
+
+// Форматує секунди у хв:сс або г:хв:сс
+function formatSecondsToTime(totalSec) {
   if (totalSec <= 0) return "0:00";
   let hours = Math.floor(totalSec / 3600);
   let min = Math.floor((totalSec % 3600) / 60);
