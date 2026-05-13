@@ -297,7 +297,7 @@ if (logoutBtn) {
 // === СЛОВНИК ВПРАВ (Єдине джерело правди) ===
 const EX = {
   PULLUPS: "Підтягування",
-  PUSHUPS: "Віджимання",
+  PUSHUPS: "Відтискання",
   DIPS: "Бруси",
   RUN: "Біг",
   SPRINT: "Спринт",
@@ -544,7 +544,11 @@ function _rebuildSubFilter(groups, typeVal, prevSub) {
 
 // Скорочена назва для sub: "Біг 5 км" → "5 км"; "Спринт 100 м" → "100 м"; "Човниковий біг 4×9м" → "4×9м"
 function _subLabel(ex, base) {
-  return ex.replace(base, "").trim() || ex;
+  const trimmed = ex.replace(base, "").trim();
+  if (trimmed) return trimmed;
+  // Старі записи без схеми
+  if (base === "Човниковий біг") return "10×10м (старі)";
+  return ex;
 }
 
 // Обробник зміни першого рівня фільтра
@@ -638,10 +642,18 @@ function parseDistFromCount(countStr) {
   return match ? parseFloat(match[1]) : 0;
 }
 
-// Повертає правильне значення для графіка/diff: час (сек) для бігових, число для силових
+// Повертає правильне значення для графіка/diff: час (сек) для бігових, вага для силових з вагою, число для решти
 function getChartValue(countStr, exerciseName) {
   if (isRunningExercise(exerciseName)) return parseTimeFromCount(countStr);
+  // Для записів з додатковою вагою (напр. "5 (+90 кг)") беремо вагу
+  const weightMatch = String(countStr).match(/\(\s*\+?\s*([\d.]+)\s*кг\s*\)/i);
+  if (weightMatch) return parseFloat(weightMatch[1]);
   return parseValue(countStr);
+}
+
+// Чи це запис з додатковою вагою?
+function hasAddedWeight(countStr) {
+  return /\(\s*\+?\s*[\d.]+\s*кг\s*\)/i.test(String(countStr));
 }
 
 // Форматує секунди для осі Y — залежно від типу вправи
@@ -992,7 +1004,7 @@ function renderPedestal() {
     if (ex.startsWith("Спринт")) icon = ICONS.bolt;
     if (ex.startsWith("Човниковий")) icon = ICONS.bolt;
     if (ex === "Підтягування") icon = ICONS.trophy;
-    if (ex === "Віджимання") icon = ICONS.fire;
+    if (ex === "Відтискання") icon = ICONS.fire;
 
     let rmBadge =
       maxW.max1RM > 0
@@ -1038,10 +1050,10 @@ function renderGlobalStats() {
                     <div class="stat-value">${fmt(globalStats["Підтягування"])} <span>разів</span></div>
                  </div>`;
   }
-  if (globalStats["Віджимання"] > 0) {
+  if (globalStats["Відтискання"] > 0) {
     html += `<div class="stat-card">
-                    <div class="stat-title">${ICONS.fire} Віджимання</div>
-                    <div class="stat-value">${fmt(globalStats["Віджимання"])} <span>разів</span></div>
+                    <div class="stat-title">${ICONS.fire} Відтискання</div>
+                    <div class="stat-value">${fmt(globalStats["Відтискання"])} <span>разів</span></div>
                  </div>`;
   }
   if (globalStats["Бруси"] > 0) {
@@ -1055,12 +1067,6 @@ function renderGlobalStats() {
     html += `<div class="stat-card">
                     <div class="stat-title">${ICONS.bolt} Пробіг</div>
                     <div class="stat-value">${fmt(runDist)} <span>км</span></div>
-                 </div>`;
-  }
-  if (globalStats["otherSets"] > 0) {
-    html += `<div class="stat-card">
-                    <div class="stat-title">${ICONS.medal} Інші вправи</div>
-                    <div class="stat-value">${fmt(globalStats["otherSets"])} <span>підходів</span></div>
                  </div>`;
   }
 
@@ -1187,6 +1193,9 @@ function updateChart(workouts, filterValue) {
   const labels = chartData.map((w) => formatDate(w.date));
   const isRunning = workouts.length > 0 && isRunningExercise(workouts[0].exercise);
   const isShuttle = workouts.length > 0 && workouts[0].exercise.startsWith("Човниковий біг");
+  // Якщо більшість записів цієї вправи мають додаткову вагу — це вправа з вагою
+  const isWeighted = !isRunning && workouts.length > 0
+    && workouts.filter(w => hasAddedWeight(w.count)).length > workouts.length / 2;
   const dataPoints = chartData.map((w) => getChartValue(w.count, w.exercise));
 
   // Знищуємо старий графік при зміні типу (бігові ↔ силові мають різні осі)
@@ -1253,7 +1262,9 @@ function updateChart(workouts, filterValue) {
               const t = formatChartTime(ctx.parsed.y, isShuttle);
               return `Час: ${t}`;
             }
-          } : undefined,
+          } : (isWeighted ? {
+            label: (ctx) => `Вага: ${ctx.parsed.y} кг`
+          } : undefined),
         },
       },
       scales: {
@@ -1265,14 +1276,18 @@ function updateChart(workouts, filterValue) {
           ticks: {
             color: textColor,
             font: { family: "Nunito" },
-            callback: isRunning ? (val) => formatChartTime(val, isShuttle) : undefined,
+            callback: isRunning
+              ? (val) => formatChartTime(val, isShuttle)
+              : (isWeighted ? (val) => val + " кг" : undefined),
           },
           grid: { color: gridColor, drawBorder: false, borderDash: [5, 5] },
           beginAtZero: !isRunning,
           reverse: isShuttle, // менший час = вище на графіку
           title: isRunning
             ? { display: true, text: isShuttle ? "Час (хв:сс.мс)" : "Час", color: textColor, font: { family: "Nunito", weight: "bold" } }
-            : undefined,
+            : (isWeighted
+                ? { display: true, text: "Вага (кг)", color: textColor, font: { family: "Nunito", weight: "bold" } }
+                : undefined),
         },
       },
     },
@@ -1375,10 +1390,15 @@ window.renderUI = () => {
         ? `<a href="${w.videoUrl}" target="_blank" class="video-link-btn" title="Дивитися відео">${ICONS.video} Відео</a>`
         : "";
 
+    let resultBtn =
+      w.resultUrl
+        ? `<a href="${w.resultUrl}" target="_blank" class="result-link-btn" title="Сторінка з результатом">${ICONS.bolt} Результат</a>`
+        : "";
+
     const displayDate = formatDate(w.date);
 
     let rmVal = calculate1RM(w.count, w.date);
-    let allowedEx = ["Підтягування", "Віджимання", "Бруси"];
+    let allowedEx = ["Підтягування", "Відтискання", "Бруси"];
     let rmBadgeTimeline =
       allowedEx.includes(w.exercise) && rmVal > 0
         ? `<span style="font-size: 0.8rem; color: var(--success); margin-left: 8px; font-weight: 800; border: 1px dashed var(--success); padding: 2px 6px; border-radius: 8px; background: rgba(16, 185, 129, 0.1);" title="Теоретичний 1ПМ">${ICONS.bulb} +${rmVal} кг</span>`
@@ -1407,7 +1427,7 @@ window.renderUI = () => {
                             <span class="timeline-val">${safeCount}</span>
                             ${rmBadgeTimeline}
                             ${diffHTML}
-                            ${videoBtn}  ${noteIcon}
+                            ${videoBtn}  ${resultBtn}  ${noteIcon}
                         </div>
                         <div style="font-size: 1.5rem;">${pbCrown}</div>
                     </div>
@@ -1624,6 +1644,8 @@ function clearForm() {
   DOM.customSec.value = "";
   DOM.workoutNote.value = "";
   DOM.workoutVideoUrl.value = "";
+  const resultUrlEl = document.getElementById("workoutResultUrl");
+  if (resultUrlEl) resultUrlEl.value = "";
   DOM.workoutDate.valueAsDate = new Date();
   // Човниковий
   if (DOM.shuttleMin) DOM.shuttleMin.value = "";
@@ -1659,6 +1681,8 @@ window.editEntry = (id) => {
   DOM.workoutDate.value = workout.date;
   DOM.workoutNote.value = workout.note || "";
   DOM.workoutVideoUrl.value = workout.videoUrl || "";
+  const resultEl = document.getElementById("workoutResultUrl");
+  if (resultEl) resultEl.value = workout.resultUrl || "";
 
   // Визначаємо базовий тип для мігрованих бігових назв
   let baseType = workout.exercise;
@@ -1814,7 +1838,7 @@ function buildWorkoutResult(selectType) {
 
 // === 2. THE SAVER: Збереження в базу та оновлення статистики (Атомарна транзакція) ===
 async function processWorkoutDB(workoutData, currentEditId) {
-  const { exerciseName, date, finalResult, noteValue, videoValue } =
+  const { exerciseName, date, finalResult, noteValue, videoValue, resultValue } =
     workoutData;
 
   let isRunning = isRunningExercise(exerciseName);
@@ -1845,6 +1869,7 @@ async function processWorkoutDB(workoutData, currentEditId) {
     count: finalResult,
     note: noteValue,
     videoUrl: videoValue,
+    resultUrl: resultValue,
   };
 
   // 🚀 Відкриваємо пакетну транзакцію
@@ -1948,6 +1973,7 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
     const { exerciseName, finalResult } = buildWorkoutResult(select);
     const noteValue = document.getElementById("workoutNote").value.trim();
     const videoValue = document.getElementById("workoutVideoUrl").value.trim();
+    const resultValue = document.getElementById("workoutResultUrl")?.value.trim() || "";
 
     // 2. Блокуємо UI
     document.getElementById("saveBtn").disabled = true;
@@ -1955,7 +1981,7 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
 
     // 3. Делегуємо роботу з базою даних
     await processWorkoutDB(
-      { exerciseName, date, finalResult, noteValue, videoValue },
+      { exerciseName, date, finalResult, noteValue, videoValue, resultValue },
       editingId,
     );
 
@@ -2051,7 +2077,7 @@ window.syncGlobalStats = async () => {
 
     let totals = {
       Підтягування: 0,
-      Віджимання: 0,
+      Відтискання: 0,
       Бруси: 0,
       Біг: 0,
       otherSets: 0,

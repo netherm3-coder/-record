@@ -31,11 +31,11 @@ const MILESTONES = [
 
   { id: "strength_master", name: "Силовий рекордсмен", description: "3+ рекорди в силових дисциплінах", icon: "⚡", category: "strength", reward: 20,
     condition: (w) => {
-      const strength = ["Підтягування", "Віджимання", "Бруси"];
+      const strength = ["Підтягування", "Відтискання", "Бруси"];
       return strength.filter(ex => w.some(r => r.exercise === ex)).length >= 3;
     },
     progress: (w) => {
-      const strength = ["Підтягування", "Віджимання", "Бруси"];
+      const strength = ["Підтягування", "Відтискання", "Бруси"];
       return Math.min(1, strength.filter(ex => w.some(r => r.exercise === ex)).length / 3);
     }},
 

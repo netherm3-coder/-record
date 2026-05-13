@@ -175,7 +175,7 @@
           <label>Вправа</label>
           <select id="exSelect" onchange="uiLogic()">
             <option value="Підтягування">Підтягування</option>
-            <option value="Віджимання">Віджимання</option>
+            <option value="Відтискання">Відтискання</option>
             <option value="Бруси">Бруси</option>
             <option value="Біг">Біг (км)</option>
             <option value="Спринт">Спринт (м)</option>
@@ -256,6 +256,10 @@
           <div id="videoContainer">
             <label><img src="assets/icons/video.svg" class="btn-icon themed-icon" alt=""> Посилання на відео-доказ (необов'язково)</label>
             <input type="url" id="workoutVideoUrl" placeholder="Напр.: https://youtu.be/..." />
+          </div>
+          <div id="resultUrlContainer">
+            <label><img src="assets/icons/bolt.svg" class="btn-icon themed-icon" alt=""> Посилання на результат (необов'язково)</label>
+            <input type="url" id="workoutResultUrl" placeholder="Напр.: https://results.com/..." />
           </div>
 
           <button id="exportBtn" class="btn-outline-accent">
