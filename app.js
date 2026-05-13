@@ -2103,25 +2103,8 @@ if ("serviceWorker" in navigator) {
       .then((reg) => {
         console.log("[SW] Registered, scope:", reg.scope);
         reg.update();
-        if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
-        reg.addEventListener("updatefound", () => {
-          const nw = reg.installing;
-          if (!nw) return;
-          nw.addEventListener("statechange", () => {
-            if (nw.state === "installed" && navigator.serviceWorker.controller) {
-              nw.postMessage({ type: "SKIP_WAITING" });
-            }
-          });
-        });
       })
       .catch((err) => console.error("[SW] Registration failed:", err));
-
-    let refreshing = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (refreshing) return;
-      refreshing = true;
-      window.location.reload();
-    });
   });
 }
 
