@@ -499,7 +499,7 @@ window.updateDropdowns = () => {
   const prevSub  = filterSub.value;
 
   filterType.innerHTML = `<option value="">— Вправа —</option>` +
-    sortedGroups.map(g => `<option value="${g}">${g} (${groupFreq[g]})</option>`).join("");
+    sortedGroups.map(g => `<option value="${g}">${g}</option>`).join("");
 
   if (sortedGroups.includes(prevType)) filterType.value = prevType;
 
@@ -534,7 +534,7 @@ function _rebuildSubFilter(groups, typeVal, prevSub) {
   });
 
   filterSub.innerHTML = sorted.map(s =>
-    `<option value="${s}">${_subLabel(s, typeVal)} (${freq[s] || 0})</option>`
+    `<option value="${s}">${_subLabel(s, typeVal)}</option>`
   ).join("");
   filterSub.style.display = "block";
 
@@ -1210,7 +1210,14 @@ function updateChart(workouts, filterValue) {
       labels: labels,
       datasets: [
         {
-          label: isRunning ? `Час: ${filterValue}` : `Динаміка: ${filterValue}`,
+          label: (() => {
+            // Красива назва: для "Човниковий біг 6×100м" → "6×100м"
+            let prettyName = filterValue;
+            if (filterValue && filterValue.startsWith("Човниковий біг ")) {
+              prettyName = filterValue.replace("Човниковий біг ", "");
+            }
+            return isRunning ? `Час: ${prettyName}` : `Динаміка: ${prettyName}`;
+          })(),
           data: dataPoints,
           borderColor: highlightColor,
           backgroundColor: gradient,
