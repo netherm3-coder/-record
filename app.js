@@ -2281,31 +2281,50 @@ if (heightInput) {
 // --- АВТОЗАПОВНЕННЯ ФОРМИ З ОСТАННЬОГО ЗВАЖУВАННЯ ---
 window.autofillWeightForm = (force) => {
   if (!allWeights || allWeights.length === 0) return;
-  const last = allWeights[0]; // найновіше зважування
-  const fieldMap = {
-    mNeck: "neck",
-    mShoulders: "shoulders",
-    mChest: "chest",
-    mWaist: "waist",
-    mBicep: "bicep",
-    mThigh: "thigh",
-    mCalf: "calf",
-    mForearm: "forearm",
-    mPenisLength: "penisLength",
-    mPenisGirth: "penisGirth",
+  const getVal = (w, key) => {
+    // Новий формат — плоский; старий — вкладений в measurements
+    if (w[key] !== undefined && parseFloat(w[key]) > 0) return parseFloat(w[key]);
+    if (w.measurements && w.measurements[key] !== undefined && parseFloat(w.measurements[key]) > 0)
+      return parseFloat(w.measurements[key]);
+    return 0;
   };
-  Object.keys(fieldMap).forEach((id) => {
+
+  const last = allWeights.find(w => {
+    const keys = ["neck","shoulders","chest","waist","bicep","thigh","calf","forearm"];
+    return keys.some(k => getVal(w, k) > 0);
+  }) || allWeights[0];
+
+  const fieldMap = {
+    mNeck:        "neck",
+    mShoulders:   "shoulders",
+    mChest:       "chest",
+    mWaist:       "waist",
+    mBicep:       "bicep",
+    mThigh:       "thigh",
+    mCalf:        "calf",
+    mForearm:     "forearm",
+    mPenisLength: "penisLength",
+    mPenisGirth:  "penisGirth",
+  };
+
+  Object.entries(fieldMap).forEach(([id, key]) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const key = fieldMap[id];
-    if ((force || !el.value) && last[key] && last[key] > 0) {
-      el.value = last[key];
-    }
+    const val = getVal(last, key);
+    if ((force || !el.value) && val > 0) el.value = val;
   });
+
   // Зріст
-  if (heightInput && (force || !heightInput.value) && last.height) {
-    heightInput.value = last.height;
+  const heightEl = document.getElementById("userHeight");
+  if (heightEl && (force || !heightEl.value) && last.height && parseFloat(last.height) > 0) {
+    heightEl.value = parseFloat(last.height);
     localStorage.setItem("userHeight", last.height);
+  }
+
+  // Вага тіла
+  const weightEl = document.getElementById("weightValue");
+  if (weightEl && (force || !weightEl.value) && last.weight && parseFloat(last.weight) > 0) {
+    weightEl.value = parseFloat(last.weight);
   }
 };
 
@@ -2348,12 +2367,26 @@ if (saveWeightBtn) {
 
     try {
       document.getElementById("status").innerText = "Збереження даних тіла...";
-      await addDoc(weightColRef, {
+
+      const dataToWrite = {
         date: date,
         weight: weight,
-        measurements: measurements, // Зберігаємо заміри разом з вагою
-        createdAt: Date.now(),
-      });
+        height: parseFloat(heightVal) || 0,
+        ...measurements,
+        updatedAt: Date.now(),
+      };
+
+      if (_editingWeightId) {
+        // Режим редагування — оновлюємо існуючий запис
+        await setDoc(doc(db, "weight", _editingWeightId), dataToWrite, { merge: true });
+        _editingWeightId = null;
+        const saveBtn2 = document.getElementById("saveWeightBtn");
+        if (saveBtn2) { saveBtn2.textContent = "Зберегти дані тіла"; saveBtn2.style.background = ""; }
+        document.getElementById("cancelWeightEditBtn")?.remove();
+      } else {
+        // Новий запис
+        await addDoc(weightColRef, { ...dataToWrite, createdAt: Date.now() });
+      }
 
       document.getElementById("weightValue").value = "";
       // Очищення полів замірів
@@ -2394,6 +2427,67 @@ window.deleteWeightEntry = async (id) => {
       }
     }
   }
+};
+
+// Редагування запису ваги — заповнює форму та прокручує до неї
+let _editingWeightId = null;
+window.editWeightEntry = (id) => {
+  if (!isAdmin) return;
+  const entry = allWeights.find(w => w.id === id);
+  if (!entry) return;
+
+  _editingWeightId = id;
+
+  // Заповнюємо форму
+  const weightDateEl = document.getElementById("weightDate");
+  if (weightDateEl) weightDateEl.value = entry.date;
+
+  const weightValueEl = document.getElementById("weightValue");
+  if (weightValueEl) weightValueEl.value = entry.weight || "";
+
+  const heightEl = document.getElementById("userHeight");
+  if (heightEl && entry.height) heightEl.value = entry.height;
+
+  const fieldMap = {
+    mNeck: "neck", mShoulders: "shoulders", mChest: "chest",
+    mWaist: "waist", mBicep: "bicep", mThigh: "thigh",
+    mCalf: "calf", mForearm: "forearm",
+    mPenisLength: "penisLength", mPenisGirth: "penisGirth",
+  };
+  Object.entries(fieldMap).forEach(([elId, key]) => {
+    const el = document.getElementById(elId);
+    if (el) el.value = entry[key] > 0 ? entry[key] : "";
+  });
+
+  // Показуємо кнопку "Скасувати" і міняємо текст кнопки збереження
+  const saveBtn = document.getElementById("saveWeightBtn");
+  if (saveBtn) {
+    saveBtn.textContent = "💾 Оновити запис";
+    saveBtn.style.background = "linear-gradient(135deg, #f59e0b, #d97706)";
+  }
+
+  let cancelBtn = document.getElementById("cancelWeightEditBtn");
+  if (!cancelBtn) {
+    cancelBtn = document.createElement("button");
+    cancelBtn.id = "cancelWeightEditBtn";
+    cancelBtn.className = "btn-outline-accent";
+    cancelBtn.textContent = "✕ Скасувати редагування";
+    cancelBtn.style.marginTop = "8px";
+    cancelBtn.addEventListener("click", () => {
+      _editingWeightId = null;
+      if (saveBtn) {
+        saveBtn.textContent = "Зберегти дані тіла";
+        saveBtn.style.background = "";
+      }
+      cancelBtn.remove();
+      // Відновлюємо автозаповнення
+      if (window.autofillWeightForm) window.autofillWeightForm(true);
+    });
+    saveBtn?.parentNode?.insertBefore(cancelBtn, saveBtn.nextSibling);
+  }
+
+  // Прокрутка до форми
+  document.getElementById("weightAdminPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
 // === РОЗУМНЕ ЗАВАНТАЖЕННЯ ВАГИ (ПАГІНАЦІЯ) ===
@@ -2510,7 +2604,10 @@ function renderWeightUI() {
                 <div class="timeline-dot" style="background: var(--highlight); border-color: var(--bg-color); box-shadow: 0 0 10px var(--highlight);"></div>
                 <div class="timeline-header">
                     <span class="timeline-date">${ICONS.cal} ${displayDate}</span>
-                    ${isAdmin ? `<button class="btn-del" onclick="deleteWeightEntry('${w.id}')">Видалити</button>` : ""}
+                    <div style="display:flex;gap:6px">
+                      ${isAdmin ? `<button class="btn-edit" onclick="editWeightEntry('${w.id}')">✎ Редаг.</button>` : ""}
+                      ${isAdmin ? `<button class="btn-del" onclick="deleteWeightEntry('${w.id}')">Видалити</button>` : ""}
+                    </div>
                 </div>
                 <div class="timeline-content">
                     <span class="timeline-val">${w.weight} <span style="font-size: 1rem; color: var(--text-muted);">кг</span> ${diffHTML}</span>
