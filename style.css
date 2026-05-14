@@ -1629,6 +1629,25 @@ body {
   gap: 10px;
 }
 
+.meas-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meas-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-left: 2px;
+}
+
+.meas-field input {
+  width: 100%;
+}
+
 /* Кнопка зберегти вагу */
 .save-weight-btn {
   background: linear-gradient(135deg, var(--highlight), #d97706);
