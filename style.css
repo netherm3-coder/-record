@@ -2126,3 +2126,63 @@ body {
 .filter-row select {
   width: 100%;
 }
+
+/* === НАЛАШТУВАННЯ АБСОЛЮТНИХ РЕКОРДІВ === */
+.pedestal-settings-btn {
+  grid-column: 1 / -1;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.pedestal-settings-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.pedestal-controls {
+  grid-column: 1 / -1;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.pedestal-controls-title {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+.pedestal-controls-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pedestal-toggle-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  border-radius: 20px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 0.5;
+}
+.pedestal-toggle-btn.active {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--accent);
+  border-color: var(--accent);
+  opacity: 1;
+}

@@ -380,6 +380,26 @@ function _initShuttleUI() {
   ["shuttleMin", "shuttleSecVal", "shuttleMs", "shuttleScheme"].forEach(id => {
     document.getElementById(id)?.addEventListener("input", _updateShuttlePreview);
   });
+
+  // Автоперехід між полями + обмеження значень
+  const secEl = document.getElementById("shuttleSecVal");
+  const msEl  = document.getElementById("shuttleMs");
+  const minEl = document.getElementById("shuttleMin");
+
+  secEl?.addEventListener("input", () => {
+    let v = parseInt(secEl.value);
+    if (!isNaN(v) && v > 59) { secEl.value = 59; }
+    if (!isNaN(v) && secEl.value.length >= 2) msEl?.focus();
+  });
+  minEl?.addEventListener("input", () => {
+    let v = parseInt(minEl.value);
+    if (!isNaN(v) && v > 60) minEl.value = 60;
+    if (!isNaN(v) && minEl.value.length >= 2) secEl?.focus();
+  });
+  msEl?.addEventListener("input", () => {
+    let v = parseInt(msEl.value);
+    if (!isNaN(v) && v > 99) msEl.value = 99;
+  });
 }
 
 function _updateShuttlePreview() {
@@ -961,8 +981,31 @@ function renderPedestal() {
     return;
   }
 
+  // Фільтр: прибираємо Човниковий біг і дозволяємо юзеру вибирати
+  const HIDDEN_KEY = "pedestalHidden";
+  let hiddenSet = new Set(JSON.parse(localStorage.getItem(HIDDEN_KEY) || "[]"));
+
+  // Кнопка керування (показується тільки адміну)
+  let controlHtml = "";
+  if (isAdmin) {
+    const btnList = exercises.map(ex => {
+      const hidden = hiddenSet.has(ex);
+      const safe = escapeHTML(ex);
+      return `<button class="pedestal-toggle-btn ${hidden ? "" : "active"}" data-ex="${safe}" title="${hidden ? "Показати" : "Сховати"}">${safe.replace("Човниковий біг ", "Ч.б. ")}</button>`;
+    }).join("");
+    controlHtml = `<div class="pedestal-controls" id="pedestalControls" style="display:none">
+      <div class="pedestal-controls-title">Відображати рекорди:</div>
+      <div class="pedestal-controls-list">${btnList}</div>
+    </div>
+    <button class="pedestal-settings-btn" id="pedestalSettingsBtn" title="Налаштувати рекорди">⚙️</button>`;
+  }
+
   let html = "";
   exercises.forEach((ex) => {
+    // Пропускаємо приховані та старі Човниковий біг без схеми
+    if (hiddenSet.has(ex)) return;
+    if (ex === "Човниковий біг") return; // старі записи без схеми
+
     const maxW = pedestalData[ex];
 
     // Логіка цілей
@@ -975,7 +1018,6 @@ function renderPedestal() {
       let goalLabel;
 
       if (isRunningExercise(ex)) {
-        // Ціль = цільовий час (сек). Прогрес = goalTime / actualTime * 100
         let actualTime = parseTimeFromCount(maxW.count);
         percent = actualTime > 0 ? Math.round((goalNum / actualTime) * 100) : 0;
         goalLabel = `Ціль: ${formatSecondsToTime(goalNum)}`;
@@ -1031,7 +1073,26 @@ function renderPedestal() {
             </div>
         `;
   });
-  container.innerHTML = html;
+
+  container.innerHTML = controlHtml + html;
+
+  // Обробники кнопок керування
+  if (isAdmin) {
+    document.getElementById("pedestalSettingsBtn")?.addEventListener("click", () => {
+      const ctrl = document.getElementById("pedestalControls");
+      if (ctrl) ctrl.style.display = ctrl.style.display === "none" ? "block" : "none";
+    });
+
+    container.querySelectorAll(".pedestal-toggle-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const ex = btn.dataset.ex;
+        if (hiddenSet.has(ex)) hiddenSet.delete(ex);
+        else hiddenSet.add(ex);
+        localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenSet]));
+        renderPedestal();
+      });
+    });
+  }
 }
 
 // Функція рендеру Глобальної Статистики
