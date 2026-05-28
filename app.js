@@ -991,13 +991,21 @@ function renderPedestal() {
     const btnList = exercises.map(ex => {
       const hidden = hiddenSet.has(ex);
       const safe = escapeHTML(ex);
-      return `<button class="pedestal-toggle-btn ${hidden ? "" : "active"}" data-ex="${safe}" title="${hidden ? "Показати" : "Сховати"}">${safe.replace("Човниковий біг ", "Ч.б. ")}</button>`;
+      const shortLabel = safe
+        .replace("Човниковий біг ", "Ч.б. ")
+        .replace("Спринт ", "Спринт ")
+        .replace("Біг ", "Біг ");
+      return `<button class="pedestal-toggle-btn ${hidden ? "" : "active"}" data-ex="${safe}">${shortLabel}</button>`;
     }).join("");
-    controlHtml = `<div class="pedestal-controls" id="pedestalControls" style="display:none">
+    controlHtml = `
+    <div class="pedestal-header-row">
+      <span></span>
+      <button class="pedestal-settings-btn" id="pedestalSettingsBtn" title="Налаштувати">⚙️ Налаштувати</button>
+    </div>
+    <div class="pedestal-controls" id="pedestalControls" style="display:none">
       <div class="pedestal-controls-title">Відображати рекорди:</div>
       <div class="pedestal-controls-list">${btnList}</div>
-    </div>
-    <button class="pedestal-settings-btn" id="pedestalSettingsBtn" title="Налаштувати рекорди">⚙️</button>`;
+    </div>`;
   }
 
   let html = "";

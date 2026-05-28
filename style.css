@@ -2128,18 +2128,23 @@ body {
 }
 
 /* === НАЛАШТУВАННЯ АБСОЛЮТНИХ РЕКОРДІВ === */
-.pedestal-settings-btn {
+.pedestal-header-row {
   grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+.pedestal-settings-btn {
   background: transparent;
   border: 1px dashed var(--border);
   color: var(--text-muted);
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: 10px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  margin-bottom: 8px;
   transition: all 0.2s;
   -webkit-tap-highlight-color: transparent;
 }
@@ -2147,14 +2152,14 @@ body {
 
 .pedestal-controls {
   grid-column: 1 / -1;
-  background: var(--card-bg);
+  background: rgba(0,0,0,0.2);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .pedestal-controls-title {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 800;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -2167,11 +2172,11 @@ body {
   gap: 6px;
 }
 .pedestal-toggle-btn {
-  padding: 5px 12px;
+  padding: 4px 10px;
   border: 1px solid var(--border);
   background: var(--card-bg);
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 800;
   border-radius: 20px;
   cursor: pointer;
