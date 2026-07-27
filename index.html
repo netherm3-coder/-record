@@ -44,26 +44,52 @@
               <span id="musicVolLabel" class="music-vol-label">30%</span>
             </div>
           </div>
+
+          <button id="adminSecretBtn" class="side-menu__item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            Архів
+          </button>
+          <a href="fund/index.html" class="side-menu__item side-menu__fund">
+            <img src="assets/money.png" alt="" class="btn-icon"> Фундамент
+          </a>
+          <a href="shooting_module/index.html" id="shootingBtn" class="side-menu__item" style="display:none">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="6"/>
+              <circle cx="12" cy="12" r="2"/>
+              <line x1="12" y1="2" x2="12" y2="5"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+              <line x1="2" y1="12" x2="5" y2="12"/>
+              <line x1="19" y1="12" x2="22" y2="12"/>
+            </svg>
+            Стрільба
+          </a>
+
+          <a href="visitors/index.html" id="adminVisitorsBtn" class="side-menu__item" style="display:none">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Відвідувачі
+          </a>
+          <button id="exportRecordsBtn" class="side-menu__item">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Експорт рекордів
+          </button>
+
           <button id="infoBtn" class="side-menu__item">
             <img src="assets/icons/info.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
             <span class="btn-fallback">💡</span> Як це працює?
           </button>
-          <a href="leadership_manual/leadership_manual.html" class="side-menu__item">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-            </svg>
-            Посібник лідера
-          </a>
-          <a href="fund/index.html" class="side-menu__item side-menu__fund">
-            <img src="assets/money.png" alt="" class="btn-icon"> Фундамент
-          </a>
-          <a href="sleep/index.html" class="side-menu__item">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-            Трекер сну
-          </a>
           <button id="donateBtn" class="side-menu__item">
             <img src="assets/icons/donate.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
             <span class="btn-fallback">☕</span> Підтримати автора
@@ -76,14 +102,7 @@
             </svg>
             Встановити додаток
           </button>
-          <button id="exportRecordsBtn" class="side-menu__item">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Експорт рекордів
-          </button>
+
           <button id="adminLoginBtn" class="side-menu__item">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
               <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
@@ -92,22 +111,6 @@
             </svg>
             Увійти як адмін
           </button>
-          <button id="adminSecretBtn" class="side-menu__item">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-            Архів
-          </button>
-          <a href="visitors/index.html" id="adminVisitorsBtn" class="side-menu__item" style="display:none">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-            Відвідувачі
-          </a>
           <button id="logoutBtn" class="side-menu__item side-menu__logout">
             <img src="assets/exit.png" alt="" class="btn-icon"> Вийти
           </button>

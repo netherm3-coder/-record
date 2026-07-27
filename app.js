@@ -190,6 +190,8 @@ onAuthStateChanged(auth, (user) => {
   if (adminVisitorsBtn) adminVisitorsBtn.style.display = "flex";
   const adminLoginBtnHide = document.getElementById("adminLoginBtn");
   if (adminLoginBtnHide) adminLoginBtnHide.style.display = "none";
+  const shootingBtnShow = document.getElementById("shootingBtn");
+  if (shootingBtnShow) shootingBtnShow.style.display = "flex";
   } else {
     isAdmin = false;
     localStorage.removeItem("isAdmin"); // Знімаємо прапор при виході
@@ -202,6 +204,8 @@ onAuthStateChanged(auth, (user) => {
   if (adminVisitorsBtnHide) adminVisitorsBtnHide.style.display = "none";
   const adminLoginBtnShow = document.getElementById("adminLoginBtn");
   if (adminLoginBtnShow) adminLoginBtnShow.style.display = "flex";
+  const shootingBtnHide = document.getElementById("shootingBtn");
+  if (shootingBtnHide) shootingBtnHide.style.display = "none";
 
     // ХОВАЄМО ВКЛАДКУ ФОТО ТА ВИКИДАЄМО З НЕЇ, ЯКЩО ГІСТЬ
     if (navPhotos) {
