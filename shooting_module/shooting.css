@@ -1,0 +1,437 @@
+/* ================================================================
+   СТРІЛЬБА — сторінка обліку боєприпасів
+   Тактичний акцент: оливковий #84994f поверх основної темної теми
+   ================================================================ */
+
+:root {
+  --sh-accent: #84994f;
+  --sh-accent-dim: rgba(132, 153, 79, 0.15);
+  --sh-accent-border: rgba(132, 153, 79, 0.35);
+}
+
+/* ---------- HEADER ---------- */
+.sh-page-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 10px;
+}
+.sh-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: var(--transition);
+  justify-self: start;
+}
+.sh-back:hover { border-color: var(--sh-accent); color: var(--text-main); }
+
+.sh-page-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ---------- 404 ---------- */
+.sh-404 { display: none; text-align: center; padding-top: 25vh; }
+.sh-404.visible { display: block; }
+.sh-404-code { font-size: 5rem; font-weight: 800; color: rgba(255, 255, 255, 0.15); line-height: 1; }
+.sh-404-msg { color: rgba(255, 255, 255, 0.15); font-size: 1rem; margin-top: 8px; }
+
+/* ---------- CONTENT VISIBILITY ---------- */
+.sh-content { display: none; }
+.sh-content.visible { display: block; }
+
+/* ---------- SUB-TABS ---------- */
+.sh-subtabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 18px;
+}
+.sh-subtab {
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+  border-radius: 9px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.sh-subtab.active { background: var(--sh-accent); color: #fff; }
+
+.sh-panel { display: none; }
+.sh-panel.active { display: block; }
+
+/* ---------- FORM ---------- */
+.sh-form-card { margin-bottom: 22px; }
+.sh-form-title {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+.sh-form-row { margin-bottom: 12px; }
+.sh-form-row:last-of-type { margin-bottom: 0; }
+.sh-form-split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.sh-form-split .sh-form-row { margin-bottom: 0; }
+
+.sh-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+  padding-left: 2px;
+}
+.sh-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 11px 12px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.sh-input:focus { outline: none; border-color: var(--sh-accent); }
+
+.sh-save-btn {
+  width: 100%;
+  margin-top: 14px;
+  padding: 13px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6b8e23, #556b2f);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.2s;
+}
+.sh-save-btn:active { opacity: 0.8; }
+.sh-save-btn:disabled { opacity: 0.5; }
+
+.sh-cancel-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--danger);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- ЖУРНАЛ ---------- */
+.sh-list { display: flex; flex-direction: column; gap: 16px; }
+.sh-day-group {}
+.sh-day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 12px;
+  background: var(--sh-accent-dim);
+  border: 1px solid var(--sh-accent-border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+.sh-day-date { font-size: 0.85rem; font-weight: 800; color: var(--sh-accent); letter-spacing: 0.3px; }
+.sh-day-total { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); }
+
+.sh-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 6px;
+}
+.sh-entry:last-child { margin-bottom: 0; }
+.sh-entry-text { font-size: 0.85rem; color: var(--text-main); line-height: 1.5; flex: 1; }
+.sh-weapon { font-weight: 800; }
+.sh-caliber { color: var(--sh-accent); font-weight: 600; }
+.sh-ammo { color: var(--text-muted); }
+.sh-sep { color: var(--border); margin: 0 2px; }
+.sh-dash { color: var(--text-muted); }
+.sh-count { font-weight: 800; }
+
+.sh-weapon-link, .sh-ammo-link {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  -webkit-tap-highlight-color: transparent;
+}
+.sh-weapon-link:active, .sh-ammo-link:active { opacity: 0.6; }
+
+.sh-entry-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.sh-mini-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s;
+}
+.sh-mini-btn.sh-edit:active { color: var(--sh-accent); border-color: var(--sh-accent); }
+.sh-mini-btn.sh-del:active { color: var(--danger); border-color: var(--danger); }
+
+.sh-empty, .sh-err {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding: 30px 10px;
+}
+.sh-err { color: var(--danger); }
+
+/* ---------- СТАТИСТИКА: OVERVIEW ---------- */
+.sh-stats-overview { display: flex; gap: 10px; margin-bottom: 20px; }
+.sh-stat-box {
+  flex: 1;
+  text-align: center;
+  padding: 16px 6px;
+  background: var(--sh-accent-dim);
+  border: 1px solid var(--sh-accent-border);
+  border-radius: 14px;
+}
+.sh-stat-box.sh-stat-big { flex: 1.3; }
+.sh-stat-num { display: block; font-size: 1.7rem; font-weight: 900; color: var(--sh-accent); line-height: 1; }
+.sh-stat-box.sh-stat-big .sh-stat-num { font-size: 2.1rem; }
+.sh-stat-lbl {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 6px;
+  font-weight: 700;
+}
+
+.sh-stats-section-title {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 20px 0 10px;
+}
+
+/* ---------- РОЗПОДІЛ ЗА КАЛІБРАМИ ---------- */
+.sh-caliber-bars { display: flex; flex-direction: column; gap: 10px; }
+.sh-cal-bar-row {}
+.sh-cal-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+.sh-cal-bar-label span:last-child { color: var(--text-muted); font-weight: 600; }
+.sh-cal-bar-track {
+  height: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.sh-cal-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #556b2f, var(--sh-accent));
+  border-radius: 6px;
+  transition: width 0.5s ease;
+}
+
+/* ---------- КАРТКИ ЗБРОЇ ---------- */
+.sh-weapon-cards { display: flex; flex-direction: column; gap: 10px; }
+.sh-weapon-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+}
+.sh-weapon-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.sh-weapon-card-name { font-size: 1rem; font-weight: 800; color: var(--text-main); }
+.sh-weapon-card-caliber { font-size: 0.8rem; font-weight: 700; color: var(--sh-accent); white-space: nowrap; }
+
+.sh-weapon-card-stats {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.sh-dot { margin: 0 6px; opacity: 0.4; }
+
+.sh-weapon-card-ammo { display: flex; flex-wrap: wrap; gap: 6px; }
+.sh-ammo-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.sh-ammo-chip.sh-ammo-link {
+  color: var(--sh-accent);
+  border-color: var(--sh-accent-border);
+  background: var(--sh-accent-dim);
+}
+
+/* ---------- TTX МОДАЛЬНЕ ВІКНО ---------- */
+.sh-ttx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0);
+  transition: background 0.25s, backdrop-filter 0.25s;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+}
+.sh-ttx-overlay.sh-ttx-visible {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+.sh-ttx-card {
+  width: 100%;
+  max-width: 480px;
+  max-height: 82vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg-color);
+  border: 1px solid var(--sh-accent-border);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  padding: 18px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  box-sizing: border-box;
+}
+.sh-ttx-overlay.sh-ttx-visible .sh-ttx-card { transform: translateY(0); }
+
+.sh-ttx-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.sh-ttx-title { font-size: 1.05rem; font-weight: 800; color: var(--text-main); }
+.sh-x {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.8rem;
+  cursor: pointer;
+  padding: 2px 10px;
+  line-height: 1;
+  border-radius: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sh-ttx-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.sh-ttx-row:last-of-type { border-bottom: none; }
+.sh-ttx-label { color: var(--text-muted); font-weight: 600; }
+.sh-ttx-val { color: var(--text-main); font-weight: 800; }
+.sh-ttx-calc { color: var(--text-muted); font-weight: 500; font-size: 0.7rem; }
+
+.sh-ttx-edit-btn {
+  width: 100%;
+  margin-top: 14px;
+  padding: 11px;
+  border: 1px dashed var(--sh-accent-border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--sh-accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sh-ttx-stub-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.sh-ttx-edit-row { margin-bottom: 10px; }
+.sh-ttx-edit-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  padding-left: 2px;
+}
+.sh-ttx-input { width: 100%; box-sizing: border-box; }
+
+@media (max-width: 380px) {
+  .sh-form-split { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Стрільба</title>
+    <link rel="icon" type="image/svg+xml" href="../assets/icon.svg" />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="shooting.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="sh-page-header">
+        <a href="../index.html" class="sh-back">← Назад</a>
+        <h1 class="sh-page-title">🎯 Стрільба</h1>
+        <button id="themeToggle" class="theme-btn" aria-label="Тема">☀️</button>
+      </div>
+
+      <div id="status" class="status-bar">Перевірка доступу...</div>
+
+      <!-- 404 -->
+      <div id="sh404" class="sh-404">
+        <div class="sh-404-code">404</div>
+        <div class="sh-404-msg">Not Found</div>
+      </div>
+
+      <!-- CONTENT (тільки для адміна) -->
+      <div id="shContent" class="sh-content">
+
+        <!-- SUB-TABS -->
+        <div class="sh-subtabs">
+          <button class="sh-subtab active" data-subtab="main">Головна</button>
+          <button class="sh-subtab" data-subtab="stats">Статистика</button>
+        </div>
+
+        <!-- ==================== ГОЛОВНА ==================== -->
+        <div id="shPanelMain" class="sh-panel active">
+
+          <div class="card sh-form-card">
+            <div class="sh-form-title">Додати запис</div>
+            <div class="sh-form-row">
+              <label class="sh-label">Дата</label>
+              <input type="date" id="shDate" class="sh-input" />
+            </div>
+            <div class="sh-form-row">
+              <label class="sh-label">Зброя</label>
+              <input type="text" id="shWeapon" class="sh-input" list="shWeaponList" placeholder="Напр. АКМ" autocomplete="off" />
+              <datalist id="shWeaponList"></datalist>
+            </div>
+            <div class="sh-form-split">
+              <div class="sh-form-row">
+                <label class="sh-label">Калібр</label>
+                <input type="text" id="shCaliber" class="sh-input" list="shCaliberList" placeholder="7,62×39мм" autocomplete="off" />
+                <datalist id="shCaliberList"></datalist>
+              </div>
+              <div class="sh-form-row">
+                <label class="sh-label">Тип набою</label>
+                <input type="text" id="shAmmoType" class="sh-input" list="shAmmoList" placeholder="ПС / M855" autocomplete="off" />
+                <datalist id="shAmmoList"></datalist>
+              </div>
+            </div>
+            <div class="sh-form-row">
+              <label class="sh-label">Кількість, шт.</label>
+              <input type="number" id="shCount" class="sh-input" min="1" step="1" placeholder="0" inputmode="numeric" />
+            </div>
+            <button id="shSaveBtn" class="sh-save-btn">Записати</button>
+            <button id="shCancelEditBtn" class="sh-cancel-btn" style="display:none">✕ Скасувати редагування</button>
+          </div>
+
+          <div class="section-title">Журнал стрільб</div>
+          <div id="shList" class="sh-list"></div>
+        </div>
+
+        <!-- ==================== СТАТИСТИКА ==================== -->
+        <div id="shPanelStats" class="sh-panel"></div>
+
+      </div>
+    </div>
+
+    <!-- TTX MODAL -->
+    <div id="shTtxOverlay" class="sh-ttx-overlay">
+      <div class="sh-ttx-card">
+        <div class="sh-ttx-header">
+          <div class="sh-ttx-title" id="shTtxTitle"></div>
+          <button class="sh-x" id="shTtxClose">&times;</button>
+        </div>
+        <div class="sh-ttx-body" id="shTtxBody"></div>
+      </div>
+    </div>
+
+    <script type="module" src="shooting.js"></script>
+  </body>
+</html>
