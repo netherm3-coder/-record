@@ -44,7 +44,7 @@ function copyAiPrompt() {
   var sevenAgo = now.getTime() - 7 * 86400000;
   var N_7d = 0;
   normal.forEach(function (l) { if (l.timestamp >= sevenAgo && !_isHardcore(l)) N_7d++; });
-  var R_dop = Math.log(S + 1) * 5 - (N_7d * 2.5);
+  var R_dop = (Math.log(S + 1) * 5 - (N_7d * 2.5)) * -1;
   R_dop = Math.round(R_dop * 100) / 100;
 
   // Останні 10 (без S)
@@ -491,11 +491,11 @@ function _renderStats(container) {
   var S_avg = gaps.length > 0 ? gaps.reduce(function (a, b) { return a + b; }, 0) / gaps.length : S;
 
   // --- K_ns (+ НЕ впливає) ---
-  var K_ns = Math.pow(D_ratio, 2) * Math.sqrt(S) * 10 - (R_7d * 15);
+  var K_ns = (Math.pow(D_ratio, 2) * Math.sqrt(S) * 10 - (R_7d * 15)) * -1;
   K_ns = Math.round(K_ns * 100) / 100;
 
   // --- R_dop (+ НЕ впливає) ---
-  var R_dop = (Math.log(S + 1) * (D_ratio / 1.5)) - (R_7d / (S_avg + 1) * 10);
+  var R_dop = ((Math.log(S + 1) * (D_ratio / 1.5)) - (R_7d / (S_avg + 1) * 10)) * -1;
   R_dop = Math.round(R_dop * 100) / 100;
 
   var kColor = K_ns < 0 ? "#ef4444" : K_ns > 50 ? "#38bdf8" : "#10b981";
