@@ -2191,3 +2191,25 @@ body {
   border-color: var(--accent);
   opacity: 1;
 }
+
+/* === ПУНКТ МЕНЮ «ВИБІРКОВІ» === */
+.side-menu__electives {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--accent);
+  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.08);
+}
+.side-menu__electives:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--accent);
+  transform: translateX(5px);
+}
+
+/* дрібне: прибирає підкреслення в посилань-пунктів меню */
+#shootingBtn,
+#adminVisitorsBtn {
+  text-decoration: none;
+}
