@@ -140,7 +140,34 @@ const MILESTONES = [
   { id: "archive_mythic_s", name: "Сенс життя", description: "Зафіксувати запис із рангом «S»", icon: "💞", category: "archive", reward: 500,
     condition: (w, sd, logs) => logs.some(l => l.is_s === true),
     progress: (w, sd, logs) => logs.some(l => l.is_s === true) ? 1 : 0 },
+
+  // Записи зі знаком "+" (is_hardcore)
+  { id: "archive_painter", name: "Маляр", description: "10 записів в архів зі знаком «+»", icon: "🎨", category: "archive", reward: 20,
+    condition: (w, sd, logs) => _countPlus(logs) >= 10,
+    progress: (w, sd, logs) => Math.min(1, _countPlus(logs) / 10) },
+
+  { id: "archive_gourmet", name: "Гурман", description: "50 записів в архів зі знаком «+»", icon: "🍽️", category: "archive", reward: 60,
+    condition: (w, sd, logs) => _countPlus(logs) >= 50,
+    progress: (w, sd, logs) => Math.min(1, _countPlus(logs) / 50) },
+
+  { id: "archive_savor", name: "Смакування моменту", description: "Запис зі знаком «+» та нотаткою «TB»", icon: "🍷", category: "archive", reward: 40,
+    condition: (w, sd, logs) => _hasPlusWithNote(logs, "TB"),
+    progress: (w, sd, logs) => _hasPlusWithNote(logs, "TB") ? 1 : 0 },
 ];
+
+// Хелпери для "+" досягнень
+function _isPlus(log) {
+  return log.is_hardcore === true || (typeof log.note === "string" && /\+/.test(log.note));
+}
+function _countPlus(logs) {
+  if (!logs) return 0;
+  return logs.filter(_isPlus).length;
+}
+function _hasPlusWithNote(logs, noteText) {
+  if (!logs) return false;
+  const target = String(noteText).trim().toLowerCase();
+  return logs.some(l => _isPlus(l) && typeof l.note === "string" && l.note.trim().toLowerCase().includes(target));
+}
 
 // ================================================================
 //  ХЕЛПЕРИ

@@ -322,11 +322,11 @@ const ICONS = {
   video:    `<img src="assets/icons/video.svg"        class="themed-icon js-icon" alt="">`,
   crown:    `<img src="assets/icons/crown.svg"        class="themed-icon js-icon" alt="">`,
   bulb:     `<img src="assets/icons/lightbulb.svg"   class="themed-icon js-icon" alt="">`,
-  medal:    `<img src="assets/icons/medal.svg"        class="themed-icon js-icon" alt="">`,
+  medal:    `<img src="assets/gear/dogtags.png"       class="themed-icon js-icon" alt="">`,
   fire:     `<img src="assets/icons/fire.svg"         class="themed-icon js-icon" alt="">`,
   bolt:     `<img src="assets/icons/bolt.svg"         class="themed-icon js-icon" alt="">`,
   trophy:   `🏆`,
-  shield:   `<img src="assets/icons/shield.svg"       class="themed-icon js-icon" alt="">`,
+  shield:   `<img src="assets/gear/vest.png"          class="themed-icon js-icon" alt="">`,
   target:   `<img src="assets/icons/target.svg"       class="themed-icon js-icon" alt="">`,
     // Кольорові inline SVG — не потребують themed-icon фільтру
       muscle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><rect x="2" y="10" width="3" height="4" rx="1"/><rect x="19" y="10" width="3" height="4" rx="1"/><rect x="5" y="8" width="3" height="8" rx="1"/><rect x="16" y="8" width="3" height="8" rx="1"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
@@ -1568,7 +1568,11 @@ listenToWorkouts();
 // === ТРЕКЕР ВІДВІДУВАЧІВ ===
 {
   const sessionKey = "visitorLogged_" + new Date().toDateString();
-  if (!sessionStorage.getItem(sessionKey)) {
+  // Чекаємо, поки авто-логін адміна встигне спрацювати, і лише тоді вирішуємо чи логувати
+  setTimeout(() => {
+    if (sessionStorage.getItem(sessionKey)) return;
+    // НЕ логуємо адміна (власника сайту)
+    if (auth.currentUser) { sessionStorage.setItem(sessionKey, "1"); return; }
     (async () => {
       try {
         let ip = "unknown", country = "", city = "";
@@ -1611,7 +1615,7 @@ listenToWorkouts();
           device, os, browser, browserVer,
           screen: window.screen.width + "x" + window.screen.height,
           referrer: document.referrer || "direct",
-          isAdmin: !!auth.currentUser,
+          isAdmin: false,
           userAgent: ua.substring(0, 250),
           lastVisit: Date.now(),
         };
@@ -1640,7 +1644,7 @@ listenToWorkouts();
         console.warn("Visitor log failed:", err);
       }
     })();
-  }
+  }, 1500);
 }
 
 // Завантаження цілей та глобальної статистики
