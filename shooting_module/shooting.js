@@ -96,6 +96,73 @@ function _specDocId(type, key) {
 }
 
 // ================================================================
+//  АВТОПІДБІР СИЛУЕТУ ЗБРОЇ ПО КЛЮЧОВИХ СЛОВАХ
+//  Порядок важливий: більш специфічні ключі — раніше.
+//  Файли: assets/weapons/<name>.png  (fallback — musket_flint)
+// ================================================================
+const WEAPON_ICON_RULES = [
+  // Пістолети-кулемети
+  [["kriss", "vector", "вектор", "крісс", "крис"], "vector"],
+  [["p90", "п90", "п-90"], "p90"],
+  [["uzi", "узі", "узи"], "uzi"],
+  [["mp5", "мп5", "мп-5", "мп 5"], "mp5"],
+  [["mp40", "мп40", "мп-40", "mp-40", "мп 40"], "mp40"],
+  [["thompson", "томпсон", "томмі", "tommy"], "thompson"],
+  // Гранатомети — усі на одну іконку РПГ
+  [["rpg", "рпг", "гранатомет", "підствол", "подствол", "гп-25", "гп25",
+    "at4", "нлав", "джавелін", "javelin", "муха", "ргд"], "rpg"],
+  // Кулемети
+  [["fn mag", "fnmag", "мag", "m240", "м240", "m249", "м249", "мінімі", "minimi",
+    "пкм", "пкт", "пкп", "рпк", "pkm", "rpk", "кулемет", "браунінг", "browning",
+    "дшк", "утьос", "утес", "нсв"], "mg"],
+  [["m60", "м60", "м-60"], "m60"],
+  // Снайперські / марксманські
+  [["barrett", "барретт", "барет", "m82", "м82"], "barrett"],
+  [["свд", "svd", "драгунов", "тigr", "тигр", "марксман"], "carbine"],
+  [["awm", "awp", "снайп", "sniper", "l96", "мосін", "мосин", "mosin"], "sniper"],
+  // Bullpup / особливі
+  [["tavor", "тавор", "тар-21", "tar-21", "tar21"], "tavor"],
+  [["aug", "ауг", "штайр", "steyr"], "aug"],
+  [["famas", "фамас"], "famas"],
+  [["g36", "г36", "г-36"], "g36"],
+  [["scar", "скар"], "scar"],
+  // АК-родина
+  [["аксу", "акс-74у", "aksu", "аксу-74"], "aks"],
+  [["ак-74", "ак74", "ak-74", "ak74", "ак-12", "ак12", "акс"], "ak"],
+  [["ак-47", "ак47", "ak-47", "ak47", "акм", "akm", "ак ", "ак"], "ak"],
+  // AR-родина
+  [["m4", "м4", "м-4", "hk416", "хк416"], "m4"],
+  [["m16", "м16", "м-16", "ar-15", "ar15", "ар-15"], "m16"],
+  [["fal", "фал", "g3", "г3", "г-3", "фн фал"], "carbine"],
+  // Рушниці
+  [["обріз", "обрез", "sawed", "sawn"], "sawed_off"],
+  [["помпова", "помпа", "pump", "remington", "ремінгтон", "870", "mossberg", "мосберг"], "shotgun_pump"],
+  [["рушниц", "дробовик", "shotgun", "12 калібр", "12/76", "гладкоств"], "shotgun"],
+  // Гвинтівки болтові / старі
+  [["enfield", "енфілд", "lee", "лі-енфілд"], "rifle_bolt"],
+  [["мушкет", "musket", "кремн", "flint"], "musket_flint"],
+  [["карабін", "карабин", "carbine"], "ar_carbine"],
+  [["гвинтівк", "винтовк", "болт", "bolt", "rifle"], "rifle_bolt"],
+  // Пістолети / револьвери
+  [["glock", "глок", "глок-17", "глок17"], "glock"],
+  [["револьвер", "revolver", "colt", "кольт", "python", "магнум", "magnum", "наган"], "revolver"],
+  [["пістолет", "пистолет", "pistol", "пм", "тт", "beretta", "берета", "m9", "форт"], "pistol"],
+  // ПП загальний
+  [["пп", "smg", "автомат"], "smg"],
+];
+
+function _weaponIcon(weaponName) {
+  const n = _norm(weaponName);
+  if (!n) return "musket_flint";
+  for (const [keys, icon] of WEAPON_ICON_RULES) {
+    for (const k of keys) {
+      if (n.includes(k.trim())) return icon;
+    }
+  }
+  return "musket_flint"; // fallback — мушкет
+}
+
+// ================================================================
 //  СТАН
 // ================================================================
 let _allShots = [];
@@ -127,9 +194,29 @@ onAuthStateChanged(auth, (user) => {
   _initForm();
   _initSubTabs();
   _initTtxModal();
+  _initCamoToggle();
   _listenShootingLogs();
   _listenShootingSpecs();
 });
+
+// ================================================================
+//  КАМУФЛЯЖНИЙ ФОН (лише на цій сторінці)
+// ================================================================
+function _initCamoToggle() {
+  const cb = document.getElementById("shCamoToggle");
+  if (!cb) return;
+  const saved = localStorage.getItem("shCamoBg") === "1";
+  cb.checked = saved;
+  _applyCamo(saved);
+  cb.addEventListener("change", () => {
+    localStorage.setItem("shCamoBg", cb.checked ? "1" : "0");
+    _applyCamo(cb.checked);
+  });
+}
+
+function _applyCamo(on) {
+  document.body.classList.toggle("sh-camo-on", !!on);
+}
 
 // ================================================================
 //  ІНІЦІАЛІЗАЦІЯ ФОРМИ
@@ -155,6 +242,15 @@ function _onWeaponChange() {
   const caliberEl = document.getElementById("shCaliber");
   const suggestion = _suggestCaliber(weaponEl.value);
   if (suggestion) caliberEl.value = suggestion;
+
+  // Живе прев'ю силуету
+  const prev = document.getElementById("shWeaponPreview");
+  if (prev) {
+    const icon = _weaponIcon(weaponEl.value);
+    const src = "../assets/weapons/" + icon + ".png";
+    if (!prev.src.endsWith(src.replace("../", ""))) prev.src = src;
+    prev.classList.toggle("sh-preview-dim", !weaponEl.value.trim());
+  }
 }
 
 function _buildHistoryCaliberMap() {
@@ -272,7 +368,10 @@ function _renderList() {
         ? ' <span class="sh-sep">|</span> <span class="sh-ammo sh-ammo-link" data-ammotype="' +
           _escAttr(it.ammo_type) + '" data-caliber="' + _escAttr(it.caliber) + '">' + _esc(it.ammo_type) + '</span>'
         : '';
+      const icon = _weaponIcon(it.weapon);
       html += '<div class="sh-entry">' +
+        '<img class="sh-entry-icon" src="../assets/weapons/' + icon + '.png" alt="" ' +
+          'onerror="this.onerror=null;this.src=\'../assets/weapons/musket_flint.png\'" />' +
         '<div class="sh-entry-text">' +
           '<span class="sh-weapon sh-weapon-link" data-weapon="' + _escAttr(it.weapon) + '">' + _esc(it.weapon) + '</span>' +
           ' <span class="sh-sep">|</span> <span class="sh-caliber">' + _esc(it.caliber) + '</span>' +

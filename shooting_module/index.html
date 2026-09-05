@@ -34,6 +34,13 @@
           <button class="sh-subtab" data-subtab="stats">Статистика</button>
         </div>
 
+        <!-- НАЛАШТУВАННЯ -->
+        <label class="sh-camo-toggle">
+          <span>Камуфляжний фон</span>
+          <input type="checkbox" id="shCamoToggle" />
+          <span class="sh-camo-switch"></span>
+        </label>
+
         <!-- ==================== ГОЛОВНА ==================== -->
         <div id="shPanelMain" class="sh-panel active">
 
@@ -45,7 +52,10 @@
             </div>
             <div class="sh-form-row">
               <label class="sh-label">Зброя</label>
-              <input type="text" id="shWeapon" class="sh-input" list="shWeaponList" placeholder="Напр. АКМ" autocomplete="off" />
+              <div class="sh-weapon-input-wrap">
+                <input type="text" id="shWeapon" class="sh-input" list="shWeaponList" placeholder="Напр. АКМ" autocomplete="off" />
+                <img id="shWeaponPreview" class="sh-weapon-preview" src="../assets/weapons/musket_flint.png" alt="" />
+              </div>
               <datalist id="shWeaponList"></datalist>
             </div>
             <div class="sh-form-split">

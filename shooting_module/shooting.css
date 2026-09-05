@@ -435,3 +435,126 @@
 @media (max-width: 380px) {
   .sh-form-split { grid-template-columns: 1fr; }
 }
+
+/* ================================================================
+   СИЛУЕТИ ЗБРОЇ
+   ================================================================ */
+.sh-entry-icon {
+  width: 54px;
+  height: 26px;
+  object-fit: contain;
+  object-position: left center;
+  flex-shrink: 0;
+  opacity: 0.75;
+  filter: brightness(0) saturate(100%) invert(62%) sepia(24%) saturate(628%) hue-rotate(35deg) brightness(92%) contrast(88%);
+}
+[data-theme="light"] .sh-entry-icon {
+  filter: brightness(0) saturate(100%) invert(45%) sepia(30%) saturate(500%) hue-rotate(35deg) brightness(80%);
+}
+
+/* Прев'ю силуету у формі */
+.sh-weapon-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sh-weapon-input-wrap .sh-input { flex: 1; min-width: 0; }
+
+.sh-weapon-preview {
+  width: 68px;
+  height: 34px;
+  object-fit: contain;
+  flex-shrink: 0;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+  filter: brightness(0) saturate(100%) invert(62%) sepia(24%) saturate(628%) hue-rotate(35deg) brightness(92%) contrast(88%);
+}
+.sh-weapon-preview.sh-preview-dim { opacity: 0.25; }
+[data-theme="light"] .sh-weapon-preview {
+  filter: brightness(0) saturate(100%) invert(45%) sepia(30%) saturate(500%) hue-rotate(35deg) brightness(80%);
+}
+
+/* ================================================================
+   ТУМБЛЕР КАМУФЛЯЖУ
+   ================================================================ */
+.sh-camo-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sh-camo-toggle > span:first-child {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.sh-camo-toggle input { display: none; }
+.sh-camo-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border);
+  transition: background 0.25s;
+  flex-shrink: 0;
+}
+.sh-camo-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.25s, background 0.25s;
+}
+.sh-camo-toggle input:checked + .sh-camo-switch {
+  background: var(--sh-accent-dim);
+  border-color: var(--sh-accent);
+}
+.sh-camo-toggle input:checked + .sh-camo-switch::after {
+  transform: translateX(20px);
+  background: var(--sh-accent);
+}
+
+/* ================================================================
+   КАМУФЛЯЖНИЙ ФОН
+   ================================================================ */
+body.sh-camo-on::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: url("../assets/camo/camo.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+body.sh-camo-on::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: rgba(13, 17, 23, 0.82);
+}
+[data-theme="light"] body.sh-camo-on::after {
+  background: rgba(245, 245, 240, 0.86);
+}
+/* Картки трохи прозоріші, щоб камуфляж читався */
+body.sh-camo-on .card,
+body.sh-camo-on .sh-entry,
+body.sh-camo-on .sh-weapon-card {
+  backdrop-filter: blur(3px);
+}
