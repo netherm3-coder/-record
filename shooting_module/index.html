@@ -35,11 +35,10 @@
         </div>
 
         <!-- НАЛАШТУВАННЯ -->
-        <label class="sh-camo-toggle">
-          <span>Камуфляжний фон</span>
-          <input type="checkbox" id="shCamoToggle" />
-          <span class="sh-camo-switch"></span>
-        </label>
+        <div class="sh-bg-row">
+          <label for="shBgSelect">Фон</label>
+          <select id="shBgSelect" class="sh-bg-select"></select>
+        </div>
 
         <!-- ==================== ГОЛОВНА ==================== -->
         <div id="shPanelMain" class="sh-panel active">
@@ -75,6 +74,7 @@
               <input type="number" id="shCount" class="sh-input" min="1" step="1" placeholder="0" inputmode="numeric" />
             </div>
             <button id="shSaveBtn" class="sh-save-btn">Записати</button>
+            <button id="shRepeatBtn" class="sh-repeat-btn" style="display:none"></button>
             <button id="shCancelEditBtn" class="sh-cancel-btn" style="display:none">✕ Скасувати редагування</button>
           </div>
 

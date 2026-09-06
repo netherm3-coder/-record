@@ -131,6 +131,9 @@ const WEAPON_ICON_RULES = [
   [["ак-74", "ак74", "ak-74", "ak74", "ак-12", "ак12", "акс"], "ak"],
   [["ак-47", "ак47", "ak-47", "ak47", "акм", "akm", "ак ", "ак"], "ak"],
   // AR-родина
+  [["mk556", "мк556", "мк-556", "mk-556", "mk 556", "мк 556",
+    "zbroyar", "збройяр", "збро'яр", "z-15", "z15", "форт-221", "форт221",
+    "uar", "уар-15", "wac47", "wac-47", "вак47", "вак-47"], "m4"],
   [["m4", "м4", "м-4", "hk416", "хк416"], "m4"],
   [["m16", "м16", "м-16", "ar-15", "ar15", "ар-15"], "m16"],
   [["fal", "фал", "g3", "г3", "г-3", "фн фал"], "carbine"],
@@ -171,6 +174,7 @@ let _editingId = null;
 let _activeSubTab = "main";
 let _statsDirty = true;
 let _scrollToEndOnNextRender = false;
+let _lastEntry = null;
 
 // ================================================================
 //  AUTH GATE
@@ -194,28 +198,51 @@ onAuthStateChanged(auth, (user) => {
   _initForm();
   _initSubTabs();
   _initTtxModal();
-  _initCamoToggle();
+  _initBackgroundPicker();
   _listenShootingLogs();
   _listenShootingSpecs();
 });
 
 // ================================================================
-//  КАМУФЛЯЖНИЙ ФОН (лише на цій сторінці)
+//  ФОНИ СТОРІНКИ
+//  ЯК ДОДАТИ НОВИЙ ФОН:
+//    1) поклади файл у assets/camo/  (напр. assets/camo/mm14.jpg)
+//    2) додай сюди рядок: { id: "mm14", name: "ММ-14", file: "../assets/camo/mm14.jpg" }
+//  Більше нічого міняти не треба — з'явиться у списку автоматично.
 // ================================================================
-function _initCamoToggle() {
-  const cb = document.getElementById("shCamoToggle");
-  if (!cb) return;
-  const saved = localStorage.getItem("shCamoBg") === "1";
-  cb.checked = saved;
-  _applyCamo(saved);
-  cb.addEventListener("change", () => {
-    localStorage.setItem("shCamoBg", cb.checked ? "1" : "0");
-    _applyCamo(cb.checked);
+const BACKGROUNDS = [
+  { id: "none", name: "Без фону",     file: null },
+  { id: "camo", name: "Піксель",      file: "../assets/camo/camo.jpg" },
+];
+
+function _initBackgroundPicker() {
+  const sel = document.getElementById("shBgSelect");
+  if (!sel) return;
+
+  sel.innerHTML = BACKGROUNDS
+    .map((b) => '<option value="' + b.id + '">' + _esc(b.name) + '</option>')
+    .join("");
+
+  const saved = localStorage.getItem("shBgChoice") || "none";
+  sel.value = BACKGROUNDS.some((b) => b.id === saved) ? saved : "none";
+  _applyBackground(sel.value);
+
+  sel.addEventListener("change", () => {
+    localStorage.setItem("shBgChoice", sel.value);
+    _applyBackground(sel.value);
   });
 }
 
-function _applyCamo(on) {
-  document.body.classList.toggle("sh-camo-on", !!on);
+function _applyBackground(id) {
+  const bg = BACKGROUNDS.find((b) => b.id === id) || BACKGROUNDS[0];
+  const root = document.documentElement;
+  if (!bg.file) {
+    root.classList.remove("sh-bg-on");
+    root.style.removeProperty("--sh-bg-url");
+  } else {
+    root.style.setProperty("--sh-bg-url", 'url("' + bg.file + '")');
+    root.classList.add("sh-bg-on");
+  }
 }
 
 // ================================================================
@@ -232,9 +259,20 @@ function _initForm() {
   document.getElementById("shSaveBtn").addEventListener("click", _handleSave);
   document.getElementById("shCancelEditBtn").addEventListener("click", _cancelEdit);
 
-  document.getElementById("shCount").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); _handleSave(); }
+  // Enter веде до наступного поля, а в останньому — зберігає
+  const chain = ["shWeapon", "shCaliber", "shAmmoType", "shCount"];
+  chain.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      if (i === chain.length - 1) _handleSave();
+      else document.getElementById(chain[i + 1])?.focus();
+    });
   });
+
+  _updateRepeatBtn();
 }
 
 function _onWeaponChange() {
@@ -303,6 +341,7 @@ function _listenShootingLogs() {
 
     _renderList();
     _rebuildDatalists();
+    _updateRepeatBtn();
     _statsDirty = true;
     if (_activeSubTab === "stats") { _renderStatsPanel(); _statsDirty = false; }
 
@@ -435,6 +474,24 @@ function _fillDatalist(id, values) {
 }
 
 // ================================================================
+//  TOAST — підтвердження дій
+// ================================================================
+function _toast(msg, kind) {
+  const old = document.getElementById("shToast");
+  if (old) old.remove();
+  const t = document.createElement("div");
+  t.id = "shToast";
+  t.className = "sh-toast" + (kind === "err" ? " sh-toast-err" : "");
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add("sh-toast-show"));
+  setTimeout(() => {
+    t.classList.remove("sh-toast-show");
+    setTimeout(() => t.remove(), 300);
+  }, 2200);
+}
+
+// ================================================================
 //  ЗБЕРЕЖЕННЯ / РЕДАГУВАННЯ / ВИДАЛЕННЯ ЗАПИСІВ
 // ================================================================
 async function _handleSave() {
@@ -451,9 +508,13 @@ async function _handleSave() {
   const ammo_type = ammoEl.value.trim();
   const count = parseInt(countEl.value);
 
-  if (!weapon) { alert("Вкажи зброю!"); weaponEl.focus(); return; }
-  if (!caliber) { alert("Вкажи калібр!"); caliberEl.focus(); return; }
-  if (!count || count <= 0) { alert("Вкажи кількість набоїв (більше 0)!"); countEl.focus(); return; }
+  if (!weapon) { _toast("Вкажи зброю", "err"); weaponEl.focus(); return; }
+  if (!caliber) { _toast("Вкажи калібр", "err"); caliberEl.focus(); return; }
+  if (!count || count <= 0) { _toast("Вкажи кількість набоїв", "err"); countEl.focus(); return; }
+  if (count > 100000) { _toast("Забагато — перевір кількість", "err"); countEl.focus(); return; }
+  if (date > _todayLocal()) {
+    if (!confirm("Дата у майбутньому (" + _fmtDate(date) + "). Все одно зберегти?")) { dateEl.focus(); return; }
+  }
 
   const uid = auth.currentUser.uid;
   saveBtn.disabled = true;
@@ -466,24 +527,49 @@ async function _handleSave() {
       });
       _editingId = null;
       document.getElementById("shCancelEditBtn").style.display = "none";
+      _toast("Запис оновлено");
     } else {
       await addDoc(collection(db, "shooting_logs"), {
         date, weapon, caliber, ammo_type, count,
         timestamp: Date.now(), userId: uid, createdAt: Date.now(),
       });
       _scrollToEndOnNextRender = true;
+      _toast("Записано: " + weapon + " — " + count + " шт.");
     }
+    // Запам'ятовуємо для кнопки «Повторити останній»
+    _lastEntry = { date, weapon, caliber, ammo_type, count };
     _resetFormFields();
+    _updateRepeatBtn();
   } catch (err) {
     if (err.code === "permission-denied") {
-      alert("🛡️ Доступ заборонено! Перевір Firestore rules для shooting_logs.");
+      _toast("Доступ заборонено — перевір Firestore rules", "err");
     } else {
-      alert("Помилка збереження: " + err.message);
+      _toast("Помилка: " + err.message, "err");
     }
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = _editingId ? "💾 Оновити запис" : "Записати";
   }
+}
+
+// Кнопка «Повторити останній» — швидке додавання однотипних записів
+function _updateRepeatBtn() {
+  const btn = document.getElementById("shRepeatBtn");
+  if (!btn) return;
+  const src = _lastEntry || _allShots[0];
+  if (!src || !src.weapon) { btn.style.display = "none"; return; }
+  btn.style.display = "block";
+  btn.textContent = "↻ Повторити: " + src.weapon +
+    (src.ammo_type ? " · " + src.ammo_type : "") + " · " + src.count + " шт.";
+  btn.onclick = () => {
+    document.getElementById("shWeapon").value = src.weapon || "";
+    document.getElementById("shCaliber").value = src.caliber || "";
+    document.getElementById("shAmmoType").value = src.ammo_type || "";
+    document.getElementById("shCount").value = src.count || "";
+    _onWeaponChange();
+    document.getElementById("shCount").focus();
+    _toast("Поля заповнено — перевір і тисни «Записати»");
+  };
 }
 
 function _resetFormFields() {
@@ -619,6 +705,8 @@ function _renderWeaponCards() {
 
     return '<div class="sh-weapon-card">' +
       '<div class="sh-weapon-card-top">' +
+        '<img class="sh-card-icon" src="../assets/weapons/' + _weaponIcon(w.name) + '.png" alt="" ' +
+          'onerror="this.onerror=null;this.src=\'../assets/weapons/musket_flint.png\'" />' +
         '<span class="sh-weapon-card-name sh-weapon-link" data-weapon="' + _escAttr(w.name) + '">' + _esc(w.name) + '</span>' +
         '<span class="sh-weapon-card-caliber sh-ammo-link" data-ammotype="" data-caliber="' + _escAttr(w.caliber) + '">' + _esc(w.caliber) + '</span>' +
       '</div>' +
@@ -643,9 +731,12 @@ function _closeTtxModal() {
 }
 
 function _openAmmoTtx(ammoType, caliber) {
-  const key = ammoType && ammoType.trim() ? ammoType.trim() : caliber;
-  const displayName = ammoType && ammoType.trim() ? (ammoType + " (" + caliber + ")") : caliber;
-  _openTtxModal("ammo", key, displayName, caliber);
+  const at = (ammoType || "").trim();
+  const cal = (caliber || "").trim();
+  // Ключ = "калібр · тип", інакше «ПС» для 7,62×39 і 5,45×39 злипнуться в один запис ТТХ
+  const key = at ? (cal + " · " + at) : cal;
+  const displayName = at ? (at + " (" + cal + ")") : cal;
+  _openTtxModal("ammo", key, displayName, cal);
 }
 
 function _openTtxModal(kind, key, displayName, fallbackCaliber) {

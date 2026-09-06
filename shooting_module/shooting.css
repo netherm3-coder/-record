@@ -476,9 +476,9 @@
 }
 
 /* ================================================================
-   ТУМБЛЕР КАМУФЛЯЖУ
+   ВИБІР ФОНУ
    ================================================================ */
-.sh-camo-toggle {
+.sh-bg-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -488,73 +488,119 @@
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 12px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
-.sh-camo-toggle > span:first-child {
-  font-size: 0.8rem;
+.sh-bg-row label {
+  font-size: 0.75rem;
   font-weight: 800;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
-.sh-camo-toggle input { display: none; }
-.sh-camo-switch {
-  position: relative;
-  width: 44px;
-  height: 24px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.12);
+.sh-bg-select {
+  flex: 1;
+  min-width: 0;
+  max-width: 220px;
+  background: var(--input-bg);
   border: 1px solid var(--border);
-  transition: background 0.25s;
-  flex-shrink: 0;
+  color: var(--text-main);
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
 }
-.sh-camo-switch::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  transition: transform 0.25s, background 0.25s;
-}
-.sh-camo-toggle input:checked + .sh-camo-switch {
-  background: var(--sh-accent-dim);
-  border-color: var(--sh-accent);
-}
-.sh-camo-toggle input:checked + .sh-camo-switch::after {
-  transform: translateX(20px);
-  background: var(--sh-accent);
-}
+.sh-bg-select:focus { outline: none; border-color: var(--sh-accent); }
 
 /* ================================================================
-   КАМУФЛЯЖНИЙ ФОН
+   ФОНОВЕ ЗОБРАЖЕННЯ
+   Картинка живе на <html>, затемнення — на <body>.
+   Так немає конфлікту z-index з непрозорим фоном body.
    ================================================================ */
-body.sh-camo-on::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  background-image: url("../assets/camo/camo.jpg");
+html.sh-bg-on {
+  background-image: var(--sh-bg-url);
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
+  background-repeat: no-repeat;
 }
-body.sh-camo-on::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: rgba(13, 17, 23, 0.82);
+html.sh-bg-on body {
+  background: rgba(13, 17, 23, 0.84) !important;
 }
-[data-theme="light"] body.sh-camo-on::after {
-  background: rgba(245, 245, 240, 0.86);
+html.sh-bg-on[data-theme="light"] body {
+  background: rgba(245, 245, 240, 0.88) !important;
 }
-/* Картки трохи прозоріші, щоб камуфляж читався */
-body.sh-camo-on .card,
-body.sh-camo-on .sh-entry,
-body.sh-camo-on .sh-weapon-card {
+/* Картки трохи прозоріші, щоб фон читався */
+html.sh-bg-on .card,
+html.sh-bg-on .sh-entry,
+html.sh-bg-on .sh-weapon-card,
+html.sh-bg-on .sh-day-header {
   backdrop-filter: blur(3px);
+}
+
+/* Силует у картці статистики */
+.sh-card-icon {
+  width: 46px;
+  height: 22px;
+  object-fit: contain;
+  object-position: left center;
+  flex-shrink: 0;
+  opacity: 0.8;
+  filter: brightness(0) saturate(100%) invert(62%) sepia(24%) saturate(628%) hue-rotate(35deg) brightness(92%) contrast(88%);
+}
+[data-theme="light"] .sh-card-icon {
+  filter: brightness(0) saturate(100%) invert(45%) sepia(30%) saturate(500%) hue-rotate(35deg) brightness(80%);
+}
+.sh-weapon-card-top { align-items: center; }
+.sh-weapon-card-name { flex: 1; min-width: 0; }
+
+/* ---------- КНОПКА «ПОВТОРИТИ ОСТАННІЙ» ---------- */
+.sh-repeat-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px dashed var(--sh-accent-border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--sh-accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sh-repeat-btn:active { background: var(--sh-accent-dim); }
+
+/* ---------- TOAST ---------- */
+.sh-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%) translateY(20px);
+  max-width: 90vw;
+  padding: 11px 18px;
+  border-radius: 12px;
+  background: #2d3a1f;
+  color: #e6edf3;
+  border: 1px solid var(--sh-accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  z-index: 10050;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  text-align: center;
+}
+.sh-toast.sh-toast-show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.sh-toast-err {
+  background: #3a1f22;
+  border-color: var(--danger);
+  color: #ffdde0;
 }
