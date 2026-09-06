@@ -59,6 +59,10 @@
             <img src="assets/gear/rifle_ak.png" alt="" class="btn-icon themed-icon">
             Стрільба
           </a>
+          <a href="vybirkovi/index.html" class="side-menu__item">
+            <img src="assets/icons/calendar.svg" alt="" class="btn-icon themed-icon" onerror="this.remove()">
+            Вибіркові
+          </a>
 
           <a href="visitors/index.html" id="adminVisitorsBtn" class="side-menu__item" style="display:none">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
@@ -81,10 +85,6 @@
           <button id="infoBtn" class="side-menu__item">
             <img src="assets/icons/info.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
             <span class="btn-fallback">💡</span> Як це працює?
-          </button>
-          <button id="donateBtn" class="side-menu__item">
-            <img src="assets/icons/donate.svg" alt="" class="btn-icon" onerror="if(!this.dataset.retry){this.dataset.retry='1';this.src=this.src.replace('.svg','.png')}else{this.remove()}">
-            <span class="btn-fallback">☕</span> Підтримати автора
           </button>
           <button id="installPwaBtn" class="side-menu__item">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
@@ -470,17 +470,6 @@
               <li><b>PWA:</b> Можна встановити на головний екран. Працює офлайн.</li>
             </ul>
           </div>
-        </div>
-      </div>
-
-      <div id="donateModal" class="modal-overlay">
-        <div class="card modal-content modal-content-sm">
-          <div class="modal-header">
-            <div class="section-title"><img src="assets/icons/handshake.svg" class="section-icon themed-icon" alt=""> Підтримати автора</div>
-            <button id="closeDonateBtn" class="btn-del modal-close-btn"><img src="assets/icons/close.svg" class="btn-icon themed-icon" alt=""></button>
-          </div>
-          <div class="donate-text">На сервери</div>
-          <a href="https://donatello.to/RonziBi" target="_blank" class="primary-btn donate-link">Підтримати через Donatello</a>
         </div>
       </div>
 
