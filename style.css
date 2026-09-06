@@ -1016,16 +1016,6 @@ body {
   transform: translateY(0);
 }
 /* --- КНОПКА "ПІДТРИМАТИ" (Підказка) --- */
-#donateBtn {
-  position: relative;
-}
-#donateBtn:hover {
-  transform: translateY(-3px);
-}
-
-#donateBtn {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
 /* --- КАСТОМНІ СКРОЛЛБАРИ (Для модалок і сторінки) --- */
 ::-webkit-scrollbar {
   width: 6px; /* Робимо її тоненькою */
@@ -1701,19 +1691,6 @@ body {
 .modal-content-sm { max-width: 400px; text-align: center; }
 .modal-content-xs { max-width: 350px; text-align: center; }
 
-.donate-text {
-  font-size: 0.95rem;
-  color: var(--text-muted);
-  margin-bottom: 25px;
-  line-height: 1.6;
-}
-.donate-link {
-  display: block;
-  text-decoration: none;
-  box-sizing: border-box;
-  width: 100%;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-}
 .goal-desc {
   font-size: 0.9rem;
   color: var(--text-muted);

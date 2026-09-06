@@ -115,27 +115,6 @@ if (infoBtn && infoModal && closeInfoBtn) {
 }
 document.getElementById("workoutDate").valueAsDate = new Date();
 
-// === ЛОГІКА ВІКНА ДОНАТУ ===
-const donateBtn = document.getElementById("donateBtn");
-const donateModal = document.getElementById("donateModal");
-const closeDonateBtn = document.getElementById("closeDonateBtn");
-
-if (donateBtn && donateModal && closeDonateBtn) {
-  donateBtn.addEventListener("click", () => {
-    donateModal.classList.add("show");
-  });
-
-  closeDonateBtn.addEventListener("click", () => {
-    donateModal.classList.remove("show");
-  });
-
-  donateModal.addEventListener("click", (e) => {
-    if (e.target === donateModal) {
-      donateModal.classList.remove("show");
-    }
-  });
-}
-
 // === СИСТЕМА АВТОРИЗАЦІЇ ===
 
 // Кнопка "Увійти як адмін" у бургер-меню
