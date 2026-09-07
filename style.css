@@ -2190,3 +2190,136 @@ body {
 #adminVisitorsBtn {
   text-decoration: none;
 }
+
+/* ================================================================
+   ФОРМА: ТИПИ НЕСТАНДАРТНОГО РЕЗУЛЬТАТУ
+   ================================================================ */
+.res-type-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.res-type {
+  flex: 1 1 auto;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+.res-type.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.rt-pane { display: none; }
+
+.res-num-row {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 8px;
+}
+.res-num-row input { width: 100%; box-sizing: border-box; }
+
+.time-inputs3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.time-inputs3 input {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+/* Швидкі кнопки дати */
+.date-quick {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+.date-chip {
+  flex: 1;
+  padding: 7px 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s;
+}
+.date-chip:active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ================================================================
+   ЗГОРТАЙКА «ДОДАТКОВО»
+   ================================================================ */
+.extra-block {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin: 6px 0 14px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+.extra-summary {
+  padding: 12px 14px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.extra-summary::-webkit-details-marker { display: none; }
+.extra-summary::after {
+  content: "▾";
+  float: right;
+  transition: transform 0.2s;
+}
+.extra-block[open] .extra-summary::after { transform: rotate(180deg); }
+.extra-block[open] .extra-summary { border-bottom: 1px solid var(--border); }
+.extra-body { padding: 12px 14px 4px; }
+
+/* ================================================================
+   TOAST
+   ================================================================ */
+.app-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%) translateY(20px);
+  max-width: 90vw;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: #1e293b;
+  color: #e6edf3;
+  border: 1px solid var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  z-index: 10050;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  text-align: center;
+}
+.app-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.app-toast-err {
+  background: #3a1f22;
+  border-color: var(--danger);
+  color: #ffdde0;
+}

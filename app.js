@@ -647,7 +647,7 @@ function parseDistFromCount(countStr) {
 
 // Повертає правильне значення для графіка/diff: час (сек) для бігових, вага для силових з вагою, число для решти
 function getChartValue(countStr, exerciseName) {
-  if (isRunningExercise(exerciseName)) return parseTimeFromCount(countStr);
+  if (isRunningExercise(exerciseName) || _looksLikeTime(countStr)) return parseTimeFromCount(countStr);
   // Для записів з додатковою вагою (напр. "5 (+90 кг)") беремо вагу
   const weightMatch = String(countStr).match(/\(\s*\+?\s*([\d.]+)\s*кг\s*\)/i);
   if (weightMatch) return parseFloat(weightMatch[1]);
@@ -749,7 +749,7 @@ function calculateIndex(valStr, dateStr, exerciseName) {
   const cleanStr = String(valStr).replace(/,/g, ".");
 
   // Якщо передано назву бігової дисципліни — індекс = 1/час (менше часу = вищий індекс)
-  if (exerciseName && isRunningExercise(exerciseName)) {
+  if ((exerciseName && isRunningExercise(exerciseName)) || _looksLikeTime(cleanStr)) {
     let timeSec = parseTimeFromCount(cleanStr);
     return timeSec > 0 ? (1 / timeSec) * 10000 : 0;
   }
@@ -1243,7 +1243,8 @@ function updateChart(workouts, filterValue) {
 
   const chartData = [...workouts].reverse();
   const labels = chartData.map((w) => formatDate(w.date));
-  const isRunning = workouts.length > 0 && isRunningExercise(workouts[0].exercise);
+  const isRunning = workouts.length > 0 &&
+    (isRunningExercise(workouts[0].exercise) || _looksLikeTime(workouts[0].count));
   const isShuttle = workouts.length > 0 && workouts[0].exercise.startsWith("Човниковий біг");
   // Якщо більшість записів цієї вправи мають додаткову вагу — це вправа з вагою
   const isWeighted = !isRunning && workouts.length > 0
@@ -1514,6 +1515,7 @@ window.listenToWorkouts = () => {
     }
 
     updateDropdowns();
+    _refreshCustomExList();
     renderUI();
 
     // Логіка показу кнопки "Завантажити ще"
@@ -1698,6 +1700,13 @@ function clearForm() {
   DOM.customResultStr.value = "";
   DOM.customMin.value = "";
   DOM.customSec.value = "";
+  ["customNumVal","customNumUnit","customH","customM","customS",
+   "customDist","customDH","customDM","customDS"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  const cp = document.getElementById("customPreview");
+  if (cp) cp.textContent = "";
   DOM.workoutNote.value = "";
   DOM.workoutVideoUrl.value = "";
   const resultUrlEl = document.getElementById("workoutResultUrl");
@@ -1863,14 +1872,44 @@ function buildWorkoutResult(selectType) {
     finalResult = `${timeStr} (${scheme})`;
     exerciseName = `Човниковий біг ${scheme}`;
   } else if (selectType === "custom") {
-    const customRes = document.getElementById("customResultStr").value.trim();
-    const customMin = document.getElementById("customMin").value;
-    const customSec = document.getElementById("customSec").value;
-    if (!customRes) throw new Error("Вкажи результат!");
-    finalResult =
-      customMin || customSec
-        ? `${customRes} (${customMin || "0"}:${(customSec || "0").padStart(2, "0")})`
-        : customRes;
+    const rtype = _currentResType();
+    const pad = (v) => String(parseInt(v) || 0).padStart(2, "0");
+
+    if (rtype === "number") {
+      const val = document.getElementById("customNumVal").value.trim();
+      const unit = document.getElementById("customNumUnit").value.trim();
+      if (!val) throw new Error("Вкажи числовий результат!");
+      finalResult = unit ? `${val} ${unit}` : val;
+
+    } else if (rtype === "time") {
+      const h = parseInt(document.getElementById("customH").value) || 0;
+      const m = parseInt(document.getElementById("customM").value) || 0;
+      const sc = parseInt(document.getElementById("customS").value) || 0;
+      if (h + m + sc === 0) throw new Error("Вкажи час!");
+      finalResult = h > 0 ? `${h}:${pad(m)}:${pad(sc)}` : `${m}:${pad(sc)}`;
+
+    } else if (rtype === "dist_time") {
+      const dist = document.getElementById("customDist").value.trim();
+      const dUnit = document.getElementById("customDistUnit").value.trim() || "км";
+      const h = parseInt(document.getElementById("customDH").value) || 0;
+      const m = parseInt(document.getElementById("customDM").value) || 0;
+      const sc = parseInt(document.getElementById("customDS").value) || 0;
+      if (!dist) throw new Error("Вкажи дистанцію!");
+      if (h + m + sc === 0) throw new Error("Вкажи час!");
+      // Дистанція йде в назву вправи (як у Бігу), результат — чистий час
+      finalResult = h > 0 ? `${h}:${pad(m)}:${pad(sc)}` : `${m}:${pad(sc)}`;
+      exerciseName = `${exerciseName} ${dist} ${dUnit}`;
+
+    } else {
+      const customRes = document.getElementById("customResultStr").value.trim();
+      const customMin = document.getElementById("customMin").value;
+      const customSec = document.getElementById("customSec").value;
+      if (!customRes) throw new Error("Вкажи результат!");
+      finalResult =
+        customMin || customSec
+          ? `${customRes} (${customMin || "0"}:${(customSec || "0").padStart(2, "0")})`
+          : customRes;
+    }
   } else {
     const count = document.getElementById("workoutCount").value;
     const addW = document.getElementById("addWeight").value;
@@ -1892,12 +1931,135 @@ function buildWorkoutResult(selectType) {
   return { exerciseName, finalResult };
 }
 
+// ================================================================
+//  НЕСТАНДАРТНІ РЕЗУЛЬТАТИ + ДОПОМІЖНЕ ДЛЯ ФОРМИ
+// ================================================================
+
+// Чи результат — чистий час ("2:15:50" / "12:30")
+function _looksLikeTime(str) {
+  return /^\s*\d{1,2}:\d{2}(:\d{2})?\s*$/.test(String(str || ""));
+}
+
+let _resType = "number";
+function _currentResType() { return _resType; }
+
+function _initResTypes() {
+  const row = document.getElementById("resTypeRow");
+  if (!row) return;
+  row.querySelectorAll(".res-type").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      _resType = btn.dataset.rtype;
+      row.querySelectorAll(".res-type").forEach((b) => b.classList.toggle("active", b === btn));
+      _showResPane();
+      _updateCustomPreview();
+    });
+  });
+  ["customNumVal","customNumUnit","customH","customM","customS",
+   "customDist","customDistUnit","customDH","customDM","customDS",
+   "customResultStr","customEx"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("input", _updateCustomPreview);
+  });
+  _showResPane();
+}
+
+function _showResPane() {
+  const map = { number: "rtNumber", time: "rtTime", dist_time: "rtDistTime", text: "rtText" };
+  Object.values(map).forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+  const active = document.getElementById(map[_resType]);
+  if (active) active.style.display = "block";
+}
+
+// Живий підсумок: "Марш-кидок 30 км — 2:15:50"
+function _updateCustomPreview() {
+  const box = document.getElementById("customPreview");
+  if (!box) return;
+  const name = (document.getElementById("customEx")?.value || "").trim();
+  const pad = (v) => String(parseInt(v) || 0).padStart(2, "0");
+  let res = "", suffix = "";
+
+  if (_resType === "number") {
+    const v = document.getElementById("customNumVal")?.value.trim();
+    const u = document.getElementById("customNumUnit")?.value.trim();
+    if (v) res = u ? v + " " + u : v;
+  } else if (_resType === "time") {
+    const h = parseInt(document.getElementById("customH")?.value) || 0;
+    const m = parseInt(document.getElementById("customM")?.value) || 0;
+    const sc = parseInt(document.getElementById("customS")?.value) || 0;
+    if (h + m + sc > 0) res = h > 0 ? h + ":" + pad(m) + ":" + pad(sc) : m + ":" + pad(sc);
+  } else if (_resType === "dist_time") {
+    const d = document.getElementById("customDist")?.value.trim();
+    const du = document.getElementById("customDistUnit")?.value.trim() || "км";
+    const h = parseInt(document.getElementById("customDH")?.value) || 0;
+    const m = parseInt(document.getElementById("customDM")?.value) || 0;
+    const sc = parseInt(document.getElementById("customDS")?.value) || 0;
+    if (d) suffix = " " + d + " " + du;
+    if (h + m + sc > 0) res = h > 0 ? h + ":" + pad(m) + ":" + pad(sc) : m + ":" + pad(sc);
+  } else {
+    res = (document.getElementById("customResultStr")?.value || "").trim();
+  }
+
+  box.textContent = (name || res) ? ((name + suffix).trim() + (res ? " — " + res : "")) : "";
+}
+
+// Список раніше введених нестандартних вправ
+function _refreshCustomExList() {
+  const dl = document.getElementById("customExList");
+  if (!dl || !window.allWorkouts) return;
+  const base = ["Підтягування", "Відтискання", "Бруси", "Біг", "Спринт", "Човниковий біг"];
+  const freq = {};
+  allWorkouts.forEach((w) => {
+    const ex = w.exercise;
+    if (!ex) return;
+    if (base.some((b) => ex === b || ex.startsWith(b + " "))) return;
+    freq[ex] = (freq[ex] || 0) + 1;
+  });
+  const names = Object.keys(freq).sort((a, b) => freq[b] - freq[a]);
+  dl.innerHTML = names.map((n) => '<option value="' + escapeHTML(n) + '"></option>').join("");
+}
+
+// Toast замість alert
+function showToast(msg, kind) {
+  const old = document.getElementById("appToast");
+  if (old) old.remove();
+  const t = document.createElement("div");
+  t.id = "appToast";
+  t.className = "app-toast" + (kind === "err" ? " app-toast-err" : "");
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add("show"));
+  setTimeout(() => {
+    t.classList.remove("show");
+    setTimeout(() => t.remove(), 300);
+  }, 2600);
+}
+window.showToast = showToast;
+
+// Швидкі кнопки дати
+function _initDateChips() {
+  document.querySelectorAll(".date-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const d = new Date();
+      d.setDate(d.getDate() - (parseInt(btn.dataset.days) || 0));
+      const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+      DOM.workoutDate.value = local.toISOString().slice(0, 10);
+    });
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  _initResTypes();
+  _initDateChips();
+});
+
 // === 2. THE SAVER: Збереження в базу та оновлення статистики (Атомарна транзакція) ===
 async function processWorkoutDB(workoutData, currentEditId) {
   const { exerciseName, date, finalResult, noteValue, videoValue, resultValue } =
     workoutData;
 
-  let isRunning = isRunningExercise(exerciseName);
+  let isRunning = isRunningExercise(exerciseName) || _looksLikeTime(finalResult);
   let newIndex = calculateIndex(finalResult, date, exerciseName);
   let newValueReps = isRunning ? parseTimeFromCount(finalResult) : parseValue(finalResult);
   let new1RM = isRunning ? 0 : calculate1RM(finalResult, date);
@@ -2031,11 +2193,38 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
     const videoValue = document.getElementById("workoutVideoUrl").value.trim();
     const resultValue = document.getElementById("workoutResultUrl")?.value.trim() || "";
 
-    // 2. Блокуємо UI
+    // 2. Перевірка дати
+    const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+      .toISOString().slice(0, 10);
+    if (date > todayStr) {
+      if (!confirm("Дата " + formatDate(date) + " ще не настала. Все одно зберегти?")) {
+        document.getElementById("saveBtn").disabled = false;
+        return;
+      }
+    }
+
+    // 3. Захист від дубля — той самий запис за ту саму дату
+    if (!editingId) {
+      const dup = allWorkouts.find(
+        (w) => w.exercise === exerciseName && w.date === date,
+      );
+      if (dup) {
+        const ok = confirm(
+          "За " + formatDate(date) + " вже є запис:\n" +
+          exerciseName + " — " + dup.count + "\n\nДодати ще один?",
+        );
+        if (!ok) {
+          document.getElementById("saveBtn").disabled = false;
+          return;
+        }
+      }
+    }
+
+    // 4. Блокуємо UI
     document.getElementById("saveBtn").disabled = true;
     document.getElementById("status").innerText = "Збереження...";
 
-    // 3. Делегуємо роботу з базою даних
+    // 5. Делегуємо роботу з базою даних
     await processWorkoutDB(
       { exerciseName, date, finalResult, noteValue, videoValue, resultValue },
       editingId,
@@ -2050,20 +2239,20 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
     clearForm();
 
     document.getElementById("status").innerText = "Рекорд збережено 🏆";
+    showToast("Збережено: " + exerciseName + " — " + finalResult);
     setTimeout(() => {
       document.getElementById("status").innerText = "Хмара синхронізована ✅";
     }, 3000);
   } catch (err) {
     if (err.message && !err.code) {
       // Помилки валідації з нашого Builder'а (генеруються через throw new Error)
-      alert(err.message);
+      showToast(err.message, "err");
     } else if (err.code === "permission-denied") {
-      alert(
-        "🛡️ Гарна спроба! Ти розблокував форму, але база даних відхилила запит.",
-      );
+      showToast("Доступ заборонено — база відхилила запит", "err");
     } else {
-      alert("Помилка: " + err.message);
+      showToast("Помилка: " + err.message, "err");
     }
+    document.getElementById("status").innerText = "Хмара синхронізована ✅";
   } finally {
     document.getElementById("saveBtn").disabled = false;
   }
