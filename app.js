@@ -648,6 +648,8 @@ function parseDistFromCount(countStr) {
 // Повертає правильне значення для графіка/diff: час (сек) для бігових, вага для силових з вагою, число для решти
 function getChartValue(countStr, exerciseName) {
   if (isRunningExercise(exerciseName) || _looksLikeTime(countStr)) return parseTimeFromCount(countStr);
+  // "50 (0:41.2)" — якщо для цієї вправи обрано метрику «час»
+  if (_hasDualMetric(countStr) && _metricFor(exerciseName) === "time") return _parenTime(countStr);
   // Для записів з додатковою вагою (напр. "5 (+90 кг)") беремо вагу
   const weightMatch = String(countStr).match(/\(\s*\+?\s*([\d.]+)\s*кг\s*\)/i);
   if (weightMatch) return parseFloat(weightMatch[1]);
@@ -662,6 +664,12 @@ function hasAddedWeight(countStr) {
 // Форматує секунди для осі Y — залежно від типу вправи
 function formatChartTime(totalSec, isShuttle) {
   if (isShuttle) return formatShuttleTime(totalSec);
+  // Секунди з десятими (плавання 0:41.2) — показуємо хв:сс.д
+  if (totalSec > 0 && totalSec % 1 !== 0 && totalSec >= 60) {
+    const m = Math.floor(totalSec / 60);
+    const sec = (totalSec % 60).toFixed(1).padStart(4, "0");
+    return m + ":" + sec;
+  }
   // Спринт і біг < 60 с: показуємо "13.50 с"
   if (totalSec < 60) {
     const rounded = Math.round(totalSec * 100) / 100;
@@ -1238,13 +1246,41 @@ function updateChart(workouts, filterValue) {
   }
 
   chartCard.style.display = "block";
+
+  // Перемикач метрики для записів виду "50 (0:41.2)"
+  {
+    let sw = document.getElementById("metricSwitch");
+    if (dualMetric) {
+      if (!sw) {
+        sw = document.createElement("div");
+        sw.id = "metricSwitch";
+        sw.className = "metric-switch";
+        chartCard.insertBefore(sw, chartCard.firstChild);
+      }
+      const cur = _metricFor(workouts[0].exercise);
+      sw.innerHTML =
+        '<button class="metric-btn ' + (cur === "value" ? "active" : "") + '" data-m="value">Результат</button>' +
+        '<button class="metric-btn ' + (cur === "time" ? "active" : "") + '" data-m="time">Час</button>';
+      sw.style.display = "flex";
+      sw.querySelectorAll(".metric-btn").forEach((b) => {
+        b.addEventListener("click", () => {
+          _setMetricFor(workouts[0].exercise, b.dataset.m);
+          renderUI();
+        });
+      });
+    } else if (sw) {
+      sw.style.display = "none";
+    }
+  }
   canvas.style.display = "block";
   hint.style.display = "none";
 
   const chartData = [...workouts].reverse();
   const labels = chartData.map((w) => formatDate(w.date));
+  const dualMetric = workouts.length > 0 && _hasDualMetric(workouts[0].count);
+  const metricIsTime = dualMetric && _metricFor(workouts[0].exercise) === "time";
   const isRunning = workouts.length > 0 &&
-    (isRunningExercise(workouts[0].exercise) || _looksLikeTime(workouts[0].count));
+    (isRunningExercise(workouts[0].exercise) || _looksLikeTime(workouts[0].count) || metricIsTime);
   const isShuttle = workouts.length > 0 && workouts[0].exercise.startsWith("Човниковий біг");
   // Якщо більшість записів цієї вправи мають додаткову вагу — це вправа з вагою
   const isWeighted = !isRunning && workouts.length > 0
@@ -1632,12 +1668,14 @@ listenToWorkouts();
 var _goalsUnsub = null;
 var _globalUnsub = null;
 var _privateLogsUnsub = null;
+var _shootingUnsub = null;
 
 function listenToMeta() {
   // Знімаємо старі слухачі щоб не дублювати
   if (_goalsUnsub) _goalsUnsub();
   if (_globalUnsub) _globalUnsub();
   if (_privateLogsUnsub) _privateLogsUnsub();
+  if (_shootingUnsub) _shootingUnsub();
 
   _goalsUnsub = onSnapshot(collection(db, "goals"), (snapshot) => {
     allGoals = {};
@@ -1653,6 +1691,27 @@ function listenToMeta() {
       renderGlobalStats();
     }
   });
+
+  // Стрільба — для досягнень
+  if (auth.currentUser) {
+    try {
+      const uidS = auth.currentUser.uid;
+      _shootingUnsub = onSnapshot(
+        query(collection(db, "shooting_logs"), orderBy("timestamp", "desc"), limit(3000)),
+        (snap) => {
+          window.allShootingLogs = snap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((x) => x.userId === uidS);
+          if (window.checkNewAchievements) window.checkNewAchievements(window.allWorkouts || []);
+          if (window.renderAchievementsTab &&
+              document.getElementById("tab-achievements")?.classList.contains("active")) {
+            window.renderAchievementsTab();
+          }
+        },
+        () => {},
+      );
+    } catch (e) { /* noop */ }
+  }
 
   // Архів — для досягнень. Доступний лише адміну.
   if (auth.currentUser) {
@@ -1935,6 +1994,33 @@ function buildWorkoutResult(selectType) {
 //  НЕСТАНДАРТНІ РЕЗУЛЬТАТИ + ДОПОМІЖНЕ ДЛЯ ФОРМИ
 // ================================================================
 
+// Час у дужках: "50 (0:41.2)" -> 41.2 сек; "12 (1:30)" -> 90 сек.
+// Не чіпає ваги "5 (+90 кг)" і човниковий "0:24.50 (10×10м)".
+function _parenTime(str) {
+  const m = String(str || "").match(/^\s*[\d.]+\s*\(\s*(\d+):(\d+(?:\.\d+)?)\s*\)\s*$/);
+  if (!m) return 0;
+  return parseInt(m[1]) * 60 + parseFloat(m[2]);
+}
+
+// Чи має запис і число, і час у дужках — тоді даємо вибір метрики
+function _hasDualMetric(countStr) {
+  return _parenTime(countStr) > 0;
+}
+
+// Яку метрику показувати для вправи: "value" (за замовчуванням) або "time"
+function _metricFor(exerciseName) {
+  try {
+    const saved = JSON.parse(localStorage.getItem("chartMetric") || "{}");
+    return saved[exerciseName] || "value";
+  } catch (e) { return "value"; }
+}
+function _setMetricFor(exerciseName, metric) {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem("chartMetric") || "{}"); } catch (e) {}
+  saved[exerciseName] = metric;
+  localStorage.setItem("chartMetric", JSON.stringify(saved));
+}
+
 // Чи результат — чистий час ("2:15:50" / "12:30")
 function _looksLikeTime(str) {
   return /^\s*\d{1,2}:\d{2}(:\d{2})?\s*$/.test(String(str || ""));
@@ -2088,6 +2174,7 @@ async function processWorkoutDB(workoutData, currentEditId) {
     note: noteValue,
     videoUrl: videoValue,
     resultUrl: resultValue,
+    createdAt: Date.now(), // час створення — для нічних досягнень
   };
 
   // 🚀 Відкриваємо пакетну транзакцію

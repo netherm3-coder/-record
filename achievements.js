@@ -171,7 +171,148 @@ const MILESTONES = [
   { id: "persistent", name: "Завзятий", description: "Набрати 2800 очок за досягнення", icon: "🔱", category: "general", reward: 300, meta: true,
     condition: (w, sd, logs, earned) => earned >= 2800,
     progress: (w, sd, logs, earned) => Math.min(1, (earned || 0) / 2800) },
+
+  // === БІГ ===
+  { id: "odyssey", name: "Одіссея", description: "1000 км сумарно за всі заходи", icon: "🗺️", category: "endurance", reward: 250,
+    condition: (w) => totalKm(w) >= 1000,
+    progress: (w) => Math.min(1, totalKm(w) / 1000) },
+
+  { id: "run1k_400", name: "Замість кави", description: "1 км за 4:00", icon: "☕", category: "endurance", reward: 25,
+    condition: (w) => bestTimeFor(w, "Біг 1 км", 240),
+    progress: (w) => timeProgress(w, "Біг 1 км", 240) },
+
+  { id: "run1k_330", name: "Сталеве серце", description: "1 км за 3:30", icon: "🫀", category: "endurance", reward: 60,
+    condition: (w) => bestTimeFor(w, "Біг 1 км", 210),
+    progress: (w) => timeProgress(w, "Біг 1 км", 210) },
+
+  { id: "run1k_250", name: "Анаеробний ліміт", description: "1 км за 2:50", icon: "🔥", category: "endurance", reward: 120,
+    condition: (w) => bestTimeFor(w, "Біг 1 км", 170),
+    progress: (w) => timeProgress(w, "Біг 1 км", 170) },
+
+  { id: "run1k_235", name: "Елітна каста", description: "1 км за 2:35", icon: "👑", category: "endurance", reward: 250,
+    condition: (w) => bestTimeFor(w, "Біг 1 км", 155),
+    progress: (w) => timeProgress(w, "Біг 1 км", 155) },
+
+  { id: "run3k_1100", name: "Авангард", description: "3 км за 11:00", icon: "🎖️", category: "endurance", reward: 90,
+    condition: (w) => bestTimeFor(w, "Біг 3 км", 660),
+    progress: (w) => timeProgress(w, "Біг 3 км", 660) },
+
+  // === ЗАГАЛЬНІ ===
+  { id: "polyglot", name: "Поліглот", description: "5 нестандартних вправ", icon: "🧩", category: "general", reward: 35,
+    condition: (w) => customExCount(w) >= 5,
+    progress: (w) => Math.min(1, customExCount(w) / 5) },
+
+  { id: "night_shift", name: "Нічна зміна", description: "Зробити запис після 00:00", icon: "🌙", category: "general", reward: 25,
+    condition: (w, sd, logs) => hasNightEntry(w, logs),
+    progress: (w, sd, logs) => hasNightEntry(w, logs) ? 1 : 0 },
+
+  // === СТРІЛЬБА ===
+  { id: "ammo_1000", name: "Пристрілка", description: "1000 набоїв сумарно", icon: "🎯", category: "shooting", reward: 40,
+    condition: () => totalRounds() >= 1000,
+    progress: () => Math.min(1, totalRounds() / 1000) },
+
+  { id: "ammo_5000", name: "Невпинний тригер", description: "5000 набоїв сумарно", icon: "🔫", category: "shooting", reward: 100,
+    condition: () => totalRounds() >= 5000,
+    progress: () => Math.min(1, totalRounds() / 5000) },
+
+  { id: "ammo_10000", name: "Стрілецький пакгауз", description: "10 000 набоїв сумарно", icon: "📦", category: "shooting", reward: 200,
+    condition: () => totalRounds() >= 10000,
+    progress: () => Math.min(1, totalRounds() / 10000) },
+
+  { id: "arsenal", name: "Арсенал", description: "11 різних зразків зброї", icon: "⚔️", category: "shooting", reward: 80,
+    condition: () => uniqueWeapons() >= 11,
+    progress: () => Math.min(1, uniqueWeapons() / 11) },
+
+  { id: "smoke_bolt", name: "Дим з-під затвора", description: "200 набоїв за одну сесію", icon: "💨", category: "shooting", reward: 50,
+    condition: () => maxRoundsPerDay() >= 200,
+    progress: () => Math.min(1, maxRoundsPerDay() / 200) },
+
+  { id: "calibrated", name: "Калібрований", description: "Стріляти з 7 різних калібрів", icon: "🧮", category: "shooting", reward: 60,
+    condition: () => uniqueCalibers() >= 7,
+    progress: () => Math.min(1, uniqueCalibers() / 7) },
 ];
+
+// ================================================================
+//  ХЕЛПЕРИ ДЛЯ НОВИХ ДОСЯГНЕНЬ
+// ================================================================
+
+// Сума кілометрів з назв вправ ("Біг 5 км", "Марш 30 км")
+function totalKm(workouts) {
+  let sum = 0;
+  (workouts || []).forEach((w) => {
+    const m = String(w.exercise || "").match(/([\d.]+)\s*км/i);
+    if (m) sum += parseFloat(m[1]) || 0;
+  });
+  return sum;
+}
+
+// Найкращий (найменший) час для дисципліни, у секундах
+function bestSecFor(workouts, exName) {
+  let best = Infinity;
+  (workouts || []).forEach((w) => {
+    if (w.exercise !== exName) return;
+    const m = String(w.count || "").match(/(\d+):(\d+)(?::(\d+))?/);
+    if (!m) return;
+    const sec = m[3] !== undefined
+      ? +m[1] * 3600 + +m[2] * 60 + +m[3]
+      : +m[1] * 60 + +m[2];
+    if (sec > 0 && sec < best) best = sec;
+  });
+  return best;
+}
+function bestTimeFor(workouts, exName, targetSec) {
+  return bestSecFor(workouts, exName) <= targetSec;
+}
+function timeProgress(workouts, exName, targetSec) {
+  const best = bestSecFor(workouts, exName);
+  if (!isFinite(best) || best <= 0) return 0;
+  return Math.min(1, targetSec / best);
+}
+
+// Кількість нестандартних вправ
+function customExCount(workouts) {
+  const base = ["Підтягування", "Відтискання", "Бруси", "Біг", "Спринт", "Човниковий біг"];
+  const set = new Set();
+  (workouts || []).forEach((w) => {
+    const ex = w.exercise;
+    if (!ex) return;
+    if (base.some((b) => ex === b || ex.startsWith(b + " "))) return;
+    set.add(ex);
+  });
+  return set.size;
+}
+
+// Нічний запис (00:00–04:59) — з тренувань або з архіву
+function hasNightEntry(workouts, logs) {
+  const isNight = (ts) => {
+    const h = new Date(ts).getHours();
+    return h >= 0 && h < 5;
+  };
+  if ((workouts || []).some((w) => w.createdAt && isNight(w.createdAt))) return true;
+  if ((logs || []).some((l) => l.timestamp && isNight(l.timestamp))) return true;
+  return false;
+}
+
+// --- Стрільба (дані з window.allShootingLogs) ---
+function _shots() { return window.allShootingLogs || []; }
+function totalRounds() {
+  return _shots().reduce((s, x) => s + (parseInt(x.count) || 0), 0);
+}
+function uniqueWeapons() {
+  return new Set(_shots().map((x) => String(x.weapon || "").trim().toLowerCase()).filter(Boolean)).size;
+}
+function uniqueCalibers() {
+  return new Set(_shots().map((x) => String(x.caliber || "").trim().toLowerCase()).filter(Boolean)).size;
+}
+function maxRoundsPerDay() {
+  const byDay = {};
+  _shots().forEach((x) => {
+    if (!x.date) return;
+    byDay[x.date] = (byDay[x.date] || 0) + (parseInt(x.count) || 0);
+  });
+  const vals = Object.values(byDay);
+  return vals.length ? Math.max(...vals) : 0;
+}
 
 // Максимальна додаткова вага для вправи ("1 (+90 кг)" -> 90)
 function maxWeightFor(workouts, exName) {
@@ -325,6 +466,8 @@ const TIER_GROUPS = {
   arch_day:    { title: "Записи за день", ids: ["archive_pioneer", "archive_focused", "archive_obsessed"] },
   arch_burst:  { title: "Сплеск",         ids: ["archive_burst", "archive_storm"] },
   arch_plus:   { title: "Записи «+»",     ids: ["archive_painter", "archive_gourmet"] },
+  run1km:      { title: "1 км на час",    ids: ["run1k_400", "run1k_330", "run1k_250", "run1k_235"] },
+  ammo:        { title: "Настріл",        ids: ["ammo_1000", "ammo_5000", "ammo_10000"] },
 };
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
@@ -347,6 +490,7 @@ const CATEGORIES = {
   endurance: "Витривалість",
   sober: "Тверезість",
   archive: "Архів",
+  shooting: "Стрільба",
   general: "Загальні",
   progress: "Прогресія",
 };
