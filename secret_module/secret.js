@@ -160,10 +160,12 @@ function _showContent() {
       '</div>' +
       '<div class="sm-tabs">' +
         '<button class="sm-tab active" data-tab="stats">Статистика</button>' +
+        '<button class="sm-tab" data-tab="countries">Країни</button>' +
         '<button class="sm-tab" data-tab="media">Медіа</button>' +
       '</div>' +
       '<div class="sm-body">' +
         '<div class="sm-panel active" id="smPanelStats"></div>' +
+        '<div class="sm-panel" id="smPanelCountries"></div>' +
         '<div class="sm-panel" id="smPanelMedia"></div>' +
       '</div>' +
     '</div>';
@@ -210,6 +212,135 @@ function _showContent() {
       }
     });
   });
+}
+
+
+// ================================================================
+//  ВКЛАДКА «КРАЇНИ»
+// ================================================================
+function _renderCountries() {
+  var panel = document.getElementById("smPanelCountries");
+  if (!panel) return;
+
+  var total = _allLogs.length;
+  var abroad = _allLogs.filter(function (l) { return l.country_code && l.country_code !== HOME_CC; });
+
+  if (abroad.length === 0) {
+    panel.innerHTML =
+      '<div class="sm-cn-empty">' +
+        '<div class="sm-cn-empty-icon">🌍</div>' +
+        '<div class="sm-cn-empty-title">Поки лише вдома</div>' +
+        '<div class="sm-cn-empty-text">Країна фіксується автоматично, коли запис зроблено за межами України. ' +
+        'Всі ' + total + ' записів — домашні.</div>' +
+      '</div>';
+    return;
+  }
+
+  // Групування по країнах
+  var byCc = {};
+  abroad.forEach(function (l) {
+    var cc = l.country_code;
+    if (!byCc[cc]) {
+      byCc[cc] = { cc: cc, name: l.country || cc, count: 0, first: l.timestamp, last: l.timestamp, cities: {} };
+    }
+    var g = byCc[cc];
+    g.count++;
+    if (l.timestamp < g.first) g.first = l.timestamp;
+    if (l.timestamp > g.last) g.last = l.timestamp;
+    if (l.city) g.cities[l.city] = (g.cities[l.city] || 0) + 1;
+  });
+
+  var list = Object.keys(byCc).map(function (k) { return byCc[k]; })
+    .sort(function (a, b) { return b.count - a.count; });
+
+  var maxCount = list[0].count;
+  var homeCount = total - abroad.length;
+  var pctAbroad = total ? Math.round((abroad.length / total) * 100) : 0;
+
+  var head =
+    '<div class="sm-cn-head">' +
+      '<div class="sm-cn-box"><span class="sm-cn-num">' + list.length + '</span><span class="sm-cn-lbl">країн</span></div>' +
+      '<div class="sm-cn-box"><span class="sm-cn-num">' + abroad.length + '</span><span class="sm-cn-lbl">за кордоном</span></div>' +
+      '<div class="sm-cn-box"><span class="sm-cn-num">' + pctAbroad + '%</span><span class="sm-cn-lbl">від усіх</span></div>' +
+    '</div>' +
+    '<div class="sm-cn-home">' + _flag(HOME_CC) + ' Україна — ' + homeCount + ' записів</div>';
+
+  var rows = list.map(function (g) {
+    var pct = Math.round((g.count / maxCount) * 100);
+    var share = total ? Math.round((g.count / total) * 100) : 0;
+    var cityNames = Object.keys(g.cities)
+      .sort(function (a, b) { return g.cities[b] - g.cities[a]; })
+      .slice(0, 3).join(", ");
+    return '<div class="sm-cn-row">' +
+      '<div class="sm-cn-row-top">' +
+        '<span class="sm-cn-flag">' + _flag(g.cc) + '</span>' +
+        '<span class="sm-cn-name">' + _esc(g.name) + '</span>' +
+        '<span class="sm-cn-count">' + g.count + ' зап.</span>' +
+      '</div>' +
+      '<div class="sm-cn-bar"><div class="sm-cn-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="sm-cn-meta">' +
+        _fmtShort(g.first) + (g.last !== g.first ? " — " + _fmtShort(g.last) : "") +
+        ' · ' + share + '% від усіх' +
+        (cityNames ? ' · ' + _esc(cityNames) : "") +
+      '</div>' +
+    '</div>';
+  }).join("");
+
+  panel.innerHTML = head + '<div class="sm-cn-list">' + rows + '</div>';
+}
+
+function _fmtShort(ts) {
+  var d = new Date(ts);
+  return String(d.getDate()).padStart(2, "0") + "." +
+         String(d.getMonth() + 1).padStart(2, "0") + "." +
+         String(d.getFullYear()).slice(2);
+}
+
+// ================================================================
+//  ГЕОЛОКАЦІЯ ЗАПИСІВ
+//  Країна зберігається ЛИШЕ якщо запис зроблено за кордоном (не UA).
+//  Домашні записи лишаються без гео — так статистика чиста,
+//  а кількість домашніх = всього мінус закордонні.
+// ================================================================
+var HOME_CC = "UA";
+
+// Визначення країни з кешем на сесію (щоб не смикати API на кожен запис)
+function _detectCountry() {
+  var cached = null;
+  try { cached = JSON.parse(sessionStorage.getItem("smGeo") || "null"); } catch (e) {}
+  if (cached && Date.now() - cached.at < 30 * 60 * 1000) {
+    return Promise.resolve(cached.data);
+  }
+  return fetch("https://ipapi.co/json/")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || !d.country_code) return null;
+      var data = {
+        code: String(d.country_code).toUpperCase(),
+        name: d.country_name || d.country_code,
+        city: d.city || "",
+      };
+      try { sessionStorage.setItem("smGeo", JSON.stringify({ at: Date.now(), data: data })); } catch (e) {}
+      return data;
+    })
+    .catch(function () { return null; });
+}
+
+// Поля гео для запису: {} якщо вдома або не вдалось визначити
+function _geoFields() {
+  return _detectCountry().then(function (g) {
+    if (!g || !g.code || g.code === HOME_CC) return {};
+    return { country: g.name, country_code: g.code, city: g.city || "" };
+  });
+}
+
+// ISO-код -> прапорець 🇵🇱
+function _flag(cc) {
+  if (!cc || cc.length !== 2) return "🏳️";
+  return String.fromCodePoint(
+    0x1f1e6 + cc.toUpperCase().charCodeAt(0) - 65,
+    0x1f1e6 + cc.toUpperCase().charCodeAt(1) - 65
+  );
 }
 
 // ================================================================
@@ -500,6 +631,7 @@ function _listenLogs(statsPanel) {
       .map(function (d) { return Object.assign({ id: d.id }, d.data()); })
       .filter(function (l) { return l.userId === uid; });
     _renderStats(statsPanel);
+    _renderCountries();
   }, function () {
     statsPanel.innerHTML = '<div class="sm-err">Помилка доступу. Перевір Firestore rules для private_logs</div>';
   });
@@ -703,10 +835,11 @@ function _renderStats(container) {
     var isS = container.querySelector("#smQuickS").checked;
     var note = container.querySelector("#smQuickNote").value.trim();
     try {
-      await addDoc(collection(db, "private_logs"), {
+      var geo = await _geoFields();
+      await addDoc(collection(db, "private_logs"), Object.assign({
         timestamp: d.getTime(), type: "reset", note: note,
         is_hardcore: plus, is_s: isS, userId: uid
-      });
+      }, geo));
       container.querySelector("#smQuickForm").classList.add("sm-hidden-form");
       container.querySelector("#smQuickNote").value = "";
       container.querySelector("#smQuickPlus").checked = false;
@@ -739,10 +872,14 @@ function _renderStats(container) {
     var isS = container.querySelector("#smManualS").checked;
     var note = container.querySelector("#smManualNote").value.trim();
     try {
-      await addDoc(collection(db, "private_logs"), {
-        timestamp: new Date(val).getTime(), type: "reset", note: note,
+      var ts = new Date(val).getTime();
+      // Гео чіпляємо лише до свіжих записів (до 24 год): для давньої дати
+      // поточне місцезнаходження було б хибним.
+      var geo = (Date.now() - ts) <= 86400000 ? await _geoFields() : {};
+      await addDoc(collection(db, "private_logs"), Object.assign({
+        timestamp: ts, type: "reset", note: note,
         is_hardcore: plus, is_s: isS, userId: uid
-      });
+      }, geo));
       container.querySelector("#smManualForm").classList.add("sm-hidden-form");
       container.querySelector("#smManualNote").value = "";
       container.querySelector("#smManualPlus").checked = false;
@@ -837,6 +974,24 @@ function _ensureStyles() {
     '.sm-x{background:none;border:none;color:rgba(255,255,255,.4);font-size:1.8rem;cursor:pointer;padding:2px 10px;line-height:1;border-radius:8px;-webkit-tap-highlight-color:transparent}' +
     '.sm-x:active{color:#fff;background:rgba(255,255,255,.08)}' +
     '.sm-tabs{display:flex;gap:4px;margin-bottom:14px;background:rgba(255,255,255,.04);border-radius:10px;padding:3px}' +
+    '.sm-cn-head{display:flex;gap:8px;margin-bottom:12px}' +
+    '.sm-cn-box{flex:1;text-align:center;padding:12px 4px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25);border-radius:12px}' +
+    '.sm-cn-num{display:block;font-size:1.4rem;font-weight:900;color:#38bdf8;line-height:1}' +
+    '.sm-cn-lbl{font-size:.6rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-top:4px;font-weight:700;display:block}' +
+    '.sm-cn-home{font-size:.8rem;color:rgba(255,255,255,.45);font-weight:700;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:10px;margin-bottom:14px}' +
+    '.sm-cn-list{display:flex;flex-direction:column;gap:12px}' +
+    '.sm-cn-row{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:11px 12px}' +
+    '.sm-cn-row-top{display:flex;align-items:center;gap:8px;margin-bottom:7px}' +
+    '.sm-cn-flag{font-size:1.3rem;line-height:1}' +
+    '.sm-cn-name{flex:1;font-size:.9rem;font-weight:800;color:#e6edf3}' +
+    '.sm-cn-count{font-size:.8rem;font-weight:800;color:#38bdf8}' +
+    '.sm-cn-bar{height:6px;background:rgba(0,0,0,.3);border-radius:3px;overflow:hidden}' +
+    '.sm-cn-fill{height:100%;background:linear-gradient(90deg,#0284c7,#38bdf8);border-radius:3px}' +
+    '.sm-cn-meta{font-size:.68rem;color:rgba(255,255,255,.35);margin-top:6px;font-weight:600}' +
+    '.sm-cn-empty{text-align:center;padding:40px 20px}' +
+    '.sm-cn-empty-icon{font-size:3rem;opacity:.35;margin-bottom:10px}' +
+    '.sm-cn-empty-title{color:#e6edf3;font-size:1rem;font-weight:800;margin-bottom:8px}' +
+    '.sm-cn-empty-text{color:rgba(255,255,255,.4);font-size:.8rem;line-height:1.5;max-width:280px;margin:0 auto}' +
     '.sm-pass-gate{position:fixed;inset:0;z-index:10060;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);opacity:0;transition:opacity .22s}' +
     '.sm-pass-gate.sm-pass-show{opacity:1}' +
     '.sm-pass-card{width:min(300px,86vw);background:#161b22;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:20px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.6)}' +
