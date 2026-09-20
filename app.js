@@ -3349,7 +3349,13 @@ let photoLimit = 15; // Вантажимо по 15 фото (вони "важч�
 let unsubscribePhotos = null;
 
 window.listenToPhotos = () => {
-  if (unsubscribePhotos) unsubscribePhotos();
+  if (unsubscribePhotos) { unsubscribePhotos(); unsubscribePhotos = null; }
+
+  // Фото прогресу — лише адміну (у правилах photos читає тільки адмін)
+  if (!auth.currentUser) {
+    allPhotos = [];
+    return;
+  }
 
   const q = query(
     collection(db, "photos"),
@@ -3370,7 +3376,7 @@ window.listenToPhotos = () => {
         loadMoreBtn.style.display = "none";
       }
     }
-  });
+  }, (err) => console.warn("photos:", err && err.code));
 };
 
 window.loadMorePhotos = () => {
