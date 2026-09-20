@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Банки</title>
+    <link rel="icon" type="image/svg+xml" href="../assets/icon.svg" />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="cans.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="cn-page-header">
+        <a href="../index.html" class="cn-back">← Назад</a>
+        <h1 class="cn-page-title">🥫 Банки</h1>
+        <button id="themeToggle" class="theme-btn" aria-label="Тема">☀️</button>
+      </div>
+
+      <div id="status" class="status-bar">Перевірка доступу...</div>
+
+      <!-- 404 -->
+      <div id="cn404" class="cn-404">
+        <div class="cn-404-code">404</div>
+        <div class="cn-404-msg">Not Found</div>
+      </div>
+
+      <!-- CONTENT (тільки для адміна) -->
+      <div id="cnContent" class="cn-content">
+
+        <div class="cn-subtabs">
+          <button class="cn-subtab active" data-tab="have">Колекція <span class="cn-subtab-count" id="cnCntHave"></span></button>
+          <button class="cn-subtab" data-tab="want">Хочу <span class="cn-subtab-count" id="cnCntWant"></span></button>
+          <button class="cn-subtab" data-tab="stats">Статистика</button>
+        </div>
+
+        <!-- ==================== КОЛЕКЦІЯ ==================== -->
+        <div id="cnPanelHave" class="cn-panel active">
+          <div class="cn-toolbar">
+            <input type="search" id="cnSearch" class="cn-input cn-search" placeholder="Пошук: назва, бренд або штрихкод" autocomplete="off" enterkeyhint="search" />
+            <div id="cnCheck" class="cn-check" hidden></div>
+            <div class="cn-seg" id="cnSubSeg">
+              <button class="cn-seg-btn active" data-sub="have">Є в колекції</button>
+              <button class="cn-seg-btn" data-sub="tasted">Куштував</button>
+            </div>
+            <div id="cnBrandChips" class="cn-chips"></div>
+            <div class="cn-toolbar-row">
+              <select id="cnSort" class="cn-select" aria-label="Сортування">
+                <option value="new">Спочатку нові</option>
+                <option value="brand">За брендом</option>
+                <option value="rating">За оцінкою</option>
+                <option value="volume">За об'ємом</option>
+              </select>
+              <button id="cnTradeToggle" class="cn-toggle" type="button">🔁 На обмін</button>
+            </div>
+          </div>
+          <div id="cnGrid" class="cn-grid"></div>
+        </div>
+
+        <!-- ==================== ХОЧУ ==================== -->
+        <div id="cnPanelWant" class="cn-panel">
+          <div id="cnWantBrandChips" class="cn-chips"></div>
+          <div id="cnWantList" class="cn-want-list"></div>
+        </div>
+
+        <!-- ==================== СТАТИСТИКА ==================== -->
+        <div id="cnPanelStats" class="cn-panel"></div>
+      </div>
+    </div>
+
+    <button id="cnFab" class="cn-fab" type="button" aria-label="Додати банку" hidden>＋</button>
+
+    <!-- ==================== КАРТКА БАНКИ ==================== -->
+    <div id="cnDetail" class="cn-overlay" aria-hidden="true">
+      <div class="cn-sheet" role="dialog" aria-modal="true" aria-labelledby="cnDetailTitle">
+        <div class="cn-sheet-header">
+          <div class="cn-sheet-title" id="cnDetailTitle"></div>
+          <button class="cn-x" type="button" data-close aria-label="Закрити">&times;</button>
+        </div>
+        <div id="cnDetailBody"></div>
+      </div>
+    </div>
+
+    <!-- ==================== ФОРМА ==================== -->
+    <div id="cnForm" class="cn-overlay" aria-hidden="true">
+      <div class="cn-sheet" role="dialog" aria-modal="true" aria-labelledby="cnFormTitle">
+        <div class="cn-sheet-header">
+          <div class="cn-sheet-title" id="cnFormTitle">Нова банка</div>
+          <button class="cn-x" type="button" data-close aria-label="Закрити">&times;</button>
+        </div>
+
+        <div class="cn-form">
+          <div class="cn-seg cn-status-seg" id="cnStatusSeg">
+            <button type="button" class="cn-seg-btn active" data-status="have">В колекції</button>
+            <button type="button" class="cn-seg-btn" data-status="want">Хочу</button>
+            <button type="button" class="cn-seg-btn" data-status="tasted">Куштував</button>
+          </div>
+
+          <div class="cn-row">
+            <label class="cn-label" for="cnBrand">Бренд</label>
+            <input type="text" id="cnBrand" class="cn-input" list="cnBrandList" placeholder="Напр. Monster" autocomplete="off" autocapitalize="words" />
+            <datalist id="cnBrandList"></datalist>
+            <div id="cnBrandQuick" class="cn-quick"></div>
+          </div>
+
+          <div class="cn-row">
+            <label class="cn-label" for="cnName">Назва / смак</label>
+            <input type="text" id="cnName" class="cn-input" list="cnNameList" placeholder="Напр. Ultra White" autocomplete="off" />
+            <datalist id="cnNameList"></datalist>
+          </div>
+
+          <div class="cn-row">
+            <span class="cn-label">Об'єм</span>
+            <div class="cn-vol-chips" id="cnVolChips">
+              <button type="button" class="cn-vol" data-vol="250">250</button>
+              <button type="button" class="cn-vol" data-vol="330">330</button>
+              <button type="button" class="cn-vol" data-vol="355">355</button>
+              <button type="button" class="cn-vol" data-vol="473">473</button>
+              <button type="button" class="cn-vol" data-vol="500">500</button>
+              <button type="button" class="cn-vol" data-vol="other">Інший</button>
+            </div>
+            <input type="number" id="cnVolOther" class="cn-input cn-vol-other" placeholder="мл" min="1" max="5000" step="1" inputmode="numeric" hidden />
+          </div>
+
+          <div class="cn-row">
+            <span class="cn-label">Фото</span>
+            <div class="cn-photo-row">
+              <div id="cnPhotoPreview" class="cn-photo-preview cn-photo-empty">🥫</div>
+              <div class="cn-photo-btns">
+                <button type="button" class="cn-btn-soft" id="cnCamBtn">📷 Камера</button>
+                <button type="button" class="cn-btn-soft" id="cnGalBtn">🖼️ Галерея</button>
+                <button type="button" class="cn-btn-link" id="cnPhotoRemove" hidden>✕ Прибрати фото</button>
+              </div>
+            </div>
+          </div>
+
+          <details id="cnExtra" class="cn-extra">
+            <summary>Додатково <span class="cn-extra-arrow">▾</span></summary>
+
+            <div class="cn-extra-body">
+              <!-- Хочу -->
+              <div class="cn-row" data-for="want">
+                <span class="cn-label">Пріоритет</span>
+                <div class="cn-seg cn-prio-seg" id="cnPrioSeg">
+                  <button type="button" class="cn-seg-btn" data-prio="1">🔥 Дуже</button>
+                  <button type="button" class="cn-seg-btn active" data-prio="2">⭐ Хочу</button>
+                  <button type="button" class="cn-seg-btn" data-prio="3">💤 Колись</button>
+                </div>
+              </div>
+              <div class="cn-row" data-for="want">
+                <label class="cn-label" for="cnWhere">Де шукати</label>
+                <input type="text" id="cnWhere" class="cn-input" placeholder="Імпорт, OLX, поїздка до Польщі…" autocomplete="off" />
+              </div>
+
+              <div class="cn-split">
+                <div class="cn-row">
+                  <label class="cn-label" for="cnSeries">Серія / лінійка</label>
+                  <input type="text" id="cnSeries" class="cn-input" list="cnSeriesList" placeholder="Ultra, Juiced…" autocomplete="off" />
+                  <datalist id="cnSeriesList"></datalist>
+                </div>
+                <div class="cn-row">
+                  <label class="cn-label" for="cnEdition">Тип випуску</label>
+                  <select id="cnEdition" class="cn-input">
+                    <option value="regular">Звичайна</option>
+                    <option value="limited">Лімітка</option>
+                    <option value="collab">Колаб</option>
+                    <option value="seasonal">Сезонна</option>
+                    <option value="regional">Регіональна</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="cn-split">
+                <div class="cn-row">
+                  <label class="cn-label" for="cnCountry">Країна маркування</label>
+                  <input type="text" id="cnCountry" class="cn-input" list="cnCountryList" placeholder="Україна" autocomplete="off" />
+                  <datalist id="cnCountryList"></datalist>
+                </div>
+                <div class="cn-row">
+                  <label class="cn-label" for="cnYear">Рік випуску</label>
+                  <input type="number" id="cnYear" class="cn-input" placeholder="2026" min="1980" max="2100" step="1" inputmode="numeric" />
+                </div>
+              </div>
+
+              <div class="cn-row">
+                <label class="cn-label" for="cnBarcode">Штрихкод</label>
+                <input type="text" id="cnBarcode" class="cn-input" placeholder="4820…" inputmode="numeric" autocomplete="off" maxlength="14" />
+                <div id="cnBarcodeHint" class="cn-hint" hidden></div>
+              </div>
+
+              <!-- В колекції -->
+              <div class="cn-split" data-for="have">
+                <div class="cn-row">
+                  <label class="cn-label" for="cnCondition">Стан</label>
+                  <select id="cnCondition" class="cn-input">
+                    <option value="full">Повна</option>
+                    <option value="empty">Порожня</option>
+                    <option value="bottom">Відкрита знизу</option>
+                    <option value="damaged">Пошкоджена</option>
+                  </select>
+                </div>
+                <div class="cn-row">
+                  <label class="cn-label" for="cnQty">Кількість</label>
+                  <input type="number" id="cnQty" class="cn-input" value="1" min="1" max="999" step="1" inputmode="numeric" />
+                </div>
+              </div>
+
+              <!-- В колекції / Куштував -->
+              <div class="cn-split" data-for="have tasted">
+                <div class="cn-row">
+                  <label class="cn-label" for="cnDate" id="cnDateLabel">Дата придбання</label>
+                  <input type="date" id="cnDate" class="cn-input" />
+                </div>
+                <div class="cn-row">
+                  <label class="cn-label" for="cnPrice">Ціна, ₴</label>
+                  <input type="number" id="cnPrice" class="cn-input" placeholder="0" min="0" step="0.01" inputmode="decimal" />
+                </div>
+              </div>
+              <div class="cn-row" data-for="have tasted">
+                <label class="cn-label" for="cnPlace">Де</label>
+                <input type="text" id="cnPlace" class="cn-input" list="cnPlaceList" placeholder="Магазин, місто" autocomplete="off" />
+                <datalist id="cnPlaceList"></datalist>
+              </div>
+              <div class="cn-row" data-for="have">
+                <label class="cn-label" for="cnGift">Подарунок від</label>
+                <input type="text" id="cnGift" class="cn-input" list="cnGiftList" placeholder="Ім'я" autocomplete="off" />
+                <datalist id="cnGiftList"></datalist>
+              </div>
+
+              <!-- Смак -->
+              <div class="cn-row" data-for="have tasted">
+                <span class="cn-label">Оцінка смаку <span id="cnRatingVal" class="cn-label-val"></span></span>
+                <div class="cn-rating" id="cnRating"></div>
+              </div>
+
+              <div class="cn-split">
+                <div class="cn-row">
+                  <label class="cn-label" for="cnCaffeine">Кофеїн, мг/100 мл</label>
+                  <input type="number" id="cnCaffeine" class="cn-input" placeholder="32" min="0" max="1000" step="0.1" inputmode="decimal" />
+                </div>
+                <div class="cn-row">
+                  <label class="cn-label" for="cnSugar">Цукор</label>
+                  <select id="cnSugar" class="cn-input">
+                    <option value="">—</option>
+                    <option value="sugar">З цукром</option>
+                    <option value="zero">Без цукру</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="cn-row">
+                <label class="cn-label" for="cnNote">Нотатка</label>
+                <textarea id="cnNote" class="cn-input cn-textarea" rows="2" placeholder="Дизайн, особливості, історія банки…"></textarea>
+              </div>
+            </div>
+          </details>
+
+          <button type="button" id="cnSaveBtn" class="cn-save-btn">Зберегти</button>
+          <button type="button" id="cnSaveNextBtn" class="cn-next-btn">Зберегти й додати ще</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Діалог вибору -->
+    <div id="cnDialog" class="cn-dialog-overlay" aria-hidden="true">
+      <div class="cn-dialog" role="alertdialog" aria-modal="true" aria-labelledby="cnDialogMsg">
+        <div id="cnDialogMsg" class="cn-dialog-msg"></div>
+        <div id="cnDialogBtns" class="cn-dialog-btns"></div>
+      </div>
+    </div>
+
+    <!-- Перегляд фото на весь екран -->
+    <div id="cnLightbox" class="cn-lightbox" aria-hidden="true"><img id="cnLightboxImg" alt="" /></div>
+
+    <input type="file" id="cnFileCam" accept="image/*" capture="environment" hidden />
+    <input type="file" id="cnFileGal" accept="image/*" hidden />
+    <input type="file" id="cnFileImport" accept="application/json,.json" hidden />
+
+    <script type="module" src="cans.js"></script>
+  </body>
+</html>
