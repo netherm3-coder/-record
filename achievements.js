@@ -230,6 +230,55 @@ const MILESTONES = [
   { id: "calibrated", name: "Калібрований", description: "Стріляти з 7 різних калібрів", icon: "🧮", category: "shooting", reward: 60,
     condition: () => uniqueCalibers() >= 7,
     progress: () => Math.min(1, uniqueCalibers() / 7) },
+
+  // === КОЛЕКЦІЯ БАНОК (дані з window.allCans) ===
+  { id: "cans_10", name: "Перша полиця", description: "10 банок у колекції", icon: "🥫", category: "cans", reward: 15,
+    condition: () => cansHave() >= 10,
+    progress: () => Math.min(1, cansHave() / 10) },
+
+  { id: "cans_25", name: "Стелаж", description: "25 банок у колекції", icon: "🗄️", category: "cans", reward: 35,
+    condition: () => cansHave() >= 25,
+    progress: () => Math.min(1, cansHave() / 25) },
+
+  { id: "cans_50", name: "Склад енергії", description: "50 банок у колекції", icon: "🔋", category: "cans", reward: 70,
+    condition: () => cansHave() >= 50,
+    progress: () => Math.min(1, cansHave() / 50) },
+
+  { id: "cans_100", name: "Музей банок", description: "100 банок у колекції", icon: "🏛️", category: "cans", reward: 150,
+    condition: () => cansHave() >= 100,
+    progress: () => Math.min(1, cansHave() / 100) },
+
+  { id: "cans_ltd_1", name: "Лімітка", description: "Перша лімітована, колаб чи сезонна банка", icon: "💎", category: "cans", reward: 15,
+    condition: () => cansSpecial() >= 1,
+    progress: () => Math.min(1, cansSpecial()) },
+
+  { id: "cans_ltd_5", name: "Мисливець за лімітками", description: "5 лімітованих банок", icon: "🔎", category: "cans", reward: 40,
+    condition: () => cansSpecial() >= 5,
+    progress: () => Math.min(1, cansSpecial() / 5) },
+
+  { id: "cans_ltd_15", name: "Рідкісний екземпляр", description: "15 лімітованих банок", icon: "🦄", category: "cans", reward: 90,
+    condition: () => cansSpecial() >= 15,
+    progress: () => Math.min(1, cansSpecial() / 15) },
+
+  { id: "cans_importer", name: "Імпортер", description: "Банки з 5 країн маркування", icon: "🌍", category: "cans", reward: 50,
+    condition: () => cansCountries() >= 5,
+    progress: () => Math.min(1, cansCountries() / 5) },
+
+  { id: "cans_full_series", name: "Повна серія", description: "Закрити весь «Хочу» одного бренду (5+ банок, з них 3+ з «Хочу»)", icon: "🏁", category: "cans", reward: 60,
+    condition: () => cansFullSeriesProgress() >= 1,
+    progress: () => cansFullSeriesProgress() },
+
+  { id: "cans_zone", name: "Зона відчуження", description: "3 різні банки серії S.T.A.L.K.E.R.", icon: "☢️", category: "cans", reward: 50,
+    condition: () => cansStalker() >= 3,
+    progress: () => Math.min(1, cansStalker() / 3) },
+
+  { id: "cans_taster", name: "Дегустатор", description: "Оцінити смак 25 енергетиків", icon: "👅", category: "cans", reward: 30,
+    condition: () => cansRated() >= 25,
+    progress: () => Math.min(1, cansRated() / 25) },
+
+  { id: "cans_trader", name: "Обмінник", description: "10 дублів на обмін", icon: "🔁", category: "cans", reward: 30,
+    condition: () => cansDupes() >= 10,
+    progress: () => Math.min(1, cansDupes() / 10) },
 ];
 
 // ================================================================
@@ -312,6 +361,52 @@ function maxRoundsPerDay() {
   });
   const vals = Object.values(byDay);
   return vals.length ? Math.max(...vals) : 0;
+}
+
+// --- Колекція банок (дані з window.allCans) ---
+function _cansAll() { return window.allCans || []; }
+function _cansHaveList() { return _cansAll().filter((c) => c.status === "have"); }
+function cansHave() { return _cansHaveList().length; }
+function cansSpecial() {
+  return _cansHaveList().filter((c) => ["limited", "collab", "seasonal", "regional"].includes(c.edition)).length;
+}
+function cansCountries() {
+  return new Set(_cansHaveList().map((c) => String(c.country || "").trim().toLowerCase()).filter(Boolean)).size;
+}
+// Різні назви банок, де в серії або назві є S.T.A.L.K.E.R. / Сталкер
+function cansStalker() {
+  const names = new Set();
+  _cansHaveList().forEach((c) => {
+    const hay = (String(c.series || "") + " " + String(c.name || "")).toLowerCase().replace(/[.\s\-_]/g, "");
+    if (hay.includes("stalker") || hay.includes("сталкер")) {
+      names.add(String(c.name || "").trim().toLowerCase());
+    }
+  });
+  return names.size;
+}
+function cansRated() {
+  return _cansAll().filter((c) => c.status !== "want" && parseFloat(c.rating) > 0).length;
+}
+function cansDupes() {
+  return _cansHaveList().reduce((s, c) => s + Math.max(0, (parseInt(c.qty) || 1) - 1), 0);
+}
+// Повна серія: бренд без відкритих «Хочу», 5+ банок у колекції, 3+ з них закрито з «Хочу»
+function cansFullSeriesProgress() {
+  const by = {};
+  _cansAll().forEach((c) => {
+    const k = String(c.brand || "").trim().toLowerCase();
+    if (!k) return;
+    if (!by[k]) by[k] = { have: 0, want: 0, wish: 0 };
+    if (c.status === "have") { by[k].have++; if (c.fromWish) by[k].wish++; }
+    else if (c.status === "want") by[k].want++;
+  });
+  let best = 0;
+  Object.values(by).forEach((b) => {
+    if (b.want === 0 && b.wish === 0) return; // бренд без бажань не рахується
+    const p = (b.have / (b.have + b.want)) * Math.min(1, b.have / 5) * Math.min(1, b.wish / 3);
+    if (p > best) best = p;
+  });
+  return Math.min(1, best);
 }
 
 // Максимальна додаткова вага для вправи ("1 (+90 кг)" -> 90)
@@ -468,6 +563,8 @@ const TIER_GROUPS = {
   arch_plus:   { title: "Записи «+»",     ids: ["archive_painter", "archive_gourmet"] },
   run1km:      { title: "1 км на час",    ids: ["run1k_400", "run1k_330", "run1k_250", "run1k_235"] },
   ammo:        { title: "Настріл",        ids: ["ammo_1000", "ammo_5000", "ammo_10000"] },
+  cans:        { title: "Колекція банок", ids: ["cans_10", "cans_25", "cans_50", "cans_100"] },
+  cans_ltd:    { title: "Лімітки",        ids: ["cans_ltd_1", "cans_ltd_5", "cans_ltd_15"] },
 };
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
@@ -491,6 +588,7 @@ const CATEGORIES = {
   sober: "Тверезість",
   archive: "Архів",
   shooting: "Стрільба",
+  cans: "Банки",
   general: "Загальні",
   progress: "Прогресія",
 };

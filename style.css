@@ -2185,9 +2185,8 @@ body {
   transform: translateX(5px);
 }
 
-/* дрібне: прибирає підкреслення в посилань-пунктів меню */
-#shootingBtn,
-#adminVisitorsBtn {
+/* дрібне: прибирає підкреслення в усіх посилань-пунктів меню */
+a.side-menu__item {
   text-decoration: none;
 }
 

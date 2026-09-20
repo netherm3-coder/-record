@@ -18,6 +18,7 @@ import {
   limit,
   getDocs,
   writeBatch,
+  deleteField,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
   getAuth,
@@ -171,6 +172,8 @@ onAuthStateChanged(auth, (user) => {
   if (adminLoginBtnHide) adminLoginBtnHide.style.display = "none";
   const shootingBtnShow = document.getElementById("shootingBtn");
   if (shootingBtnShow) shootingBtnShow.style.display = "flex";
+  const cansBtnShow = document.getElementById("cansBtn");
+  if (cansBtnShow) cansBtnShow.style.display = "flex";
   } else {
     isAdmin = false;
     localStorage.removeItem("isAdmin"); // Знімаємо прапор при виході
@@ -185,6 +188,8 @@ onAuthStateChanged(auth, (user) => {
   if (adminLoginBtnShow) adminLoginBtnShow.style.display = "flex";
   const shootingBtnHide = document.getElementById("shootingBtn");
   if (shootingBtnHide) shootingBtnHide.style.display = "none";
+  const cansBtnHide = document.getElementById("cansBtn");
+  if (cansBtnHide) cansBtnHide.style.display = "none";
 
     // ХОВАЄМО ВКЛАДКУ ФОТО ТА ВИКИДАЄМО З НЕЇ, ЯКЩО ГІСТЬ
     if (navPhotos) {
@@ -199,6 +204,7 @@ onAuthStateChanged(auth, (user) => {
   listenToWorkouts();
   listenToMeta();
   if (window.listenToWeight) window.listenToWeight();
+  if (window.listenToPrivateWeight) window.listenToPrivateWeight();
   if (window.listenToPhotos) window.listenToPhotos();
   if (window.renderPhotos) window.renderPhotos();
   if (typeof renderBodyMap === "function") renderBodyMap();
@@ -1669,6 +1675,7 @@ var _goalsUnsub = null;
 var _globalUnsub = null;
 var _privateLogsUnsub = null;
 var _shootingUnsub = null;
+var _cansUnsub = null;
 
 function listenToMeta() {
   // Знімаємо старі слухачі щоб не дублювати
@@ -1676,6 +1683,27 @@ function listenToMeta() {
   if (_globalUnsub) _globalUnsub();
   if (_privateLogsUnsub) _privateLogsUnsub();
   if (_shootingUnsub) _shootingUnsub();
+  if (_cansUnsub) { _cansUnsub(); _cansUnsub = null; }
+
+  // Колекція банок — для досягнень. Лише метадані, без фото.
+  if (auth.currentUser) {
+    try {
+      _cansUnsub = onSnapshot(
+        collection(db, "cans"),
+        (snap) => {
+          window.allCans = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          if (window.checkNewAchievements) window.checkNewAchievements(window.allWorkouts || []);
+          if (window.renderAchievementsTab &&
+              document.getElementById("tab-achievements")?.classList.contains("active")) {
+            window.renderAchievementsTab();
+          }
+        },
+        () => {},
+      );
+    } catch (e) { /* noop */ }
+  } else {
+    window.allCans = [];
+  }
 
   _goalsUnsub = onSnapshot(collection(db, "goals"), (snapshot) => {
     allGoals = {};
@@ -2610,21 +2638,145 @@ if (heightInput) {
   });
 }
 
+// Значення заміру: новий формат — плоский, старий — вкладений у measurements
+const BODY_KEYS = ["neck", "shoulders", "chest", "waist", "bicep", "thigh", "calf", "forearm"];
+function _measVal(w, key) {
+  if (!w) return 0;
+  if (w[key] !== undefined && parseFloat(w[key]) > 0) return parseFloat(w[key]);
+  if (w.measurements && parseFloat(w.measurements[key]) > 0) return parseFloat(w.measurements[key]);
+  return 0;
+}
+
+// === ПРИВАТНІ ЗАМІРИ ===
+// Лежать ОКРЕМО в колекції weight_private (правило: лише авторизований).
+// Колекцію weight читають усі відвідувачі, тому там цих полів бути не повинно.
+const PRIVATE_WEIGHT_KEYS = ["penisLength", "penisGirth"];
+let _privWeights = {};        // id запису ваги -> { penisLength, penisGirth, date }
+let _privWeightUnsub = null;
+let _privMigrationDone = false;
+let _privRulesWarned = false;
+
+// Старі записи, ще не перенесені: поле прямо в документі або у вкладеному measurements
+function _legacyPrivVal(w, key) {
+  if (!w) return 0;
+  if (parseFloat(w[key]) > 0) return parseFloat(w[key]);
+  if (w.measurements && parseFloat(w.measurements[key]) > 0) return parseFloat(w.measurements[key]);
+  return 0;
+}
+function _privValFor(id, w, key) {
+  const p = _privWeights[id];
+  if (p && parseFloat(p[key]) > 0) return parseFloat(p[key]);
+  return _legacyPrivVal(w, key);
+}
+// Найсвіжіші відомі приватні заміри
+function _latestPrivVals() {
+  const res = {};
+  PRIVATE_WEIGHT_KEYS.forEach((k) => {
+    let best = null;
+    Object.values(_privWeights).forEach((p) => {
+      const v = parseFloat(p && p[k]);
+      const d = String((p && p.date) || "");
+      if (v > 0 && (!best || d > best.date)) best = { v, date: d };
+    });
+    allWeights.forEach((w) => {
+      const v = _legacyPrivVal(w, k);
+      const d = String(w.date || "");
+      if (v > 0 && (!best || d > best.date)) best = { v, date: d };
+    });
+    if (best) res[k] = best.v;
+  });
+  return res;
+}
+
+function _warnPrivRules() {
+  if (_privRulesWarned) return;
+  _privRulesWarned = true;
+  const st = document.getElementById("status");
+  if (st) st.innerText = "⚠️ Додай правило weight_private у Firestore";
+  if (window.showToast) window.showToast("🔒 Немає доступу до weight_private — додай правило у Firestore", "err");
+}
+
+window.listenToPrivateWeight = () => {
+  if (_privWeightUnsub) { _privWeightUnsub(); _privWeightUnsub = null; }
+  _privWeights = {};
+  if (!auth.currentUser) return;
+  _privWeightUnsub = onSnapshot(
+    collection(db, "weight_private"),
+    (snap) => {
+      const map = {};
+      snap.docs.forEach((d) => { map[d.id] = d.data(); });
+      _privWeights = map;
+      if (window.autofillWeightForm) window.autofillWeightForm();
+    },
+    (err) => {
+      console.warn("weight_private:", err && err.code);
+      if (err && err.code === "permission-denied") _warnPrivRules();
+    },
+  );
+  _migratePrivateWeight();
+};
+
+// Одноразовий перенос приватних полів зі старих публічних записів у weight_private.
+// Запис у weight_private і видалення з weight — в одному батчі: або обидва, або нічого.
+const PRIV_CHECK_KEY = "privWeightCheckedAt";
+async function _migratePrivateWeight() {
+  if (_privMigrationDone || !auth.currentUser) return;
+  _privMigrationDone = true;
+  // Повна перевірка раз на 7 днів — щоб не читати всю колекцію ваги при кожному вході
+  const lastCheck = parseInt(localStorage.getItem(PRIV_CHECK_KEY) || "0");
+  if (Date.now() - lastCheck < 7 * 86400000) return;
+  try {
+    const snap = await getDocs(weightColRef);
+    const jobs = [];
+    snap.docs.forEach((d) => {
+      const data = d.data();
+      const nested = data.measurements || {};
+      const priv = {};
+      const del = {};
+      PRIVATE_WEIGHT_KEYS.forEach((k) => {
+        if (data[k] !== undefined) {
+          if (parseFloat(data[k]) > 0) priv[k] = parseFloat(data[k]);
+          del[k] = deleteField();
+        }
+        if (nested[k] !== undefined) {
+          if (parseFloat(nested[k]) > 0 && !(k in priv)) priv[k] = parseFloat(nested[k]);
+          del["measurements." + k] = deleteField();
+        }
+      });
+      if (Object.keys(del).length) jobs.push({ ref: d.ref, id: d.id, date: data.date || "", priv, del });
+    });
+    if (!jobs.length) {
+      localStorage.setItem(PRIV_CHECK_KEY, String(Date.now()));
+      return;
+    }
+
+    for (let i = 0; i < jobs.length; i += 200) {
+      const batch = writeBatch(db);
+      jobs.slice(i, i + 200).forEach((j) => {
+        if (Object.keys(j.priv).length) {
+          batch.set(doc(db, "weight_private", j.id),
+            { ...j.priv, date: j.date, migratedAt: Date.now() }, { merge: true });
+        }
+        batch.update(j.ref, j.del);
+      });
+      await batch.commit();
+    }
+    localStorage.setItem(PRIV_CHECK_KEY, String(Date.now()));
+    const moved = jobs.filter((j) => Object.keys(j.priv).length).length;
+    console.log("🔒 weight -> weight_private: очищено", jobs.length, "записів, перенесено", moved);
+    if (moved && window.showToast) window.showToast("🔒 Приватні заміри перенесено в захищену колекцію (" + moved + ")");
+  } catch (e) {
+    _privMigrationDone = false;
+    console.warn("Private weight migration:", e);
+    if (e && e.code === "permission-denied") _warnPrivRules();
+  }
+}
+
 // --- АВТОЗАПОВНЕННЯ ФОРМИ З ОСТАННЬОГО ЗВАЖУВАННЯ ---
 window.autofillWeightForm = (force) => {
   if (!allWeights || allWeights.length === 0) return;
-  const getVal = (w, key) => {
-    // Новий формат — плоский; старий — вкладений в measurements
-    if (w[key] !== undefined && parseFloat(w[key]) > 0) return parseFloat(w[key]);
-    if (w.measurements && w.measurements[key] !== undefined && parseFloat(w.measurements[key]) > 0)
-      return parseFloat(w.measurements[key]);
-    return 0;
-  };
 
-  const last = allWeights.find(w => {
-    const keys = ["neck","shoulders","chest","waist","bicep","thigh","calf","forearm"];
-    return keys.some(k => getVal(w, k) > 0);
-  }) || allWeights[0];
+  const last = allWeights.find((w) => BODY_KEYS.some((k) => _measVal(w, k) > 0)) || allWeights[0];
 
   const fieldMap = {
     mNeck:        "neck",
@@ -2635,16 +2787,24 @@ window.autofillWeightForm = (force) => {
     mThigh:       "thigh",
     mCalf:        "calf",
     mForearm:     "forearm",
-    mPenisLength: "penisLength",
-    mPenisGirth:  "penisGirth",
   };
 
   Object.entries(fieldMap).forEach(([id, key]) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const val = getVal(last, key);
+    const val = _measVal(last, key);
     if ((force || !el.value) && val > 0) el.value = val;
   });
+
+  // Приватні — тільки адміну, з weight_private
+  if (isAdmin) {
+    const priv = _latestPrivVals();
+    [["mPenisLength", "penisLength"], ["mPenisGirth", "penisGirth"]].forEach(([id, key]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((force || !el.value) && priv[key] > 0) el.value = priv[key];
+    });
+  }
 
   // Зріст
   const heightEl = document.getElementById("userHeight");
@@ -2686,6 +2846,9 @@ if (saveWeightBtn) {
       thigh: parseFloat(document.getElementById("mThigh").value) || 0,
       calf: parseFloat(document.getElementById("mCalf").value) || 0,
       forearm: parseFloat(document.getElementById("mForearm").value) || 0,
+    };
+    // Приватні — НЕ в публічний документ
+    const priv = {
       penisLength: parseFloat(document.getElementById("mPenisLength")?.value) || 0,
       penisGirth: parseFloat(document.getElementById("mPenisGirth")?.value) || 0,
     };
@@ -2708,16 +2871,41 @@ if (saveWeightBtn) {
         updatedAt: Date.now(),
       };
 
+      let savedId;
       if (_editingWeightId) {
-        // Режим редагування — оновлюємо існуючий запис
-        await setDoc(doc(db, "weight", _editingWeightId), dataToWrite, { merge: true });
+        // Режим редагування — оновлюємо існуючий запис.
+        // Заодно прибираємо приватні поля, якщо вони лишились у старому документі.
+        savedId = _editingWeightId;
+        await setDoc(doc(db, "weight", savedId), {
+          ...dataToWrite,
+          penisLength: deleteField(),
+          penisGirth: deleteField(),
+        }, { merge: true });
         _editingWeightId = null;
         const saveBtn2 = document.getElementById("saveWeightBtn");
         if (saveBtn2) { saveBtn2.textContent = "Зберегти дані тіла"; saveBtn2.style.background = ""; }
         document.getElementById("cancelWeightEditBtn")?.remove();
       } else {
         // Новий запис
-        await addDoc(weightColRef, { ...dataToWrite, createdAt: Date.now() });
+        const ref = await addDoc(weightColRef, { ...dataToWrite, createdAt: Date.now() });
+        savedId = ref.id;
+      }
+
+      // Приватні заміри — окремо, у захищену колекцію з тим самим id
+      if (priv.penisLength > 0 || priv.penisGirth > 0 || _privWeights[savedId]) {
+        try {
+          await setDoc(doc(db, "weight_private", savedId),
+            { ...priv, date: date, updatedAt: Date.now() }, { merge: true });
+        } catch (e) {
+          console.warn("weight_private save:", e);
+          if (e && e.code === "permission-denied") {
+            _privRulesWarned = false;
+            _warnPrivRules();
+            alert("Вагу збережено, а приватні заміри — ні: немає доступу до weight_private. Додай правило у Firestore і збережи ще раз.");
+          } else {
+            alert("Вагу збережено, а приватні заміри — ні: " + (e && e.message ? e.message : e));
+          }
+        }
       }
 
       document.getElementById("weightValue").value = "";
@@ -2751,6 +2939,8 @@ window.deleteWeightEntry = async (id) => {
   if (confirm("Точно видалити цей запис ваги?")) {
     try {
       await deleteDoc(doc(db, "weight", id));
+      // Приватна частина запису (якщо є)
+      try { await deleteDoc(doc(db, "weight_private", id)); } catch (e) { /* немає доступу або документа */ }
     } catch (err) {
       if (err.code === "permission-denied") {
         alert("🛡️ Доступ заборонено! База захищена правилами безпеки.");
@@ -2784,11 +2974,17 @@ window.editWeightEntry = (id) => {
     mNeck: "neck", mShoulders: "shoulders", mChest: "chest",
     mWaist: "waist", mBicep: "bicep", mThigh: "thigh",
     mCalf: "calf", mForearm: "forearm",
-    mPenisLength: "penisLength", mPenisGirth: "penisGirth",
   };
   Object.entries(fieldMap).forEach(([elId, key]) => {
     const el = document.getElementById(elId);
-    if (el) el.value = entry[key] > 0 ? entry[key] : "";
+    const v = _measVal(entry, key);
+    if (el) el.value = v > 0 ? v : "";
+  });
+  // Приватні — з weight_private
+  [["mPenisLength", "penisLength"], ["mPenisGirth", "penisGirth"]].forEach(([elId, key]) => {
+    const el = document.getElementById(elId);
+    const v = _privValFor(id, entry, key);
+    if (el) el.value = v > 0 ? v : "";
   });
 
   // Показуємо кнопку "Скасувати" і міняємо текст кнопки збереження
@@ -3266,15 +3462,20 @@ function renderBodyMap() {
     return;
   }
 
-  const latest = allWeights[0].measurements;
-  const prev = allWeights.length > 1 ? allWeights[1].measurements : null;
-
-  if (!latest || Object.values(latest).every((v) => v === 0)) {
-    mapBox.style.display = "none";
+  // Останні два записи, де є заміри (плоский або старий вкладений формат)
+  const withMeas = allWeights.filter((w) => BODY_KEYS.some((k) => _measVal(w, k) > 0));
+  if (withMeas.length === 0) {
+    if (mapBox) mapBox.style.display = "none";
     return;
   }
+  const latest = {};
+  const prev = withMeas[1] ? {} : null;
+  BODY_KEYS.forEach((k) => {
+    latest[k] = _measVal(withMeas[0], k);
+    if (prev) prev[k] = _measVal(withMeas[1], k);
+  });
 
-  mapBox.style.display = "block";
+  if (mapBox) mapBox.style.display = "block";
   container.innerHTML = "";
   const points = [
     { key: "neck", label: "Шия", x: 50, y: 12 },
