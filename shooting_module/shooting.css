@@ -797,3 +797,39 @@ html.sh-bg-on .sh-day-header {
 #shRefSheetBody .sh-ttx-row { align-items: flex-start; gap: 14px; }
 #shRefSheetBody .sh-ttx-label { flex: 1; min-width: 0; line-height: 1.4; }
 #shRefSheetBody .sh-ttx-val { text-align: right; flex-shrink: 0; max-width: 45%; line-height: 1.4; }
+
+/* ---------- АВТОЗАПОВНЕННЯ ТТХ ---------- */
+.sh-af-btn {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 11px;
+  border: 1px solid var(--sh-accent);
+  border-radius: 12px;
+  background: var(--sh-accent-dim);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sh-af-src {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--sh-accent);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.sh-af-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.sh-af-cb { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; accent-color: var(--sh-accent); }
+.sh-af-main { flex: 1; min-width: 0; }
+.sh-af-name { display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-main); }
+.sh-af-src-row { display: block; font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; line-height: 1.35; }
+.sh-af-val { font-size: 0.95rem; font-weight: 900; color: var(--sh-accent); flex-shrink: 0; }
+.sh-af-note { font-size: 0.72rem; color: var(--text-muted); line-height: 1.45; margin: 10px 0 4px; }

@@ -182,6 +182,8 @@ let _ammoLoad = {};       // назва зброї -> боєкомплект
 let _refLoading = false;
 let _refView = { doc: null, query: "", focus: -1 };
 let _refSheetInited = false;
+let _weaponIndex = [];    // зразки зброї з таблиць довідника
+let _calibers = [];       // калібри з документів
 
 // ================================================================
 //  AUTH GATE
@@ -208,6 +210,11 @@ onAuthStateChanged(auth, (user) => {
   _initBackgroundPicker();
   _listenShootingLogs();
   _listenShootingSpecs();
+
+  // Довідник у фоні: з нього беруться підказки назв зброї та калібрів
+  setTimeout(() => {
+    _loadRef().then(() => _rebuildDatalists()).catch(() => {});
+  }, 800);
 });
 
 // ================================================================
@@ -479,8 +486,15 @@ function _rebuildDatalists() {
   const calibers = Array.from(caliberSet).sort();
   const ammoTypes = Object.keys(ammoFreq).sort((a, b) => ammoFreq[b] - ammoFreq[a]);
 
-  _fillDatalist("shWeaponList", weapons);
-  _fillDatalist("shCaliberList", calibers);
+  // Спочатку — те, що вже є у твоєму журналі, далі — зразки з довідника
+  const refWeapons = _weaponIndex.map((w) => w.name);
+  const weaponsAll = weapons.concat(
+    refWeapons.filter((n) => !weapons.some((w) => _refKey(w) === _refKey(n))));
+  const calibersAll = calibers.concat(
+    _calibers.filter((c) => !calibers.some((x) => _refKey(x) === _refKey(c))));
+
+  _fillDatalist("shWeaponList", weaponsAll);
+  _fillDatalist("shCaliberList", calibersAll);
   _fillDatalist("shAmmoList", ammoTypes);
 }
 
@@ -830,13 +844,16 @@ function _renderTtxEdit(kind, key, currentData, fallbackCaliber, isNew) {
       '<input type="number" step="any" class="sh-input sh-ttx-input" data-field="' + f[0] + '" value="' + _escAttr(v) + '" /></div>';
   }).join("");
 
-  body.innerHTML = stubNote + rowsHtml +
+  body.innerHTML = stubNote +
+    '<button class="sh-af-btn" id="shTtxAfBtn">📥 Узяти з довідника</button>' +
+    rowsHtml +
     '<button class="sh-save-btn" id="shTtxSaveBtn">💾 Зберегти ТТХ</button>' +
     '<button class="sh-ttx-ref-btn" id="shTtxRefBtn">📖 Подивитись у довіднику</button>' +
     (isNew ? "" : '<button class="sh-cancel-btn" id="shTtxCancelBtn" style="display:block">✕ Скасувати</button>');
 
   document.getElementById("shTtxSaveBtn").addEventListener("click", () => _saveTtx(kind, key, fallbackCaliber));
   document.getElementById("shTtxRefBtn").addEventListener("click", () => _refFind(_ttxRefQuery()));
+  document.getElementById("shTtxAfBtn").addEventListener("click", () => _openTtxAutofill(kind, key, fallbackCaliber));
   const cancelBtn = document.getElementById("shTtxCancelBtn");
   if (cancelBtn) cancelBtn.addEventListener("click", () => _renderTtxView(kind, key, currentData, fallbackCaliber));
 }
@@ -885,6 +902,8 @@ function _loadRef() {
   _refLoading = import("./reference.js").then((mod) => {
     _ref = mod.REFERENCE || [];
     _ammoLoad = mod.AMMO_LOAD || {};
+    _weaponIndex = mod.WEAPON_INDEX || [];
+    _calibers = mod.CALIBERS || [];
     _refLoading = null;
     return _ref;
   }).catch((e) => {
@@ -1137,8 +1156,15 @@ function _initRefSheet() {
   document.getElementById("shRefSheetClose").addEventListener("click", _closeRefSheet);
   ov.addEventListener("click", (e) => { if (e.target === ov) _closeRefSheet(); });
   document.getElementById("shRefSheetBody").addEventListener("click", (e) => {
+    const af = e.target.closest(".sh-af-pick");
+    if (af) {
+      const res = _autofillAmmo(parseInt(af.dataset.ri));
+      if (res) _showAutofillSheet("ammo", res); else _toast("У рядку немає числових даних", "err");
+      return;
+    }
+    if (e.target.closest("#shAfApply")) { _applyAutofill(); return; }
     const pick = e.target.closest(".sh-ref-pick");
-    if (pick) _openRefCol(parseInt(pick.dataset.bi), parseInt(pick.dataset.col));
+    if (pick && pick.dataset.col !== undefined) _openRefCol(parseInt(pick.dataset.bi), parseInt(pick.dataset.col));
   });
 }
 
@@ -1186,4 +1212,200 @@ function _bkBadge(w) {
   const txt = n >= 10 ? Math.round(n) : (Math.round(n * 10) / 10).toString().replace(".", ",");
   return '<span class="sh-dot">•</span><span class="sh-bk" title="Боєкомплект при зброї для ' + _escAttr(bk.name) +
     ": " + bk.data.at + ' шт.">≈ ' + txt + " БК</span>";
+}
+
+// ================================================================
+//  АВТОЗАПОВНЕННЯ ТТХ ІЗ ДОВІДНИКА
+//  Значення в документах часто складені («440/460», «3.3/5.0»),
+//  тому нічого не підставляється мовчки: спершу показуємо, що саме
+//  візьмемо, з якого рядка таблиці, і лише після підтвердження
+//  вставляємо у форму. Зберігає ТТХ, як і раніше, тільки ти.
+// ================================================================
+function _refKey(s) {
+  return String(s == null ? "" : s).toLowerCase()
+    .replace(/[–—]/g, "-")
+    .replace(/[\s«»"“”'’()]/g, "");
+}
+
+const TTX_MAP_WEAPON = [
+  [/вбив|убійн/i, "lethal_range_m"],
+  [/макс.{0,6}дальн.{0,6}польоту|мах\.?\s*дальн/i, "max_range_m"],
+  [/калібр/i, "caliber_mm"],
+  [/прицільн.{0,25}дальн/i, "sight_range_m"],
+  [/прям.{0,6}постріл|пр\s*постр/i, "direct_shot_range_m"],
+  [/темп\s*стрільби/i, "rate_of_fire"],
+  [/бойова\s*швидкострільн|скорострільн|б[.\\/]?\s*шв/i, "combat_rate"],
+  [/поч.{0,6}швидк|початкова\s*швидк/i, "muzzle_velocity"],
+  [/^вага|^маса(?!\s*кулі)/i, "weight_kg"],
+];
+
+const TTX_MAP_AMMO = [
+  [/^калібр\s*d/i, "bullet_diameter_mm"],
+  [/вага\s*патрону/i, "cartridge_mass_g"],
+  [/вага\s*кулі/i, "bullet_mass_g"],
+  [/вага\s*пороху/i, "powder_mass_g"],
+  [/початкова\s*швидкість/i, "v0_ms"],
+  [/енергія/i, "e0_j"],
+];
+
+function _firstNumber(text) {
+  const m = String(text).replace(/ /g, " ").match(/-?\d+(?:[.,]\d+)?/);
+  if (!m) return null;
+  const v = parseFloat(m[0].replace(",", "."));
+  return isFinite(v) ? v : null;
+}
+
+function _fieldLabel(kind, field) {
+  const list = kind === "weapon" ? WEAPON_TTX_FIELDS : AMMO_TTX_FIELDS;
+  const hit = list.find((f) => f[0] === field);
+  return hit ? hit[1] : field;
+}
+
+function _refTableAt(docId, bi) {
+  const d = _ref && _ref.find((x) => x.id === docId);
+  const b = d && d.blocks[bi];
+  return b && b.t === "table" ? { doc: d, table: b } : null;
+}
+
+// Зброя: шукаємо колонку зразка в таблицях довідника
+function _refWeaponMatch(name) {
+  const n = _refKey(name);
+  if (!n || !_weaponIndex.length) return null;
+  let exact = null;
+  let partial = null;
+  _weaponIndex.forEach((w) => {
+    const k = _refKey(w.name);
+    if (k === n) { if (!exact) exact = w; return; }
+    if (!partial && n.length >= 3 && k.length >= 3 && (k.startsWith(n) || n.startsWith(k))) partial = w;
+  });
+  return exact || partial;
+}
+
+function _autofillWeapon(name) {
+  const hit = _refWeaponMatch(name);
+  if (!hit) return null;
+  const at = _refTableAt(hit.doc, hit.bi);
+  if (!at) return null;
+  const used = {};
+  const items = [];
+  at.table.rows.forEach((r) => {
+    const label = String(r[0] || "").replace(/\n/g, " ");
+    const raw = String(r[hit.col] || "").trim();
+    if (!raw || raw === "-" || raw === "—") return;
+    const rule = TTX_MAP_WEAPON.find((m) => m[0].test(label));
+    if (!rule || used[rule[1]]) return;
+    const value = _firstNumber(raw);
+    if (value === null) return;
+    used[rule[1]] = true;
+    items.push({ field: rule[1], label: _fieldLabel("weapon", rule[1]), value, raw, srcLabel: label });
+  });
+  return items.length ? { source: at.doc.title + " · " + hit.name, items } : null;
+}
+
+// Набої: таблиця «Характеристики патронів»
+function _ammoTable() {
+  const d = _ref && _ref.find((x) => x.id === "ammo");
+  if (!d) return null;
+  const tables = d.blocks.map((b, bi) => ({ b, bi })).filter((x) => x.b.t === "table");
+  const hit = tables.find((x) => /характеристики патронів/i.test(x.b.caption || "")) || tables[1];
+  return hit ? { doc: d, table: hit.b } : null;
+}
+
+function _ammoCandidates(caliberText) {
+  const at = _ammoTable();
+  if (!at) return [];
+  const digits = String(caliberText).replace(/\D/g, "");
+  const base = (String(caliberText).match(/\d{1,2}[.,]\d{1,2}/) || [""])[0].replace(".", ",");
+  const calCol = at.table.header.findIndex((h) => /^калібр/i.test(h));
+  const exact = [];
+  const loose = [];
+  at.table.rows.forEach((r, ri) => {
+    const nameDigits = (String(r[0]).match(/^[\d.,]+/) || [""])[0].replace(/\D/g, "");
+    if (digits && nameDigits && (nameDigits === digits || nameDigits.startsWith(digits) || digits.startsWith(nameDigits))) {
+      exact.push(ri);
+      return;
+    }
+    if (base && calCol > 0 && String(r[calCol]).replace(".", ",").trim() === base) loose.push(ri);
+  });
+  return exact.length ? exact : loose;
+}
+
+function _autofillAmmo(ri) {
+  const at = _ammoTable();
+  if (!at) return null;
+  const row = at.table.rows[ri];
+  if (!row) return null;
+  const used = {};
+  const items = [];
+  at.table.header.forEach((h, ci) => {
+    if (ci === 0) return;
+    const label = String(h || "").replace(/\n/g, " ");
+    const raw = String(row[ci] || "").trim();
+    if (!raw || raw === "-" || raw === "—") return;
+    const rule = TTX_MAP_AMMO.find((m) => m[0].test(label));
+    if (!rule || used[rule[1]]) return;
+    const value = _firstNumber(raw);
+    if (value === null) return;
+    used[rule[1]] = true;
+    items.push({ field: rule[1], label: _fieldLabel("ammo", rule[1]), value, raw, srcLabel: label });
+  });
+  return items.length ? { source: "Характеристики патронів · " + String(row[0]).replace(/\n/g, " "), items } : null;
+}
+
+function _openTtxAutofill(kind, key, fallbackCaliber) {
+  if (!_ref) {
+    _toast("Довідник ще вантажиться…");
+    _loadRef().then(() => _openTtxAutofill(kind, key, fallbackCaliber)).catch(() => _toast("Довідник не завантажився", "err"));
+    return;
+  }
+  if (kind === "weapon") {
+    const res = _autofillWeapon(key);
+    if (!res) { _toast("У довіднику немає такого зразка", "err"); return; }
+    _showAutofillSheet(kind, res);
+    return;
+  }
+  const cands = _ammoCandidates(fallbackCaliber || key);
+  if (!cands.length) { _toast("У довіднику немає такого калібру", "err"); return; }
+  if (cands.length === 1) {
+    const res = _autofillAmmo(cands[0]);
+    if (!res) { _toast("У рядку немає числових даних", "err"); return; }
+    _showAutofillSheet(kind, res);
+    return;
+  }
+  const at = _ammoTable();
+  const html = '<div class="sh-af-src">Кілька патронів цього калібру — обери потрібний:</div>' +
+    '<div class="sh-ref-picks">' + cands.map((ri) =>
+      '<button type="button" class="sh-ref-pick sh-af-pick" data-ri="' + ri + '">' +
+        _esc(String(at.table.rows[ri][0]).replace(/\n/g, " ")) + "</button>").join("") + "</div>";
+  _openRefSheet("Вибір патрона", html);
+}
+
+function _showAutofillSheet(kind, res) {
+  const rows = res.items.map((it) =>
+    '<label class="sh-af-row">' +
+      '<input type="checkbox" class="sh-af-cb" checked data-field="' + _escAttr(it.field) + '" data-value="' + _escAttr(it.value) + '" />' +
+      '<span class="sh-af-main">' +
+        '<span class="sh-af-name">' + _esc(it.label) + "</span>" +
+        '<span class="sh-af-src-row">' + _esc(it.srcLabel) + ": «" + _esc(it.raw) + "»</span>" +
+      "</span>" +
+      '<span class="sh-af-val">' + _esc(it.value) + "</span>" +
+    "</label>").join("");
+  _openRefSheet("Узяти з довідника", 
+    '<div class="sh-af-src">' + _esc(res.source) + "</div>" + rows +
+    '<div class="sh-af-note">Значення беруться першим числом із клітинки. Якщо в документі стоїть «440/460», у поле піде 440 — решту вписуй сам.</div>' +
+    '<button class="sh-save-btn" id="shAfApply">Вставити у форму</button>');
+}
+
+function _applyAutofill() {
+  const boxes = document.querySelectorAll("#shRefSheetBody .sh-af-cb");
+  let n = 0;
+  boxes.forEach((b) => {
+    if (!b.checked) return;
+    const input = document.querySelector('.sh-ttx-input[data-field="' + b.dataset.field + '"]');
+    if (!input) return;
+    input.value = b.dataset.value;
+    n++;
+  });
+  _closeRefSheet();
+  _toast(n ? "Підставлено значень: " + n + " — перевір і тисни «Зберегти ТТХ»" : "Нічого не вибрано");
 }
