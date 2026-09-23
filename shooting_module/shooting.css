@@ -604,3 +604,196 @@ html.sh-bg-on .sh-day-header {
   border-color: var(--danger);
   color: #ffdde0;
 }
+
+/* ================================================================
+   ДОВІДНИК
+   ================================================================ */
+.sh-ref-top { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+.sh-ref-search { flex: 1; min-width: 0; font-size: 0.9rem; }
+.sh-ref-back {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sh-ref-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 8px;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-main);
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sh-ref-card:active { border-color: var(--sh-accent); }
+.sh-ref-card-title { font-size: 0.95rem; font-weight: 800; }
+.sh-ref-card-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+.sh-ref-card-meta { font-size: 0.7rem; color: var(--sh-accent); font-weight: 700; margin-top: 6px; }
+
+.sh-ref-found { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; margin-bottom: 8px; }
+.sh-ref-hit-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-main);
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sh-ref-hit-doc { font-size: 0.68rem; color: var(--sh-accent); font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+.sh-ref-hit-title { font-size: 0.87rem; font-weight: 800; margin-top: 2px; }
+.sh-ref-hit-snippet {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sh-ref-doc-title { font-size: 1.05rem; font-weight: 800; margin-bottom: 4px; }
+.sh-ref-doc-sub { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 16px; line-height: 1.45; }
+.sh-ref-h {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--sh-accent);
+  margin: 18px 0 6px;
+  line-height: 1.35;
+}
+.sh-ref-p {
+  font-size: 0.87rem;
+  line-height: 1.6;
+  color: var(--text-main);
+  margin-bottom: 8px;
+  white-space: pre-line;
+}
+.sh-ref-hit { animation: sh-ref-flash 1.6s ease-out; }
+@keyframes sh-ref-flash {
+  0%, 40% { background: var(--sh-accent-dim); box-shadow: 0 0 0 6px var(--sh-accent-dim); }
+  100% { background: transparent; box-shadow: none; }
+}
+
+/* ---------- ТАБЛИЦІ ДОВІДНИКА ---------- */
+.sh-rt-block { margin: 12px 0 22px; }
+.sh-rt-caption { font-size: 0.85rem; font-weight: 800; margin-bottom: 8px; line-height: 1.35; }
+.sh-rt-col-btn {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 9px;
+  border: 1px dashed var(--sh-accent-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--sh-accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sh-rt-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg);
+}
+.sh-rt {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.72rem;
+  min-width: 100%;
+}
+.sh-rt th, .sh-rt td {
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  vertical-align: top;
+  white-space: pre-line;
+  min-width: 78px;
+  max-width: 210px;
+}
+.sh-rt th {
+  background: var(--sh-accent-dim);
+  color: var(--text-main);
+  font-weight: 800;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.sh-rt td { color: var(--text-main); }
+.sh-rt tr:last-child td { border-bottom: none; }
+.sh-rt th:last-child, .sh-rt td:last-child { border-right: none; }
+.sh-rt .sh-rt-first {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg-color);
+  font-weight: 700;
+  min-width: 120px;
+  max-width: 160px;
+}
+.sh-rt th.sh-rt-first { z-index: 3; background: var(--sh-accent-dim); }
+.sh-rt tbody tr:active td { background: var(--sh-accent-dim); }
+.sh-rt-hint { font-size: 0.68rem; color: var(--text-muted); margin-top: 6px; text-align: center; }
+
+.sh-ref-picks { display: flex; flex-direction: column; gap: 6px; }
+.sh-ref-pick {
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: pre-line;
+  -webkit-tap-highlight-color: transparent;
+}
+.sh-ref-pick:active { border-color: var(--sh-accent); }
+
+.sh-ttx-ref-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 11px;
+  border: 1px solid var(--sh-accent-border);
+  border-radius: 12px;
+  background: var(--sh-accent-dim);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sh-bk { color: var(--sh-accent); font-weight: 800; }
+
+/* Багаторядкові підписи з документів показуємо так, як у таблиці */
+#shRefSheetBody .sh-ttx-label,
+#shRefSheetBody .sh-ttx-val { white-space: pre-line; }
+#shRefSheetBody .sh-ttx-row { align-items: flex-start; gap: 14px; }
+#shRefSheetBody .sh-ttx-label { flex: 1; min-width: 0; line-height: 1.4; }
+#shRefSheetBody .sh-ttx-val { text-align: right; flex-shrink: 0; max-width: 45%; line-height: 1.4; }

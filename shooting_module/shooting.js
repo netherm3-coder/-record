@@ -176,6 +176,13 @@ let _statsDirty = true;
 let _scrollToEndOnNextRender = false;
 let _lastEntry = null;
 
+// Довідник (вантажиться з reference.js при першому відкритті вкладки)
+let _ref = null;          // [{ id, section, title, subtitle, blocks }]
+let _ammoLoad = {};       // назва зброї -> боєкомплект
+let _refLoading = false;
+let _refView = { doc: null, query: "", focus: -1 };
+let _refSheetInited = false;
+
 // ================================================================
 //  AUTH GATE
 // ================================================================
@@ -321,11 +328,21 @@ function _switchSubTab(tab) {
   document.querySelectorAll(".sh-subtab").forEach((b) => b.classList.toggle("active", b.dataset.subtab === tab));
   document.getElementById("shPanelMain").classList.toggle("active", tab === "main");
   document.getElementById("shPanelStats").classList.toggle("active", tab === "stats");
+  const refPanel = document.getElementById("shPanelRef");
+  if (refPanel) refPanel.classList.toggle("active", tab === "ref");
+  // На довіднику вибір фону лише заважає — ховаємо
+  const bgRow = document.querySelector(".sh-bg-row");
+  if (bgRow) bgRow.style.display = tab === "ref" ? "none" : "";
 
   if (tab === "stats" && _statsDirty) {
     _renderStatsPanel();
     _statsDirty = false;
   }
+  if (tab === "stats" && !_ref) {
+    // Боєкомплект для статистики лежить у довіднику — тягнемо його у фоні
+    _loadRef().then(() => { if (_activeSubTab === "stats") _renderStatsPanel(); }).catch(() => {});
+  }
+  if (tab === "ref") _openRefTab();
 }
 
 // ================================================================
@@ -710,7 +727,7 @@ function _renderWeaponCards() {
         '<span class="sh-weapon-card-name sh-weapon-link" data-weapon="' + _escAttr(w.name) + '">' + _esc(w.name) + '</span>' +
         '<span class="sh-weapon-card-caliber sh-ammo-link" data-ammotype="" data-caliber="' + _escAttr(w.caliber) + '">' + _esc(w.caliber) + '</span>' +
       '</div>' +
-      '<div class="sh-weapon-card-stats">' + w.sessions + ' стрільб<span class="sh-dot">•</span>' + w.rounds + ' шт.</div>' +
+      '<div class="sh-weapon-card-stats">' + w.sessions + ' стрільб<span class="sh-dot">•</span>' + w.rounds + ' шт.' + _bkBadge(w) + '</div>' +
       '<div class="sh-weapon-card-ammo">' + ammoHtml + '</div>' +
     '</div>';
   }).join("");
@@ -739,7 +756,9 @@ function _openAmmoTtx(ammoType, caliber) {
   _openTtxModal("ammo", key, displayName, cal);
 }
 
+let _ttxCurrent = null;
 function _openTtxModal(kind, key, displayName, fallbackCaliber) {
+  _ttxCurrent = { kind, key, displayName, fallbackCaliber };
   document.getElementById("shTtxTitle").textContent = (kind === "weapon" ? "🔫 " : "🧿 ") + displayName;
 
   const data = _getSpecValues(kind, key, fallbackCaliber);
@@ -780,10 +799,20 @@ function _renderTtxView(kind, key, data, fallbackCaliber) {
     return '<div class="sh-ttx-row"><span class="sh-ttx-label">' + f[1] + '</span><span class="sh-ttx-val">' + display + calcNote + '</span></div>';
   }).join("");
 
-  body.innerHTML = rowsHtml + '<button class="sh-ttx-edit-btn" id="shTtxEditBtn">✎ Редагувати ТТХ</button>';
+  body.innerHTML = rowsHtml +
+    '<button class="sh-ttx-edit-btn" id="shTtxEditBtn">✎ Редагувати ТТХ</button>' +
+    '<button class="sh-ttx-ref-btn" id="shTtxRefBtn">📖 Знайти в довіднику</button>';
   document.getElementById("shTtxEditBtn").addEventListener("click", () => {
     _renderTtxEdit(kind, key, data, fallbackCaliber, false);
   });
+  document.getElementById("shTtxRefBtn").addEventListener("click", () => _refFind(_ttxRefQuery()));
+}
+
+// Що шукати в довіднику для відкритої картки ТТХ
+function _ttxRefQuery() {
+  if (!_ttxCurrent) return "";
+  if (_ttxCurrent.kind === "weapon") return _ttxCurrent.key || _ttxCurrent.displayName;
+  return _ttxCurrent.fallbackCaliber || _ttxCurrent.displayName || "";
 }
 
 function _renderTtxEdit(kind, key, currentData, fallbackCaliber, isNew) {
@@ -803,9 +832,11 @@ function _renderTtxEdit(kind, key, currentData, fallbackCaliber, isNew) {
 
   body.innerHTML = stubNote + rowsHtml +
     '<button class="sh-save-btn" id="shTtxSaveBtn">💾 Зберегти ТТХ</button>' +
+    '<button class="sh-ttx-ref-btn" id="shTtxRefBtn">📖 Подивитись у довіднику</button>' +
     (isNew ? "" : '<button class="sh-cancel-btn" id="shTtxCancelBtn" style="display:block">✕ Скасувати</button>');
 
   document.getElementById("shTtxSaveBtn").addEventListener("click", () => _saveTtx(kind, key, fallbackCaliber));
+  document.getElementById("shTtxRefBtn").addEventListener("click", () => _refFind(_ttxRefQuery()));
   const cancelBtn = document.getElementById("shTtxCancelBtn");
   if (cancelBtn) cancelBtn.addEventListener("click", () => _renderTtxView(kind, key, currentData, fallbackCaliber));
 }
@@ -840,4 +871,319 @@ async function _saveTtx(kind, key, fallbackCaliber) {
     saveBtn.disabled = false;
     saveBtn.textContent = "💾 Зберегти ТТХ";
   }
+}
+
+// ================================================================
+//  ДОВІДНИК
+//  Дані — у reference.js (ТТХ зброї, боєприпаси, приціли, техніка,
+//  конспект з вогневої підготовки). Файл вантажиться один раз, коли
+//  вперше відкривається вкладка «Довідник» або «Статистика».
+// ================================================================
+function _loadRef() {
+  if (_ref) return Promise.resolve(_ref);
+  if (_refLoading) return _refLoading;
+  _refLoading = import("./reference.js").then((mod) => {
+    _ref = mod.REFERENCE || [];
+    _ammoLoad = mod.AMMO_LOAD || {};
+    _refLoading = null;
+    return _ref;
+  }).catch((e) => {
+    _refLoading = null;
+    console.error("reference.js:", e);
+    throw e;
+  });
+  return _refLoading;
+}
+
+function _openRefTab() {
+  const panel = document.getElementById("shPanelRef");
+  if (!panel) return;
+  if (!_ref) {
+    panel.innerHTML = '<div class="sh-empty">Завантаження довідника…</div>';
+    _loadRef().then(() => {
+      if (_activeSubTab === "ref") _renderRef();
+    }).catch(() => {
+      panel.innerHTML = '<div class="sh-err">Довідник не завантажився. Перевір, що файл <b>reference.js</b> лежить поряд із shooting.js.</div>';
+    });
+    return;
+  }
+  _renderRef();
+}
+
+// Каркас вкладки будуємо один раз, далі оновлюємо лише тіло — щоб
+// поле пошуку не втрачало фокус під час набору.
+function _renderRef() {
+  const panel = document.getElementById("shPanelRef");
+  if (!panel) return;
+  if (panel.dataset.built !== "1") {
+    panel.innerHTML =
+      '<div class="sh-ref-top">' +
+        '<button id="shRefBack" class="sh-ref-back" style="display:none">← Розділи</button>' +
+        '<input type="search" id="shRefSearch" class="sh-input sh-ref-search" placeholder="Пошук: АК-74, темп стрільби, РПГ-26…" autocomplete="off" enterkeyhint="search" />' +
+      "</div>" +
+      '<div id="shRefBody"></div>';
+    panel.dataset.built = "1";
+
+    let t = null;
+    const input = document.getElementById("shRefSearch");
+    input.addEventListener("input", () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        _refView.query = input.value;
+        _refView.focus = -1;
+        if (_norm(_refView.query).length >= 2) _refView.doc = null;
+        _renderRefBody();
+      }, 160);
+    });
+    document.getElementById("shRefBack").addEventListener("click", () => {
+      _refView.doc = null;
+      _refView.focus = -1;
+      _renderRefBody();
+    });
+    document.getElementById("shRefBody").addEventListener("click", _onRefBodyClick);
+    _initRefSheet();
+  }
+  const inp = document.getElementById("shRefSearch");
+  if (inp && inp.value !== _refView.query) inp.value = _refView.query;
+  _renderRefBody();
+}
+
+function _renderRefBody() {
+  const body = document.getElementById("shRefBody");
+  const back = document.getElementById("shRefBack");
+  if (!body) return;
+  const q = _norm(_refView.query);
+
+  if (_refView.doc) {
+    back.style.display = "block";
+    body.innerHTML = _refDocHtml(_refView.doc);
+    if (_refView.focus >= 0) {
+      const el = body.querySelector('[data-bi="' + _refView.focus + '"]');
+      if (el) {
+        el.classList.add("sh-ref-hit");
+        requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "center" }));
+      }
+    }
+    return;
+  }
+  back.style.display = "none";
+  body.innerHTML = q.length >= 2 ? _refSearchHtml(q) : _refHomeHtml();
+}
+
+function _refHomeHtml() {
+  const sections = [];
+  _ref.forEach((d) => {
+    let s = sections.find((x) => x.name === d.section);
+    if (!s) { s = { name: d.section, docs: [] }; sections.push(s); }
+    s.docs.push(d);
+  });
+  return sections.map((s) =>
+    '<div class="sh-stats-section-title">' + _esc(s.name) + "</div>" +
+    s.docs.map((d) =>
+      '<button type="button" class="sh-ref-card" data-doc="' + _escAttr(d.id) + '">' +
+        '<div class="sh-ref-card-title">' + _esc(d.title) + "</div>" +
+        (d.subtitle ? '<div class="sh-ref-card-sub">' + _esc(d.subtitle) + "</div>" : "") +
+        '<div class="sh-ref-card-meta">' + _refDocMeta(d) + "</div>" +
+      "</button>").join("")
+  ).join("");
+}
+
+function _refDocMeta(d) {
+  const tables = d.blocks.filter((b) => b.t === "table").length;
+  const texts = d.blocks.filter((b) => b.t !== "table").length;
+  const parts = [];
+  if (tables) parts.push(tables + " табл.");
+  if (texts) parts.push(texts + " абз.");
+  return parts.join(" · ");
+}
+
+function _refBlockText(b) {
+  if (b.t === "table") {
+    return [b.caption || ""].concat(b.header, b.rows.map((r) => r.join(" "))).join(" ");
+  }
+  return b.v;
+}
+
+function _refSearchHtml(q) {
+  const words = q.split(" ").filter(Boolean);
+  const hits = [];
+  _ref.forEach((d) => {
+    d.blocks.forEach((b, bi) => {
+      if (b.t === "table") {
+        const rows = [];
+        const headHit = words.every((w) => _norm(b.header.join(" ") + " " + (b.caption || "")).includes(w));
+        b.rows.forEach((r) => {
+          if (words.every((w) => _norm(r.join(" ")).includes(w))) rows.push(r);
+        });
+        if (rows.length || headHit) {
+          hits.push({ doc: d, bi, kind: "table",
+            title: b.caption || d.title,
+            snippet: rows.slice(0, 3).map((r) => r.filter(Boolean).slice(0, 4).join(" · ").replace(/\n/g, " ")).join(" | ") ||
+              b.header.filter(Boolean).slice(0, 5).join(" · ") });
+        }
+      } else if (words.every((w) => _norm(b.v).includes(w))) {
+        hits.push({ doc: d, bi, kind: "text", title: d.title, snippet: b.v.slice(0, 160) });
+      }
+    });
+  });
+  if (!hits.length) return '<div class="sh-empty">Нічого не знайдено. Спробуй іншу назву або частину слова.</div>';
+  return '<div class="sh-ref-found">Знайдено: ' + hits.length + "</div>" +
+    hits.slice(0, 60).map((h) =>
+      '<button type="button" class="sh-ref-hit-card" data-doc="' + _escAttr(h.doc.id) + '" data-bi="' + h.bi + '">' +
+        '<div class="sh-ref-hit-doc">' + _esc(h.doc.title) + "</div>" +
+        '<div class="sh-ref-hit-title">' + (h.kind === "table" ? "📊 " : "") + _esc(h.title) + "</div>" +
+        '<div class="sh-ref-hit-snippet">' + _esc(h.snippet) + "</div>" +
+      "</button>").join("");
+}
+
+function _refDocHtml(docId) {
+  const d = _ref.find((x) => x.id === docId);
+  if (!d) return '<div class="sh-empty">Розділ не знайдено.</div>';
+  return '<div class="sh-ref-doc-title">' + _esc(d.title) + "</div>" +
+    (d.subtitle ? '<div class="sh-ref-doc-sub">' + _esc(d.subtitle) + "</div>" : "") +
+    d.blocks.map((b, bi) => {
+      if (b.t === "h") return '<div class="sh-ref-h" data-bi="' + bi + '">' + _esc(b.v) + "</div>";
+      if (b.t === "p") return '<div class="sh-ref-p" data-bi="' + bi + '">' + _esc(b.v) + "</div>";
+      return _refTableHtml(b, bi);
+    }).join("");
+}
+
+function _refTableHtml(tbl, bi) {
+  const head = "<tr>" + tbl.header.map((h, i) =>
+    '<th class="' + (i === 0 ? "sh-rt-first" : "") + '">' + _esc(h) + "</th>").join("") + "</tr>";
+  const rows = tbl.rows.map((r, ri) =>
+    '<tr data-row="' + ri + '">' + r.map((c, i) =>
+      '<td class="' + (i === 0 ? "sh-rt-first" : "") + '">' + _esc(c) + "</td>").join("") + "</tr>").join("");
+  return '<div class="sh-rt-block" data-bi="' + bi + '">' +
+    (tbl.caption ? '<div class="sh-rt-caption">' + _esc(tbl.caption) + "</div>" : "") +
+    (tbl.header.length >= 3
+      ? '<button type="button" class="sh-rt-col-btn" data-bi="' + bi + '">📋 Показати один зразок вертикально</button>'
+      : "") +
+    '<div class="sh-rt-scroll"><table class="sh-rt">' + head + rows + "</table></div>" +
+    '<div class="sh-rt-hint">Натисни на рядок таблиці — розгорнеться вертикально</div>' +
+    "</div>";
+}
+
+function _onRefBodyClick(e) {
+  const hit = e.target.closest(".sh-ref-hit-card");
+  if (hit) {
+    _refView.doc = hit.dataset.doc;
+    _refView.focus = parseInt(hit.dataset.bi);
+    _renderRefBody();
+    return;
+  }
+  const card = e.target.closest(".sh-ref-card");
+  if (card) {
+    _refView.doc = card.dataset.doc;
+    _refView.focus = -1;
+    _renderRefBody();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  const colBtn = e.target.closest(".sh-rt-col-btn");
+  if (colBtn) { _openRefColPicker(parseInt(colBtn.dataset.bi)); return; }
+  const tr = e.target.closest(".sh-rt tr[data-row]");
+  if (tr) {
+    const block = tr.closest(".sh-rt-block");
+    _openRefRow(parseInt(block.dataset.bi), parseInt(tr.dataset.row));
+  }
+}
+
+function _refTable(bi) {
+  const d = _ref.find((x) => x.id === _refView.doc);
+  if (!d) return null;
+  const b = d.blocks[bi];
+  return b && b.t === "table" ? b : null;
+}
+
+function _refPairsHtml(pairs) {
+  const rows = pairs.filter((p) => String(p[1]).trim() !== "").map((p) =>
+    '<div class="sh-ttx-row"><span class="sh-ttx-label">' + _esc(p[0]) + '</span><span class="sh-ttx-val">' + _esc(p[1]) + "</span></div>").join("");
+  return rows || '<div class="sh-empty">Порожньо.</div>';
+}
+
+function _openRefRow(bi, ri) {
+  const tbl = _refTable(bi);
+  if (!tbl) return;
+  const row = tbl.rows[ri];
+  if (!row) return;
+  const title = (row[0] || tbl.caption || "Рядок").replace(/\n/g, " · ");
+  const pairs = row.map((c, i) => [tbl.header[i] || "", c]).slice(1);
+  _openRefSheet(title, _refPairsHtml(pairs));
+}
+
+function _openRefColPicker(bi) {
+  const tbl = _refTable(bi);
+  if (!tbl) return;
+  const items = tbl.header.map((h, i) => ({ h, i })).slice(1).filter((x) => x.h.trim());
+  const html = items.map((x) =>
+    '<button type="button" class="sh-ref-pick" data-bi="' + bi + '" data-col="' + x.i + '">' + _esc(x.h.replace(/\n/g, " · ")) + "</button>").join("");
+  _openRefSheet(tbl.caption || "Оберіть зразок", '<div class="sh-ref-picks">' + html + "</div>");
+}
+
+function _openRefCol(bi, col) {
+  const tbl = _refTable(bi);
+  if (!tbl) return;
+  const title = (tbl.header[col] || "").replace(/\n/g, " · ");
+  const pairs = tbl.rows.map((r) => [r[0] || "", r[col] || ""]);
+  _openRefSheet(title, _refPairsHtml(pairs));
+}
+
+function _initRefSheet() {
+  if (_refSheetInited) return;
+  _refSheetInited = true;
+  const ov = document.getElementById("shRefSheet");
+  if (!ov) return;
+  document.getElementById("shRefSheetClose").addEventListener("click", _closeRefSheet);
+  ov.addEventListener("click", (e) => { if (e.target === ov) _closeRefSheet(); });
+  document.getElementById("shRefSheetBody").addEventListener("click", (e) => {
+    const pick = e.target.closest(".sh-ref-pick");
+    if (pick) _openRefCol(parseInt(pick.dataset.bi), parseInt(pick.dataset.col));
+  });
+}
+
+function _openRefSheet(title, bodyHtml) {
+  _initRefSheet();
+  document.getElementById("shRefSheetTitle").textContent = title;
+  document.getElementById("shRefSheetBody").innerHTML = bodyHtml;
+  document.getElementById("shRefSheet").classList.add("sh-ttx-visible");
+}
+
+function _closeRefSheet() {
+  document.getElementById("shRefSheet").classList.remove("sh-ttx-visible");
+}
+
+// Перехід із ТТХ у довідник: шукаємо зброю або набій за назвою
+function _refFind(queryText) {
+  _closeTtxModal();
+  _refView = { doc: null, query: String(queryText || "").trim(), focus: -1 };
+  _switchSubTab("ref");
+  const inp = document.getElementById("shRefSearch");
+  if (inp) inp.value = _refView.query;
+  if (_ref) _renderRefBody();
+}
+
+// Боєкомплект для зброї з журналу (з таблиці БК довідника)
+function _bkFor(weaponName) {
+  const n = _norm(weaponName).replace(/[\s"'«»]/g, "");
+  if (!n) return null;
+  let best = null;
+  Object.keys(_ammoLoad || {}).forEach((k) => {
+    const kn = _norm(k).replace(/[\s"'«»]/g, "");
+    if (!kn) return;
+    if (n === kn || n.startsWith(kn) || kn.startsWith(n)) {
+      if (!best || kn.length > best.kn.length) best = { kn, name: k, data: _ammoLoad[k] };
+    }
+  });
+  return best && best.data && best.data.at > 0 ? best : null;
+}
+
+// Значок «скільки це боєкомплектів» у картці зброї (дані з таблиці БК довідника)
+function _bkBadge(w) {
+  const bk = _bkFor(w.name);
+  if (!bk) return "";
+  const n = w.rounds / bk.data.at;
+  const txt = n >= 10 ? Math.round(n) : (Math.round(n * 10) / 10).toString().replace(".", ",");
+  return '<span class="sh-dot">•</span><span class="sh-bk" title="Боєкомплект при зброї для ' + _escAttr(bk.name) +
+    ": " + bk.data.at + ' шт.">≈ ' + txt + " БК</span>";
 }

@@ -32,6 +32,7 @@
         <div class="sh-subtabs">
           <button class="sh-subtab active" data-subtab="main">Головна</button>
           <button class="sh-subtab" data-subtab="stats">Статистика</button>
+          <button class="sh-subtab" data-subtab="ref">Довідник</button>
         </div>
 
         <!-- НАЛАШТУВАННЯ -->
@@ -85,6 +86,9 @@
         <!-- ==================== СТАТИСТИКА ==================== -->
         <div id="shPanelStats" class="sh-panel"></div>
 
+        <!-- ==================== ДОВІДНИК ==================== -->
+        <div id="shPanelRef" class="sh-panel"></div>
+
       </div>
     </div>
 
@@ -96,6 +100,17 @@
           <button class="sh-x" id="shTtxClose">&times;</button>
         </div>
         <div class="sh-ttx-body" id="shTtxBody"></div>
+      </div>
+    </div>
+
+    <!-- REFERENCE SHEET (рядок / зразок із таблиці довідника) -->
+    <div id="shRefSheet" class="sh-ttx-overlay">
+      <div class="sh-ttx-card">
+        <div class="sh-ttx-header">
+          <div class="sh-ttx-title" id="shRefSheetTitle"></div>
+          <button class="sh-x" id="shRefSheetClose">&times;</button>
+        </div>
+        <div class="sh-ttx-body" id="shRefSheetBody"></div>
       </div>
     </div>
 
