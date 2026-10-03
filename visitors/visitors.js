@@ -6,8 +6,12 @@ import {
   doc, deleteDoc, getDocs, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+  getAuth, onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+// УВАГА: visitor_logs може записати будь-хто з інтернету (ключ API публічний).
+// Тому КОЖНЕ поле запису — недовірений текст: у HTML лише через esc(),
+// числа — лише через num(). Інакше чужий скрипт виконається в сесії адміна.
 
 const app = initializeApp(firebaseConfig);
 const db = initializeFirestore(app, { localCache: persistentLocalCache() });
@@ -15,15 +19,6 @@ const auth = getAuth(app);
 
 let allVisits = [];
 let currentFilter = "all";
-
-// Автологін
-{
-  const se = localStorage.getItem("adminEmail");
-  const sp = localStorage.getItem("adminPass");
-  if (se && sp && !auth.currentUser) {
-    signInWithEmailAndPassword(auth, se, atob(sp)).catch(() => {});
-  }
-}
 
 // THEME
 const themeBtn = document.getElementById("themeToggle");
@@ -129,25 +124,31 @@ if (clearAllBtn) {
 function getFiltered() {
   const now = Date.now();
   switch (currentFilter) {
-    case "today":
+    case "today": {
       const d = new Date(); d.setHours(0, 0, 0, 0);
-      return allVisits.filter((v) => v.timestamp >= d.getTime());
+      return allVisits.filter((v) => num(v.timestamp) >= d.getTime());
+    }
     case "week":
-      return allVisits.filter((v) => v.timestamp >= now - 7 * 86400000);
+      return allVisits.filter((v) => num(v.timestamp) >= now - 7 * 86400000);
     case "month":
-      return allVisits.filter((v) => v.timestamp >= now - 30 * 86400000);
+      return allVisits.filter((v) => num(v.timestamp) >= now - 30 * 86400000);
     default:
       return allVisits;
   }
+}
+
+function visits(v) {
+  return Math.max(1, Math.floor(num(v.visitCount)) || 1);
 }
 
 // STATS
 function renderStats() {
   const now = Date.now();
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const todayCount = allVisits.filter((v) => (v.lastVisit || v.timestamp) >= today.getTime()).length;
-  const weekCount = allVisits.filter((v) => (v.lastVisit || v.timestamp) >= now - 7 * 86400000).length;
-  const totalVisits = allVisits.reduce((s, v) => s + (v.visitCount || 1), 0);
+  const lastOf = (v) => num(v.lastVisit) || num(v.timestamp);
+  const todayCount = allVisits.filter((v) => lastOf(v) >= today.getTime()).length;
+  const weekCount = allVisits.filter((v) => lastOf(v) >= now - 7 * 86400000).length;
+  const totalVisits = allVisits.reduce((s, v) => s + visits(v), 0);
 
   document.getElementById("visTotal").textContent = totalVisits;
   document.getElementById("visToday").textContent = todayCount;
@@ -169,24 +170,24 @@ function renderList() {
   empty.classList.add("vis-hidden");
 
   list.innerHTML = filtered.map((v) => {
-    const lastTs = v.lastVisit || v.timestamp;
-    const firstTs = v.firstVisit || v.timestamp;
+    const lastTs = num(v.lastVisit) || num(v.timestamp);
+    const firstTs = num(v.firstVisit) || num(v.timestamp);
     const d = new Date(lastTs);
     const time = String(d.getDate()).padStart(2, "0") + "." +
       String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear() + " " +
       String(d.getHours()).padStart(2, "0") + ":" +
       String(d.getMinutes()).padStart(2, "0");
 
-    const visitCount = v.visitCount || 1;
+    const visitCount = visits(v);
     const firstStr = new Date(firstTs).toLocaleDateString("uk-UA");
 
     const location = [v.city, v.country].filter(Boolean).join(", ");
-    const cls = (v.isAdmin ? "is-admin " : "") + (v.device === "Mobile" ? "is-mobile" : "is-desktop");
+    const cls = (v.isAdmin === true ? "is-admin " : "") + (v.device === "Mobile" ? "is-mobile" : "is-desktop");
 
     let tags = "";
-    if (v.isAdmin) tags += '<span class="vis-tag vis-tag-admin">АДМІН</span>';
+    if (v.isAdmin === true) tags += '<span class="vis-tag vis-tag-admin">АДМІН</span>';
     if (v.os) tags += '<span class="vis-tag vis-tag-os">' + esc(v.os) + '</span>';
-    if (v.browser) tags += '<span class="vis-tag vis-tag-browser">' + esc(v.browser) + (v.browserVer ? ' ' + v.browserVer : '') + '</span>';
+    if (v.browser) tags += '<span class="vis-tag vis-tag-browser">' + esc(v.browser) + (v.browserVer ? ' ' + esc(v.browserVer) : '') + '</span>';
     if (v.device) tags += '<span class="vis-tag">' + esc(v.device) + '</span>';
     if (v.screen) tags += '<span class="vis-tag">' + esc(v.screen) + '</span>';
 
@@ -195,7 +196,7 @@ function renderList() {
       : '';
 
     return '<div class="vis-item ' + cls + '">' +
-      '<div class="vis-item-time">Останній: ' + time + (visitCount > 1 ? ' · вперше: ' + firstStr : '') + '</div>' +
+      '<div class="vis-item-time">Останній: ' + esc(time) + (visitCount > 1 ? ' · вперше: ' + esc(firstStr) : '') + '</div>' +
       '<div class="vis-item-ip">' + esc(v.ip || "—") + visitBadge + '</div>' +
       (location ? '<div class="vis-item-location">📍 ' + esc(location) + '</div>' : '') +
       '<div class="vis-item-tags">' + tags + '</div>' +
@@ -203,6 +204,17 @@ function renderList() {
   }).join("");
 }
 
+// Текст із бази → безпечний для innerHTML
 function esc(s) {
-  return s ? String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : "";
+  if (s === undefined || s === null || s === "") return "";
+  return String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// Число з бази: будь-що інше → 0
+function num(x) {
+  if (x && typeof x.toMillis === "function") return x.toMillis(); // Firestore Timestamp
+  const n = typeof x === "number" ? x : Number(x);
+  return Number.isFinite(n) ? n : 0;
 }
