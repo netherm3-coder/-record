@@ -231,10 +231,8 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
   errorMsg.innerText = "";
 
   try {
+    // Сесію зберігає сам Firebase (browserLocalPersistence) — пароль ніде не зберігаємо
     await signInWithEmailAndPassword(auth, email, pass);
-    // Зберігаємо дані для автологіну
-    localStorage.setItem("adminEmail", email);
-    localStorage.setItem("adminPass", btoa(pass));
   } catch (error) {
     console.error("Помилка авторизації Firebase:", error.code, error.message);
 
@@ -255,18 +253,13 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
   }
 });
 
-// === АВТОЛОГІН ===
-{
-  const savedEmail = localStorage.getItem("adminEmail");
-  const savedPass = localStorage.getItem("adminPass");
-  if (savedEmail && savedPass && !auth.currentUser) {
-    signInWithEmailAndPassword(auth, savedEmail, atob(savedPass)).catch(() => {
-      // Дані застарілі — очищаємо
-      localStorage.removeItem("adminEmail");
-      localStorage.removeItem("adminPass");
-    });
-  }
-}
+// === Прибирання старого автологіну ===
+// Раніше пароль лежав у localStorage (base64 = відкритий текст) і його міг
+// прочитати будь-який скрипт на сторінці. Сесію й так тримає Firebase.
+try {
+  localStorage.removeItem("adminPass");
+  localStorage.removeItem("adminEmail");
+} catch (e) { /* noop */ }
 
 // === Кнопка Вийти ===
 const logoutBtn = document.getElementById("logoutBtn");
@@ -1631,37 +1624,32 @@ listenToWorkouts();
         // IP як ID документа — кожен IP має один запис, лічильник зростає
         const docId = ip.replace(/[^a-zA-Z0-9.:_-]/g, "_") || "unknown_" + Date.now();
         const ref = doc(db, "visitor_logs", docId);
-        const snap = await getDoc(ref);
 
         const baseData = {
           ip, country, city,
           device, os, browser, browserVer,
           screen: window.screen.width + "x" + window.screen.height,
-          referrer: document.referrer || "direct",
+          referrer: (document.referrer || "direct").substring(0, 200),
           isAdmin: false,
           userAgent: ua.substring(0, 250),
           lastVisit: Date.now(),
         };
 
-        if (snap.exists()) {
-          // Існуючий IP — оновлюємо лічильник і дані
-          const old = snap.data();
-          await setDoc(ref, {
-            ...baseData,
-            visitCount: (old.visitCount || 1) + 1,
-            firstVisit: old.firstVisit || old.timestamp || Date.now(),
-            timestamp: Date.now(), // для сортування
-          });
-        } else {
-          // Новий IP
-          await setDoc(ref, {
-            ...baseData,
-            visitCount: 1,
-            firstVisit: Date.now(),
-            timestamp: Date.now(),
-          });
-        }
+        // Без читання документа: гостям правила НЕ дають читати visitor_logs.
+        // merge + increment сам створює запис (visitCount = 1) або додає +1.
+        const FIRST_KEY = "visitorFirstVisit";
+        const isFirst = !localStorage.getItem(FIRST_KEY);
+        const data = {
+          ...baseData,
+          visitCount: increment(1),
+          timestamp: Date.now(), // для сортування
+        };
+        if (isFirst) data.firstVisit = Date.now();
+        await setDoc(ref, data, { merge: true });
 
+        if (isFirst) {
+          try { localStorage.setItem(FIRST_KEY, String(Date.now())); } catch (e) { /* noop */ }
+        }
         sessionStorage.setItem(sessionKey, "1");
       } catch (err) {
         console.warn("Visitor log failed:", err);
