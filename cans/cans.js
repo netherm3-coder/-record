@@ -1,5 +1,5 @@
 // ================================================================
-//  cans_module/cans.js — Колекція банок енергетиків
+//  cans/cans.js — Колекція банок енергетиків
 //
 //  Firestore:
 //    cans       { status: "have" | "want" | "tasted",
@@ -23,7 +23,7 @@ import {
   initializeFirestore, persistentLocalCache,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+  getAuth, onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
@@ -34,15 +34,6 @@ try {
   db = initializeFirestore(app, {});
 }
 const auth = getAuth(app);
-
-// Автологін (як на інших сторінках)
-{
-  const se = localStorage.getItem("adminEmail");
-  const sp = localStorage.getItem("adminPass");
-  if (se && sp && !auth.currentUser) {
-    signInWithEmailAndPassword(auth, se, atob(sp)).catch(() => {});
-  }
-}
 
 const $ = (id) => document.getElementById(id);
 
@@ -144,6 +135,22 @@ function _dateOf(c) {
   return "";
 }
 function _isSpecial(c) { return !!EDITION_BADGE[c.edition]; }
+
+// Штрихкоди. UPC-A (США, 12 цифр) — це той самий EAN-13 з нулем попереду,
+// тож порівнюємо за «ключем»: 012345678905 і 0012345678905 — одна банка.
+function _bcDigits(s) { return String(s == null ? "" : s).replace(/\D+/g, ""); }
+function _bcKey(s) {
+  const d = _bcDigits(s);
+  return d.length === 12 ? "0" + d : d;
+}
+// Контрольна цифра EAN-8 / UPC-A / EAN-13: ваги 3,1,3,1… від правого краю
+function _bcValid(code) {
+  const d = _bcDigits(code);
+  if (d.length !== 8 && d.length !== 12 && d.length !== 13) return false;
+  let sum = 0;
+  for (let i = 0; i < d.length - 1; i++) sum += (+d[i]) * ((d.length - 1 - i) % 2 ? 3 : 1);
+  return (10 - (sum % 10)) % 10 === +d[d.length - 1];
+}
 function _sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 function _download(filename, blob) {
   const a = document.createElement("a");
@@ -352,6 +359,7 @@ function _initUI() {
   window.addEventListener("popstate", _onPopState);
 
   _initForm();
+  _initScanner();
   _switchTab("have");
 }
 
@@ -392,6 +400,7 @@ function _closeOverlay(el, fromPop) {
   el.setAttribute("aria-hidden", "true");
   if (!_overlayStack.length) document.body.style.overflow = "";
   if (el.id === "cnDetail") _detailId = null;
+  if (el.id === "cnScan") _scanStop();
   if (!fromPop && el._cnPushed) {
     _ignorePop++;
     history.back();
@@ -499,7 +508,8 @@ function _chipsHtml(list, active) {
 }
 
 function _matches(c, q) {
-  const hay = _norm([c.brand, c.name, c.series, c.barcode, c.country, c.place, c.note, c.giftFrom, EDITION_LABEL[c.edition]].join(" "));
+  const bc = c.barcode ? c.barcode + " " + _bcKey(c.barcode) : "";
+  const hay = _norm([c.brand, c.name, c.series, bc, c.country, c.place, c.note, c.giftFrom, EDITION_LABEL[c.edition]].join(" "));
   return q.split(" ").every((w) => hay.includes(w));
 }
 
@@ -566,7 +576,8 @@ function _renderCheck(q) {
   const box = $("cnCheck");
   const code = String(q || "").replace(/\s+/g, "");
   if (!/^\d{8,14}$/.test(code)) { box.hidden = true; box.innerHTML = ""; return; }
-  const hits = _cans.filter((c) => String(c.barcode || "").replace(/\s+/g, "") === code);
+  const key = _bcKey(code);
+  const hits = _cans.filter((c) => c.barcode && _bcKey(c.barcode) === key);
   box.hidden = false;
   box.className = "cn-check";
   if (!hits.length) {
@@ -928,7 +939,8 @@ function _checkBarcodeHint() {
   const hint = $("cnBarcodeHint");
   const code = $("cnBarcode").value.replace(/\s+/g, "");
   if (code.length < 8) { hint.hidden = true; return; }
-  const hits = _cans.filter((c) => c.id !== _form.id && String(c.barcode || "").replace(/\s+/g, "") === code);
+  const key = _bcKey(code);
+  const hits = _cans.filter((c) => c.id !== _form.id && c.barcode && _bcKey(c.barcode) === key);
   if (!hits.length) { hint.hidden = true; return; }
   hint.hidden = false;
   hint.textContent = "Такий штрихкод уже є: " + hits.map((c) =>
@@ -1347,6 +1359,436 @@ function _afterSave(next) {
     return;
   }
   _closeOverlay($("cnForm"));
+}
+
+// ================================================================
+//  СКАНЕР ШТРИХКОДІВ
+//  Камера → вбудований BarcodeDetector (Chrome на Android). Якщо його немає,
+//  він ламається або 6 с нічого не бачить — додається ZXing (WebAssembly)
+//  з jsDelivr: ~0,5 МБ при першому скануванні, далі з кешу, тож і без мережі.
+// ================================================================
+const BC_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
+const BC_POLYFILL = "https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/es/ponyfill.js";
+const BC_FALLBACK_MS = 6000;
+let _nativeP = null;
+let _nativeBroken = false;
+let _polyP = null;
+let _polyTry = 0;
+const _scan = {
+  active: false, paused: false, target: "search", gen: 0,
+  stream: null, track: null,
+  dets: [], tick: 0, nativeErr: 0, fallbackTimer: 0,
+  timer: 0, busy: false, last: "", lastT: 0,
+  torch: false, zoom: 1, zoomMin: 1, zoomMax: 1,
+  canvas: null, warned: "",
+};
+
+function _getNative() {
+  if (_nativeBroken) return Promise.resolve(null);
+  if (!_nativeP) {
+    _nativeP = (async () => {
+      if (!("BarcodeDetector" in window)) return null;
+      try {
+        const sup = await window.BarcodeDetector.getSupportedFormats();
+        const f = BC_FORMATS.filter((x) => sup.includes(x));
+        return f.includes("ean_13") ? new window.BarcodeDetector({ formats: f }) : null;
+      } catch (e) { return null; }
+    })();
+  }
+  return _nativeP;
+}
+
+function _getPoly() {
+  if (!_polyP) {
+    _polyP = (async () => {
+      // ?r= — щоб після невдалої спроби (немає мережі) браузер справді завантажив модуль знову
+      const m = await import(BC_POLYFILL + (_polyTry++ ? "?r=" + _polyTry : ""));
+      await m.prepareZXingModule({
+        overrides: {
+          locateFile: (path, prefix) => path.endsWith(".wasm")
+            ? "https://cdn.jsdelivr.net/npm/zxing-wasm@" + m.ZXING_WASM_VERSION + "/dist/reader/" + path
+            : prefix + path,
+        },
+        fireImmediately: true,
+      });
+      const d = new m.BarcodeDetector({ formats: BC_FORMATS });
+      d._cnPoly = true;
+      return d;
+    })();
+    _polyP.catch(() => { _polyP = null; });
+  }
+  return _polyP;
+}
+
+// Перший придатний код із результатів: EAN/UPC лише з правильною контрольною цифрою.
+// UPC-A ZXing віддає як EAN-13 з нулем попереду, а Android — як 12 цифр;
+// зберігаємо однаково — 12 цифр, як надруковано під штрихкодом американської банки.
+function _bcPick(results) {
+  for (const r of results || []) {
+    let v = _bcDigits(r && r.rawValue);
+    if (!v) continue;
+    if (v.length === 13 && v[0] === "0") v = v.slice(1);
+    if (r.format === "upc_e" && v.length >= 6 && v.length <= 8) return v;
+    if (_bcValid(v)) return v;
+  }
+  return "";
+}
+
+function _scanMsg(text, isErr) {
+  const el = $("cnScanMsg");
+  el.textContent = text || "";
+  el.classList.toggle("err", !!isErr);
+}
+
+function _camErrText(err) {
+  const n = err && err.name;
+  if (n === "NotAllowedError" || n === "SecurityError") {
+    return "Немає дозволу на камеру. Дозволь камеру для цього сайту в налаштуваннях браузера або введи цифри вручну.";
+  }
+  if (n === "NotFoundError" || n === "OverconstrainedError") return "Камеру не знайдено. Введи цифри вручну або візьми фото.";
+  if (n === "NotReadableError" || n === "AbortError") return "Камера зайнята іншою програмою. Закрий її й відкрий сканер знову.";
+  if (n === "NoMedia") return "Браузер не дає камеру на цій сторінці. Введи цифри вручну або візьми фото.";
+  return "Камера не запустилася" + (err && err.message ? ": " + err.message : "") + ".";
+}
+
+function _initScanner() {
+  $("cnScanSearch").addEventListener("click", () => _scanOpen("search"));
+  $("cnScanForm").addEventListener("click", () => _scanOpen("form"));
+  $("cnScanClose").addEventListener("click", () => _closeOverlay($("cnScan")));
+  $("cnScanTorch").addEventListener("click", _scanToggleTorch);
+  $("cnScanZoom").addEventListener("click", _scanToggleZoom);
+  $("cnScanPhoto").addEventListener("click", () => $("cnFileScan").click());
+  $("cnFileScan").addEventListener("change", (e) => _scanFromFile(e.target));
+  $("cnScanType").addEventListener("click", () => _scanShowManual(true));
+  $("cnScanInputOk").addEventListener("click", _scanManualOk);
+  $("cnScanInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); _scanManualOk(); }
+  });
+  $("cnScanInput").addEventListener("input", () => {
+    _scan.warned = "";
+    $("cnScanManualHint").textContent = "";
+  });
+  document.addEventListener("visibilitychange", _scanOnVisibility);
+}
+
+// target: "search" — перевірити в колекції; "form" — підставити в поле форми
+function _scanOpen(target) {
+  const ov = $("cnScan");
+  if (_overlayStack.includes(ov)) return;
+  _scan.target = target === "form" ? "form" : "search";
+  _scan.active = true;
+  _scan.paused = false;
+  _scan.last = "";
+  _scan.lastT = 0;
+  _scan.warned = "";
+  $("cnScanManual").hidden = true;
+  $("cnScanInput").value = "";
+  $("cnScanManualHint").textContent = "";
+  _scanTools(null);
+  _openOverlay(ov);
+  _scanRun(++_scan.gen);
+}
+
+async function _scanRun(gen) {
+  _scanMsg("Запуск камери…");
+  clearTimeout(_scan.fallbackTimer);
+  _scan.dets = [];
+  _scan.tick = 0;
+  _scan.nativeErr = 0;
+  const natP = _getNative();
+  if (!(await _scanCamera(gen))) return;
+  const nat = await natP;
+  if (gen !== _scan.gen || !_scan.active) return;
+
+  if (nat) {
+    _scan.dets = [nat];
+    // Вбудований детектор є, але на деяких телефонах нічого не бачить — підстрахуємось ZXing
+    _scan.fallbackTimer = setTimeout(() => {
+      if (gen === _scan.gen && _scan.active) _scanAddPoly(gen);
+    }, BC_FALLBACK_MS);
+  } else {
+    _scanMsg("Завантажую сканер…");
+    try {
+      _scan.dets = [await _getPoly()];
+    } catch (err) {
+      if (gen !== _scan.gen || !_scan.active) return;
+      console.error("scanner:", err);
+      _scanStopCamera();
+      _scanMsg("Сканер не завантажився: перший запуск потребує інтернету. Введи цифри вручну.", true);
+      _scanShowManual(false);
+      return;
+    }
+    if (gen !== _scan.gen || !_scan.active) return;
+  }
+  _scanMsg("Штрихкод — у рамку, банку тримай рівно");
+  _scanLoop(gen);
+}
+
+function _scanAddPoly(gen) {
+  if (_scan.dets.some((d) => d._cnPoly)) return;
+  _getPoly().then((d) => {
+    if (gen === _scan.gen && _scan.active && !_scan.dets.includes(d)) _scan.dets.push(d);
+  }).catch((e) => console.warn("zxing:", e));
+}
+
+// true — камера працює; false — помилка (вже показано) або сканер закрили
+async function _scanCamera(gen) {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const e = new Error("mediaDevices"); e.name = "NoMedia"; throw e;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+    });
+    if (gen !== _scan.gen || !_scan.active) {
+      stream.getTracks().forEach((t) => t.stop());
+      return false;
+    }
+    _scan.stream = stream;
+    _scan.track = stream.getVideoTracks()[0] || null;
+    const v = $("cnScanVideo");
+    v.srcObject = stream;
+    try { await v.play(); } catch (e) { /* muted + playsinline — зазвичай грає саме */ }
+    if (gen !== _scan.gen || !_scan.active) return false;
+    _scanSetupTrack();
+    $("cnScan").classList.add("cn-scan-live");
+    return true;
+  } catch (err) {
+    if (gen !== _scan.gen || !_scan.active) return false;
+    console.warn("camera:", err);
+    _scanMsg(_camErrText(err), true);
+    _scanShowManual(false);
+    return false;
+  }
+}
+
+function _scanSetupTrack() {
+  const tr = _scan.track;
+  let caps = {};
+  try { caps = tr && tr.getCapabilities ? tr.getCapabilities() || {} : {}; } catch (e) { caps = {}; }
+  if (tr && Array.isArray(caps.focusMode) && caps.focusMode.includes("continuous")) {
+    tr.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
+  }
+  _scan.torch = false;
+  _scan.zoomMin = caps.zoom && caps.zoom.min > 0 ? caps.zoom.min : 1;
+  _scan.zoomMax = caps.zoom && caps.zoom.max > 0 ? caps.zoom.max : 1;
+  _scan.zoom = _scan.zoomMin;
+  _scanTools(caps);
+}
+
+function _scanTools(caps) {
+  const torch = $("cnScanTorch");
+  const zoom = $("cnScanZoom");
+  torch.hidden = !(caps && caps.torch);
+  zoom.hidden = !(caps && caps.zoom && _scan.zoomMax >= _scan.zoomMin * 1.5);
+  [torch, zoom].forEach((b) => { b.classList.remove("on"); b.setAttribute("aria-pressed", "false"); });
+}
+
+async function _scanToggleTorch() {
+  const tr = _scan.track;
+  if (!tr) return;
+  const on = !_scan.torch;
+  try {
+    await tr.applyConstraints({ advanced: [{ torch: on }] });
+    _scan.torch = on;
+    const b = $("cnScanTorch");
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", String(on));
+  } catch (e) {
+    $("cnScanTorch").hidden = true;
+    _toast("Ліхтарик на цьому телефоні недоступний", "err");
+  }
+}
+
+async function _scanToggleZoom() {
+  const tr = _scan.track;
+  if (!tr) return;
+  const target = _scan.zoom > _scan.zoomMin ? _scan.zoomMin : Math.min(_scan.zoomMax, _scan.zoomMin * 2);
+  try {
+    await tr.applyConstraints({ advanced: [{ zoom: target }] });
+    _scan.zoom = target;
+    const on = target > _scan.zoomMin;
+    const b = $("cnScanZoom");
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", String(on));
+  } catch (e) {
+    $("cnScanZoom").hidden = true;
+  }
+}
+
+// Кадр: центральна частина, де рамка; не більше 1280 px — швидше для ZXing
+function _scanGrab(v) {
+  const vw = v.videoWidth;
+  const vh = v.videoHeight;
+  const cw = Math.round(vw * 0.86);
+  const ch = Math.round(vh * 0.6);
+  const k = Math.min(1, 1280 / Math.max(cw, ch));
+  const c = _scan.canvas || (_scan.canvas = document.createElement("canvas"));
+  c.width = Math.max(1, Math.round(cw * k));
+  c.height = Math.max(1, Math.round(ch * k));
+  c.getContext("2d", { willReadFrequently: true })
+    .drawImage(v, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, c.width, c.height);
+  return c;
+}
+
+function _scanLoop(gen) {
+  if (gen !== _scan.gen || !_scan.active) return;
+  const v = $("cnScanVideo");
+  if (!_scan.busy && _scan.dets.length && !document.hidden && v.readyState >= 2 && v.videoWidth) {
+    const det = _scan.dets[_scan.tick++ % _scan.dets.length];
+    _scan.busy = true;
+    Promise.resolve()
+      .then(() => det.detect(_scanGrab(v)))
+      .then((res) => {
+        if (!det._cnPoly) _scan.nativeErr = 0;
+        const code = _bcPick(res);
+        if (gen !== _scan.gen || !_scan.active || !code) return;
+        const now = Date.now();
+        // Два однакові зчитування поспіль — захист від випадкової помилки
+        if (code === _scan.last && now - _scan.lastT < 1500) _scanDone(code);
+        else { _scan.last = code; _scan.lastT = now; }
+      })
+      .catch((e) => {
+        console.warn("scan:", e);
+        // Вбудований детектор падає (буває без Google-сервісів) — переходимо на ZXing
+        if (!det._cnPoly && ++_scan.nativeErr >= 3) {
+          _nativeBroken = true;
+          _scan.dets = _scan.dets.filter((d) => d !== det);
+          _scanAddPoly(gen);
+        }
+      })
+      .finally(() => { _scan.busy = false; });
+  }
+  _scan.timer = setTimeout(() => _scanLoop(gen), 120);
+}
+
+function _scanStopCamera() {
+  clearTimeout(_scan.timer);
+  clearTimeout(_scan.fallbackTimer);
+  if (_scan.stream) _scan.stream.getTracks().forEach((t) => { try { t.stop(); } catch (e) { /* noop */ } });
+  _scan.stream = null;
+  _scan.track = null;
+  const v = $("cnScanVideo");
+  if (v) {
+    try { v.pause(); } catch (e) { /* noop */ }
+    v.srcObject = null;
+  }
+  $("cnScan").classList.remove("cn-scan-live");
+}
+
+// Викликається з _closeOverlay — будь-яке закриття (×, «Назад», результат) гасить камеру
+function _scanStop() {
+  _scan.active = false;
+  _scan.paused = false;
+  _scan.gen++;
+  _scanStopCamera();
+}
+
+// Згорнув браузер / відкрив галерею — камеру віддаємо, повернувся — вмикаємо знову
+function _scanOnVisibility() {
+  if (!_scan.active) return;
+  if (document.hidden) {
+    if (_scan.stream) {
+      _scan.paused = true;
+      _scan.gen++;
+      _scanStopCamera();
+    }
+  } else if (_scan.paused) {
+    _scan.paused = false;
+    _scanRun(++_scan.gen);
+  }
+}
+
+function _scanDone(code) {
+  if (!_scan.active) return;
+  const target = _scan.target;
+  try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) { /* noop */ }
+  _closeOverlay($("cnScan"));
+  if (target === "form") {
+    $("cnBarcode").value = code;
+    $("cnExtra").open = true;
+    _checkBarcodeHint();
+    _toast("Штрихкод: " + code);
+    return;
+  }
+  _switchTab("have");
+  $("cnSearch").value = code;
+  _f.q = code;
+  _renderHave();
+  const box = $("cnCheck");
+  if (!box.hidden) box.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+function _scanShowManual(focus) {
+  $("cnScanManual").hidden = false;
+  if (focus) setTimeout(() => $("cnScanInput").focus(), 30);
+}
+
+function _scanManualOk() {
+  const code = _bcDigits($("cnScanInput").value);
+  const hint = $("cnScanManualHint");
+  if (code.length < 6 || code.length > 14) {
+    hint.textContent = "Штрихкод — від 6 до 14 цифр";
+    return;
+  }
+  if ((code.length === 8 || code.length === 12 || code.length === 13) && !_bcValid(code) && _scan.warned !== code) {
+    _scan.warned = code;
+    hint.textContent = "Остання (контрольна) цифра не сходиться — перевір. Якщо все так, натисни «Готово» ще раз.";
+    return;
+  }
+  _scanDone(code);
+}
+
+// З фото: телефонна камера фокусується краще за потік — рятує дрібні й тьмяні коди
+async function _scanFromFile(input) {
+  const file = input.files && input.files[0];
+  input.value = "";
+  if (!file || !_scan.active) return;
+  if (!/^image\//.test(file.type || "image/")) { _scanMsg("Це не фото", true); return; }
+  _scanMsg("Шукаю штрихкод на фото…");
+  let img = null;
+  try {
+    img = await _decodeImage(file);
+    let code = "";
+    const nat = await _getNative();
+    if (nat) code = await _bcFromImage(nat, img).catch(() => "");
+    if (!code) {
+      let poly = null;
+      try { poly = await _getPoly(); } catch (e) {
+        if (!nat) throw Object.assign(new Error("zxing"), { scannerLoad: true });
+      }
+      if (poly) code = await _bcFromImage(poly, img);
+    }
+    if (!_scan.active) return;
+    if (code) { _scanDone(code); return; }
+    _scanMsg("На фото штрихкод не знайдено. Зніми ближче, рівно й без відблиску.", true);
+  } catch (e) {
+    console.error("scan photo:", e);
+    if (_scan.active) {
+      _scanMsg(e && e.scannerLoad
+        ? "Сканер не завантажився: перший запуск потребує інтернету."
+        : "Не вдалося прочитати фото", true);
+    }
+  } finally {
+    if (img && img.close) img.close();
+  }
+}
+
+async function _bcFromImage(det, img) {
+  const w0 = img.width || img.naturalWidth;
+  const h0 = img.height || img.naturalHeight;
+  for (const side of [1600, 900]) {
+    const k = Math.min(1, side / Math.max(w0, h0));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(w0 * k));
+    c.height = Math.max(1, Math.round(h0 * k));
+    c.getContext("2d", { willReadFrequently: true }).drawImage(img, 0, 0, c.width, c.height);
+    const code = _bcPick(await det.detect(c));
+    if (code) return code;
+    if (k === 1) break; // фото й так маленьке — вдруге те саме
+  }
+  return "";
 }
 
 // ================================================================

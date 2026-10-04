@@ -789,6 +789,176 @@ select.cn-input, .cn-select {
 .cn-lightbox.visible { opacity: 1; pointer-events: auto; visibility: visible; transition: opacity 0.2s, visibility 0s; }
 .cn-lightbox img { max-width: 100vw; max-height: 100vh; object-fit: contain; }
 
+/* ---------- ПОЛЕ + КНОПКА СКАНЕРА ---------- */
+.cn-input-row { display: flex; gap: 8px; align-items: stretch; }
+.cn-input-row .cn-input { flex: 1; min-width: 0; }
+.cn-scan-btn {
+  flex-shrink: 0;
+  width: 46px;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid var(--cn-accent-border);
+  background: var(--cn-accent-dim);
+  color: var(--cn-accent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s;
+}
+.cn-scan-btn:active { transform: scale(0.94); }
+.cn-scan-btn:focus-visible { outline: 2px solid var(--cn-accent); outline-offset: 2px; }
+
+/* ---------- СКАНЕР (завжди темний: поверх камери) ---------- */
+.cn-scan {
+  --scan-accent: #a3e635;
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0s linear 0.2s;
+}
+.cn-scan.visible { opacity: 1; pointer-events: auto; visibility: visible; transition: opacity 0.2s, visibility 0s; }
+.cn-scan-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+.cn-scan-frame {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: min(84vw, 440px);
+  height: min(46vw, 240px);
+  transform: translate(-50%, -50%);
+  border-radius: 16px;
+  border: 2px solid var(--scan-accent);
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.5);
+  opacity: 0.35;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+.cn-scan.cn-scan-live .cn-scan-frame { opacity: 1; }
+.cn-scan-line {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 50%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--scan-accent);
+  box-shadow: 0 0 10px var(--scan-accent);
+  opacity: 0;
+}
+.cn-scan.cn-scan-live .cn-scan-line { opacity: 0.9; animation: cnScanLine 1.6s ease-in-out infinite alternate; }
+@keyframes cnScanLine { from { top: 12%; } to { top: 88%; } }
+@media (prefers-reduced-motion: reduce) {
+  .cn-scan.cn-scan-live .cn-scan-line { animation: none; top: 50%; }
+}
+
+.cn-scan-top {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: calc(10px + env(safe-area-inset-top)) 12px 18px 16px;
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+}
+.cn-scan-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cn-scan-title { font-size: 1rem; font-weight: 800; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+.cn-scan-x {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cn-scan-manual { max-width: 440px; margin: 12px auto 0; }
+.cn-scan-manual[hidden] { display: none; }
+.cn-scan-manual-row { display: flex; gap: 8px; }
+.cn-scan .cn-scan-manual .cn-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.cn-scan .cn-scan-manual .cn-input::placeholder { color: rgba(255, 255, 255, 0.5); font-weight: 600; letter-spacing: 0; }
+.cn-scan .cn-scan-manual .cn-input:focus { border-color: var(--scan-accent); }
+.cn-scan-ok {
+  flex-shrink: 0;
+  padding: 0 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--scan-accent);
+  color: #1a2e05;
+  font-size: 0.9rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+}
+.cn-scan-hint { min-height: 0; margin-top: 6px; font-size: 0.8rem; font-weight: 700; line-height: 1.4; color: #fde68a; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
+.cn-scan-hint:empty { display: none; }
+
+.cn-scan-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 12px calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75) 45%);
+}
+.cn-scan-msg {
+  max-width: 440px;
+  padding: 0 6px;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #e5e7eb;
+}
+.cn-scan-msg:empty { display: none; }
+.cn-scan-msg.err { color: #fecaca; }
+.cn-scan-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.cn-scan-tool {
+  padding: 10px 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cn-scan-tool[hidden] { display: none; }
+.cn-scan-tool.on { background: var(--scan-accent); border-color: var(--scan-accent); color: #1a2e05; }
+.cn-scan-x:focus-visible, .cn-scan-tool:focus-visible, .cn-scan-ok:focus-visible { outline: 2px solid var(--scan-accent); outline-offset: 2px; }
+
 /* ---------- СТАТИСТИКА ---------- */
 .cn-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
 .cn-stat {

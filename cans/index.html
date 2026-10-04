@@ -37,7 +37,15 @@
         <!-- ==================== КОЛЕКЦІЯ ==================== -->
         <div id="cnPanelHave" class="cn-panel active">
           <div class="cn-toolbar">
-            <input type="search" id="cnSearch" class="cn-input cn-search" placeholder="Пошук: назва, бренд або штрихкод" autocomplete="off" enterkeyhint="search" />
+            <div class="cn-input-row">
+              <input type="search" id="cnSearch" class="cn-input cn-search" placeholder="Пошук: назва, бренд або штрихкод" autocomplete="off" enterkeyhint="search" />
+              <button type="button" id="cnScanSearch" class="cn-scan-btn" aria-label="Сканувати штрихкод" title="Сканувати штрихкод">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" aria-hidden="true">
+                  <path stroke-width="2" d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
+                  <path stroke-width="2.2" d="M7.5 8v8M14 8v8" /><path stroke-width="1.2" d="M10.5 8v8M16.8 8v8" />
+                </svg>
+              </button>
+            </div>
             <div id="cnCheck" class="cn-check" hidden></div>
             <div class="cn-seg" id="cnSubSeg">
               <button class="cn-seg-btn active" data-sub="have">Є в колекції</button>
@@ -184,7 +192,15 @@
 
               <div class="cn-row">
                 <label class="cn-label" for="cnBarcode">Штрихкод</label>
-                <input type="text" id="cnBarcode" class="cn-input" placeholder="4820…" inputmode="numeric" autocomplete="off" maxlength="14" />
+                <div class="cn-input-row">
+                  <input type="text" id="cnBarcode" class="cn-input" placeholder="4820…" inputmode="numeric" autocomplete="off" maxlength="14" />
+                  <button type="button" id="cnScanForm" class="cn-scan-btn" aria-label="Сканувати штрихкод" title="Сканувати штрихкод">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" aria-hidden="true">
+                      <path stroke-width="2" d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" />
+                      <path stroke-width="2.2" d="M7.5 8v8M14 8v8" /><path stroke-width="1.2" d="M10.5 8v8M16.8 8v8" />
+                    </svg>
+                  </button>
+                </div>
                 <div id="cnBarcodeHint" class="cn-hint" hidden></div>
               </div>
 
@@ -272,9 +288,39 @@
     <!-- Перегляд фото на весь екран -->
     <div id="cnLightbox" class="cn-lightbox" aria-hidden="true"><img id="cnLightboxImg" alt="" /></div>
 
+    <!-- ==================== СКАНЕР ШТРИХКОДІВ ==================== -->
+    <div id="cnScan" class="cn-scan" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="cnScanTitle">
+      <video id="cnScanVideo" class="cn-scan-video" playsinline muted></video>
+      <div class="cn-scan-frame" aria-hidden="true"><span class="cn-scan-line"></span></div>
+      <div class="cn-scan-top">
+        <div class="cn-scan-head">
+          <div class="cn-scan-title" id="cnScanTitle">Наведи на штрихкод</div>
+          <button type="button" class="cn-scan-x" id="cnScanClose" aria-label="Закрити">&times;</button>
+        </div>
+        <!-- Ручне введення — угорі, щоб клавіатура його не закривала -->
+        <div id="cnScanManual" class="cn-scan-manual" hidden>
+          <div class="cn-scan-manual-row">
+            <input type="text" id="cnScanInput" class="cn-input" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="Цифри під штрихкодом" aria-label="Штрихкод вручну" />
+            <button type="button" id="cnScanInputOk" class="cn-scan-ok">Готово</button>
+          </div>
+          <div id="cnScanManualHint" class="cn-scan-hint" aria-live="polite"></div>
+        </div>
+      </div>
+      <div class="cn-scan-bottom">
+        <div id="cnScanMsg" class="cn-scan-msg" role="status" aria-live="polite"></div>
+        <div class="cn-scan-bar">
+          <button type="button" class="cn-scan-tool" id="cnScanTorch" hidden aria-pressed="false">🔦 Світло</button>
+          <button type="button" class="cn-scan-tool" id="cnScanZoom" hidden aria-pressed="false">🔍 2×</button>
+          <button type="button" class="cn-scan-tool" id="cnScanPhoto">🖼️ З фото</button>
+          <button type="button" class="cn-scan-tool" id="cnScanType">⌨️ Вручну</button>
+        </div>
+      </div>
+    </div>
+
     <input type="file" id="cnFileCam" accept="image/*" capture="environment" hidden />
     <input type="file" id="cnFileGal" accept="image/*" hidden />
     <input type="file" id="cnFileImport" accept="application/json,.json" hidden />
+    <input type="file" id="cnFileScan" accept="image/*" hidden />
 
     <script type="module" src="cans.js"></script>
   </body>
