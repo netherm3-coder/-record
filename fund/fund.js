@@ -5,7 +5,7 @@ import {
   initializeFirestore, persistentLocalCache, limit, updateDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+  getAuth, onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
@@ -16,15 +16,6 @@ const colRef = collection(db, "fund_deposits");
 let isAdmin = false;
 let allDeposits = [];
 let editingId = null;
-
-// Автологін
-{
-  const se = localStorage.getItem("adminEmail");
-  const sp = localStorage.getItem("adminPass");
-  if (se && sp && !auth.currentUser) {
-    signInWithEmailAndPassword(auth, se, atob(sp)).catch(() => {});
-  }
-}
 
 // === ІНФЛЯЦІЙНА МОДЕЛЬ ===
 const BASE_GOAL_USD = 200000;
