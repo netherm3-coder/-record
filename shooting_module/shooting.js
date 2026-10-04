@@ -13,7 +13,7 @@ import {
   initializeFirestore, persistentLocalCache,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+  getAuth, onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
@@ -24,15 +24,6 @@ try {
   db = initializeFirestore(app, {});
 }
 const auth = getAuth(app);
-
-// Автологін (як на інших сторінках модуля)
-{
-  const se = localStorage.getItem("adminEmail");
-  const sp = localStorage.getItem("adminPass");
-  if (se && sp && !auth.currentUser) {
-    signInWithEmailAndPassword(auth, se, atob(sp)).catch(() => {});
-  }
-}
 
 // THEME
 const themeBtn = document.getElementById("themeToggle");
