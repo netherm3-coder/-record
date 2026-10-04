@@ -184,7 +184,11 @@ function renderList() {
     const location = [v.city, v.country].filter(Boolean).join(", ");
     const cls = (v.isAdmin === true ? "is-admin " : "") + (v.device === "Mobile" ? "is-mobile" : "is-desktop");
 
-    let tags = "";
+    // Нові записи: id = "d_" + ID пристрою. Старі (до переходу) — id = IP.
+    const isDevice = String(v.id || "").startsWith("d_");
+    let tags = isDevice
+      ? '<span class="vis-tag" title="ID пристрою">📱 ' + esc(String(v.id).slice(2, 8)) + '</span>'
+      : '<span class="vis-tag" title="Запис до переходу на ID пристрою">старий · за IP</span>';
     if (v.isAdmin === true) tags += '<span class="vis-tag vis-tag-admin">АДМІН</span>';
     if (v.os) tags += '<span class="vis-tag vis-tag-os">' + esc(v.os) + '</span>';
     if (v.browser) tags += '<span class="vis-tag vis-tag-browser">' + esc(v.browser) + (v.browserVer ? ' ' + esc(v.browserVer) : '') + '</span>';
@@ -197,7 +201,7 @@ function renderList() {
 
     return '<div class="vis-item ' + cls + '">' +
       '<div class="vis-item-time">Останній: ' + esc(time) + (visitCount > 1 ? ' · вперше: ' + esc(firstStr) : '') + '</div>' +
-      '<div class="vis-item-ip">' + esc(v.ip || "—") + visitBadge + '</div>' +
+      '<div class="vis-item-ip">' + esc(v.ip && v.ip !== "unknown" ? v.ip : "IP невідома") + visitBadge + '</div>' +
       (location ? '<div class="vis-item-location">📍 ' + esc(location) + '</div>' : '') +
       '<div class="vis-item-tags">' + tags + '</div>' +
     '</div>';
