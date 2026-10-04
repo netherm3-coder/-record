@@ -1582,80 +1582,102 @@ window.loadMoreWorkouts = () => {
 listenToWorkouts();
 
 // === ТРЕКЕР ВІДВІДУВАЧІВ ===
+// Один запис = один пристрій: випадковий ID у localStorage. IP — лише поле.
+// Раніше ключем був IP: оператор дає одну IP багатьом людям і міняє її одній
+// людині, а без відповіді ipapi.co всі гості зливались в один запис «unknown».
 {
   const sessionKey = "visitorLogged_" + new Date().toDateString();
-  // Чекаємо, поки авто-логін адміна встигне спрацювати, і лише тоді вирішуємо чи логувати
-  setTimeout(() => {
+  const OWNER_KEY = "visitorOwner"; // пристрій, на якому входив адмін, — не рахуємо
+  const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* noop */ } };
+
+  // Перший виклик onAuthStateChanged приходить, коли Firebase уже відновив сесію,
+  // тож адміна не сплутаємо з гостем навіть на повільному телефоні.
+  let firstAuth = true;
+  onAuthStateChanged(auth, (user) => {
+    if (user) lsSet(OWNER_KEY, "1");
+    if (!firstAuth) return;
+    firstAuth = false;
+    if (user || lsGet(OWNER_KEY) === "1") return;
     if (sessionStorage.getItem(sessionKey)) return;
-    // НЕ логуємо адміна (власника сайту)
-    if (auth.currentUser) { sessionStorage.setItem(sessionKey, "1"); return; }
-    (async () => {
+    logVisit();
+  });
+
+  function deviceId() {
+    let id = lsGet("visitorId");
+    if (!id) {
+      id = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+      lsSet("visitorId", id);
+    }
+    return String(id).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 60) || "x" + Date.now().toString(36);
+  }
+
+  async function logVisit() {
+    try {
+      const vid = deviceId();
+      let first = Number(lsGet("visitorFirstVisit")) || 0;
+      if (!first) { first = Date.now(); lsSet("visitorFirstVisit", String(first)); }
+
+      // IP і місто — додатково: якщо ipapi.co не відповів за 4 с, пишемо без них
+      let ip = "unknown", country = "", city = "";
       try {
-        let ip = "unknown", country = "", city = "";
-        try {
-          const res = await fetch("https://ipapi.co/json/");
-          if (res.ok) {
-            const d = await res.json();
-            ip = d.ip || "unknown";
-            country = d.country_name || "";
-            city = d.city || "";
-          }
-        } catch (e) {}
-
-        const ua = navigator.userAgent;
-        let device = "Desktop", os = "Unknown", browser = "Unknown";
-
-        if (/Android/i.test(ua)) { os = "Android"; device = "Mobile"; }
-        else if (/iPhone|iPad|iPod/i.test(ua)) { os = "iOS"; device = "Mobile"; }
-        else if (/Windows/i.test(ua)) os = "Windows";
-        else if (/Mac OS/i.test(ua)) os = "macOS";
-        else if (/Linux/i.test(ua)) os = "Linux";
-
-        if (/Edg/i.test(ua)) browser = "Edge";
-        else if (/OPR|Opera/i.test(ua)) browser = "Opera";
-        else if (/Brave/i.test(ua)) browser = "Brave";
-        else if (/Chrome/i.test(ua)) browser = "Chrome";
-        else if (/Firefox/i.test(ua)) browser = "Firefox";
-        else if (/Safari/i.test(ua)) browser = "Safari";
-
-        const verMatch = ua.match(/(Chrome|Firefox|Safari|Edg|Opera|OPR)\/(\d+)/);
-        const browserVer = verMatch ? verMatch[2] : "";
-
-        // IP як ID документа — кожен IP має один запис, лічильник зростає
-        const docId = ip.replace(/[^a-zA-Z0-9.:_-]/g, "_") || "unknown_" + Date.now();
-        const ref = doc(db, "visitor_logs", docId);
-
-        const baseData = {
-          ip, country, city,
-          device, os, browser, browserVer,
-          screen: window.screen.width + "x" + window.screen.height,
-          referrer: (document.referrer || "direct").substring(0, 200),
-          isAdmin: false,
-          userAgent: ua.substring(0, 250),
-          lastVisit: Date.now(),
-        };
-
-        // Без читання документа: гостям правила НЕ дають читати visitor_logs.
-        // merge + increment сам створює запис (visitCount = 1) або додає +1.
-        const FIRST_KEY = "visitorFirstVisit";
-        const isFirst = !localStorage.getItem(FIRST_KEY);
-        const data = {
-          ...baseData,
-          visitCount: increment(1),
-          timestamp: Date.now(), // для сортування
-        };
-        if (isFirst) data.firstVisit = Date.now();
-        await setDoc(ref, data, { merge: true });
-
-        if (isFirst) {
-          try { localStorage.setItem(FIRST_KEY, String(Date.now())); } catch (e) { /* noop */ }
+        const ctl = typeof AbortController === "function" ? new AbortController() : null;
+        const tm = setTimeout(() => { if (ctl) ctl.abort(); }, 4000);
+        const res = await fetch("https://ipapi.co/json/", ctl ? { signal: ctl.signal } : {});
+        clearTimeout(tm);
+        if (res.ok) {
+          const d = await res.json();
+          ip = String(d.ip || "unknown").slice(0, 64);
+          country = String(d.country_name || "").slice(0, 80);
+          city = String(d.city || "").slice(0, 80);
         }
-        sessionStorage.setItem(sessionKey, "1");
-      } catch (err) {
-        console.warn("Visitor log failed:", err);
-      }
-    })();
-  }, 1500);
+      } catch (e) { /* без IP */ }
+
+      const ua = navigator.userAgent;
+      let device = "Desktop", os = "Unknown", browser = "Unknown";
+
+      if (/Android/i.test(ua)) { os = "Android"; device = "Mobile"; }
+      else if (/iPhone|iPad|iPod/i.test(ua)) { os = "iOS"; device = "Mobile"; }
+      else if (/Windows/i.test(ua)) os = "Windows";
+      else if (/Mac OS/i.test(ua)) os = "macOS";
+      else if (/Linux/i.test(ua)) os = "Linux";
+
+      if (/Edg/i.test(ua)) browser = "Edge";
+      else if (/OPR|Opera/i.test(ua)) browser = "Opera";
+      else if (/Brave/i.test(ua)) browser = "Brave";
+      else if (/Chrome/i.test(ua)) browser = "Chrome";
+      else if (/Firefox/i.test(ua)) browser = "Firefox";
+      else if (/Safari/i.test(ua)) browser = "Safari";
+
+      const verMatch = ua.match(/(Chrome|Firefox|Safari|Edg|Opera|OPR)\/(\d+)/);
+      const browserVer = verMatch ? verMatch[2] : "";
+
+      const ref = doc(db, "visitor_logs", "d_" + vid);
+      const now = Date.now();
+
+      // Без читання документа: гостям правила НЕ дають читати visitor_logs.
+      // merge + increment сам створює запис (visitCount = 1) або додає +1.
+      // firstVisit береться з localStorage — однаковий щоразу, тож перезапис безпечний.
+      await setDoc(ref, {
+        ip, country, city,
+        device, os, browser, browserVer,
+        screen: window.screen.width + "x" + window.screen.height,
+        referrer: (document.referrer || "direct").substring(0, 200),
+        isAdmin: false,
+        userAgent: ua.substring(0, 250),
+        lastVisit: now,
+        timestamp: now, // для сортування
+        firstVisit: first,
+        visitCount: increment(1),
+      }, { merge: true });
+
+      sessionStorage.setItem(sessionKey, "1");
+    } catch (err) {
+      console.warn("Visitor log failed:", err);
+    }
+  }
 }
 
 // Завантаження цілей та глобальної статистики
