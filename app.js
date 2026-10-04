@@ -19,6 +19,8 @@ import {
   getDocs,
   writeBatch,
   deleteField,
+  where,
+  getDocsFromServer,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
   getAuth,
@@ -814,6 +816,15 @@ function calculateIndex(valStr, dateStr, exerciseName) {
   return reps <= 1 ? totalWeight : totalWeight * (1 + reps / 30);
 }
 
+// Оцінка 1ПМ (Еплі): понад 10 повторів рахуються як 10 — на великій
+// кількості повторів формула сильно завищує (15 без ваги ≠ +50% ваги тіла).
+// Порядок рекордів (calculateIndex) це НЕ змінює: 20 разів і далі б'є 15.
+const RM_REPS_CAP = 10;
+function rmFactor(reps) {
+  const r = Math.min(reps, RM_REPS_CAP);
+  return r <= 1 ? 1 : 1 + r / 30;
+}
+
 // Розрахунок 1ПМ для історії та рекордів
 function calculate1RM(valStr, dateStr) {
   if (!valStr) return 0;
@@ -828,7 +839,7 @@ function calculate1RM(valStr, dateStr) {
   let bodyWeight = getWeightAtDate(dateStr);
   let totalWeight = bodyWeight + addedW;
 
-  let oneRmTotal = reps === 1 ? totalWeight : totalWeight * (1 + reps / 30);
+  let oneRmTotal = totalWeight * rmFactor(reps);
   let predictedAddedW = oneRmTotal - bodyWeight;
 
   return predictedAddedW > 0 ? Math.round(predictedAddedW * 10) / 10 : 0;
@@ -856,8 +867,8 @@ window.update1RM = () => {
     let bodyWeight = getWeightAtDate(currentDate);
     let totalWeight = bodyWeight + addedW;
 
-    // Класична силова формула Еплі: 1RM = Weight * (1 + Reps/30)
-    let oneRmTotal = reps === 1 ? totalWeight : totalWeight * (1 + reps / 30);
+    // Формула Еплі: 1RM = Weight * (1 + Reps/30), повтори понад 10 — як 10
+    let oneRmTotal = totalWeight * rmFactor(reps);
 
     // Вираховуємо саме ДОДАТКОВУ вагу для 1ПМ
     let predictedAddedW = oneRmTotal - bodyWeight;
@@ -960,71 +971,159 @@ if (goalModal) {
     if (e.target === goalModal) goalModal.classList.remove("show");
   });
 }
-// Функція рендеру П'єдесталу (Бере дані з окремого оптимізованого документа)
+// === АБСОЛЮТНІ РЕКОРДИ (П'єдестал) ===
+// stats/pedestal       — найкращий запис кожної вправи за Силовим індексом, порахований
+//                        з усієї історії (гостям не треба вантажити весь журнал).
+// stats/pedestalConfig — які вправи сховані. Раніше це жило в localStorage одного
+//                        телефона, і гості бачили все.
+let _pedestalLoaded = false;
+let _pedestalUnsub = null;
+let _pedestalCfgUnsub = null;
+let _pedestalHidden = null;      // Set назв; null — налаштування ще не прийшли
+let _pedestalCfgExists = null;   // null — невідомо
+let _pedestalCfgMigrating = false;
+let _pedestalPanelOpen = false;
+const PEDESTAL_HIDDEN_LS = "pedestalHidden";
+const STRENGTH_1RM_EX = [EX.PULLUPS, EX.PUSHUPS, EX.DIPS];
+
+function _localPedestalHidden() {
+  try {
+    const a = JSON.parse(localStorage.getItem(PEDESTAL_HIDDEN_LS) || "[]");
+    return Array.isArray(a) ? a.map(String) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function listenToPedestal() {
+  if (_pedestalUnsub) return;
+  _pedestalUnsub = onSnapshot(
+    doc(db, "stats", "pedestal"),
+    (snap) => {
+      pedestalData = snap.exists() ? snap.data() || {} : {};
+      _pedestalLoaded = true;
+      renderPedestal();
+    },
+    (err) => console.warn("П'єдестал:", err),
+  );
+  _pedestalCfgUnsub = onSnapshot(
+    doc(db, "stats", "pedestalConfig"),
+    (snap) => {
+      const data = snap.exists() ? snap.data() : null;
+      _pedestalCfgExists = !!data;
+      _pedestalHidden = new Set(data && Array.isArray(data.hidden) ? data.hidden.map(String) : _localPedestalHidden());
+      renderPedestal();
+    },
+    (err) => console.warn("П'єдестал (налаштування):", err),
+  );
+}
+
+function _savePedestalHidden() {
+  const hidden = [...(_pedestalHidden || [])];
+  try { localStorage.setItem(PEDESTAL_HIDDEN_LS, JSON.stringify(hidden)); } catch (e) { /* noop */ }
+  return setDoc(doc(db, "stats", "pedestalConfig"), { hidden, updatedAt: Date.now() }).catch((e) => {
+    console.warn("pedestalConfig:", e);
+    showToast("Не вдалося зберегти налаштування рекордів", "err");
+  });
+}
+
+function _pedestalCardsInit(container) {
+  if (container._pedInit) return;
+  container._pedInit = true;
+  container.addEventListener("click", (e) => {
+    const goalBtn = e.target.closest("[data-goal-ex]");
+    if (goalBtn) { window.setGoal(goalBtn.dataset.goalEx); return; }
+    if (!isAdmin) return;
+    if (e.target.closest("#pedestalSettingsBtn")) {
+      _pedestalPanelOpen = !_pedestalPanelOpen;
+      renderPedestal();
+      return;
+    }
+    const tgl = e.target.closest(".pedestal-toggle-btn");
+    if (tgl) {
+      const ex = tgl.dataset.ex;
+      if (!_pedestalHidden) _pedestalHidden = new Set(_localPedestalHidden());
+      if (_pedestalHidden.has(ex)) _pedestalHidden.delete(ex);
+      else _pedestalHidden.add(ex);
+      renderPedestal();
+      _savePedestalHidden();
+      return;
+    }
+    if (e.target.closest("#pedestalRecalcBtn")) syncGlobalStats();
+  });
+}
+
 function renderPedestal() {
   const container = document.getElementById("pedestalContainer");
-  const exercises = Object.keys(pedestalData);
+  if (!container) return;
+  _pedestalCardsInit(container);
 
-  if (exercises.length === 0) {
-    container.innerHTML =
-      '<div class="empty-state" style="grid-column: 1 / -1;">Ще немає жодного рекорду. Час тренуватись!</div>';
-    return;
+  // Старі налаштування з цього телефона — один раз переносимо в базу (лише власник)
+  if (isAdmin && _pedestalCfgExists === false && !_pedestalCfgMigrating && _localPedestalHidden().length) {
+    _pedestalCfgMigrating = true;
+    _pedestalHidden = new Set(_localPedestalHidden());
+    _savePedestalHidden();
   }
 
-  // Фільтр: прибираємо Човниковий біг і дозволяємо юзеру вибирати
-  const HIDDEN_KEY = "pedestalHidden";
-  let hiddenSet = new Set(JSON.parse(localStorage.getItem(HIDDEN_KEY) || "[]"));
+  // Старі записи човникового бігу без схеми не показуємо (як і раніше)
+  const exercises = Object.keys(pedestalData || {}).filter(
+    (ex) => ex !== EX.SHUTTLE && pedestalData[ex] && typeof pedestalData[ex] === "object",
+  );
 
-  // Кнопка керування (показується тільки адміну)
+  const hiddenSet = _pedestalHidden || new Set(_localPedestalHidden());
+
+  // Керування (лише власнику)
   let controlHtml = "";
   if (isAdmin) {
-    const btnList = exercises.map(ex => {
+    const btnList = exercises.map((ex) => {
       const hidden = hiddenSet.has(ex);
       const safe = escapeHTML(ex);
-      const shortLabel = safe
-        .replace("Човниковий біг ", "Ч.б. ")
-        .replace("Спринт ", "Спринт ")
-        .replace("Біг ", "Біг ");
-      return `<button class="pedestal-toggle-btn ${hidden ? "" : "active"}" data-ex="${safe}">${shortLabel}</button>`;
+      const shortLabel = safe.replace("Човниковий біг ", "Ч.б. ");
+      return `<button type="button" class="pedestal-toggle-btn ${hidden ? "" : "active"}" data-ex="${safe}">${shortLabel}</button>`;
     }).join("");
     controlHtml = `
     <div class="pedestal-header-row">
-      <span></span>
-      <button class="pedestal-settings-btn" id="pedestalSettingsBtn" title="Налаштувати">⚙️ Налаштувати</button>
+      <button type="button" class="pedestal-settings-btn" id="pedestalSettingsBtn">⚙️ Налаштувати</button>
     </div>
-    <div class="pedestal-controls" id="pedestalControls" style="display:none">
-      <div class="pedestal-controls-title">Відображати рекорди:</div>
+    <div class="pedestal-controls" id="pedestalControls" style="display:${_pedestalPanelOpen ? "block" : "none"}">
+      <div class="pedestal-controls-title">Відображати рекорди (бачать усі):</div>
       <div class="pedestal-controls-list">${btnList}</div>
+      <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+        <button type="button" class="pedestal-settings-btn" id="pedestalRecalcBtn">🔄 Перерахувати з усієї історії</button>
+      </div>
     </div>`;
+  }
+
+  // Порожньо: власнику все одно лишаємо ⚙️ з кнопкою перерахунку
+  if (exercises.length === 0) {
+    container.innerHTML = _pedestalLoaded
+      ? controlHtml + '<div class="empty-state" style="grid-column: 1 / -1;">Ще немає жодного рекорду. Час тренуватись!</div>'
+      : "";
+    return;
   }
 
   let html = "";
   exercises.forEach((ex) => {
-    // Пропускаємо приховані та старі Човниковий біг без схеми
     if (hiddenSet.has(ex)) return;
-    if (ex === "Човниковий біг") return; // старі записи без схеми
-
     const maxW = pedestalData[ex];
+    const safeEx = escapeHTML(ex);
 
-    // Логіка цілей
+    // Ціль
     const goal = allGoals[ex];
-    let goalHTML = `<button class="goal-btn" onclick="setGoal('${ex}')">+ Задати ціль</button>`;
-
+    let goalHTML = `<button type="button" class="goal-btn" data-goal-ex="${safeEx}">+ Задати ціль</button>`;
     if (goal) {
       const goalNum = parseFloat(goal);
       let percent;
       let goalLabel;
-
       if (isRunningExercise(ex)) {
-        let actualTime = parseTimeFromCount(maxW.count);
+        const actualTime = parseTimeFromCount(maxW.count);
         percent = actualTime > 0 ? Math.round((goalNum / actualTime) * 100) : 0;
         goalLabel = `Ціль: ${formatSecondsToTime(goalNum)}`;
       } else {
-        percent = Math.round((maxW.absoluteMaxReps / goalNum) * 100);
-        goalLabel = `Ціль: ${goalNum}`;
+        percent = goalNum > 0 ? Math.round(((parseFloat(maxW.absoluteMaxReps) || 0) / goalNum) * 100) : 0;
+        goalLabel = `Ціль: ${escapeHTML(String(goalNum))}`;
       }
-      if (percent > 100) percent = 100;
-
+      percent = Math.max(0, Math.min(100, percent));
       goalHTML = `
                 <div class="goal-header">
                     <span>${goalLabel}</span>
@@ -1034,63 +1133,47 @@ function renderPedestal() {
                     <div class="progress-fill" style="width: ${percent}%;"></div>
                 </div>
                 <div style="text-align:right; margin-top:5px;">
-                    <button class="goal-btn" style="padding:2px 5px; font-size: 0.65rem;" onclick="setGoal('${ex}')">Змінити</button>
+                    <button type="button" class="goal-btn" style="padding:2px 5px; font-size: 0.65rem;" data-goal-ex="${safeEx}">Змінити</button>
                 </div>
             `;
     }
 
     let icon = ICONS.medal;
-    if (ex.startsWith("Біг")) icon = ICONS.bolt;
-    if (ex.startsWith("Спринт")) icon = ICONS.bolt;
-    if (ex.startsWith("Човниковий")) icon = ICONS.bolt;
-    if (ex === "Підтягування") icon = ICONS.trophy;
-    if (ex === "Відтискання") icon = ICONS.fire;
+    if (ex.startsWith("Біг") || ex.startsWith("Спринт") || ex.startsWith("Човниковий")) icon = ICONS.bolt;
+    if (ex === EX.PULLUPS) icon = ICONS.trophy;
+    if (ex === EX.PUSHUPS) icon = ICONS.fire;
 
-    let rmBadge =
-      maxW.max1RM > 0
-        ? `<div style="font-size: 0.95rem; color: var(--success); font-weight: 800; margin-top: -5px; margin-bottom: 8px; text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);">${ICONS.bulb} 1ПМ: +${maxW.max1RM} кг</div>`
-        : "";
+    // 1ПМ рахуємо тут, а не беремо збережений: так він завжди за тією ж формулою,
+    // що й статус та історія (повтори понад 10 = 10). Лише для силових з вагою тіла.
+    const rm = STRENGTH_1RM_EX.includes(ex) ? calculate1RM(maxW.count, maxW.date) : 0;
+    const rmBadge = rm > 0
+      ? `<div style="font-size: 0.95rem; color: var(--success); font-weight: 800; margin-top: -5px; margin-bottom: 8px; text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);">${ICONS.bulb} 1ПМ: +${rm} кг</div>`
+      : "";
 
-    let daysStanding = getDaysAgo(maxW.date);
-    let daysBadge = `<div style="font-size: 0.85rem; color: var(--highlight); font-weight: 800; margin-top: 5px; margin-bottom: 10px; background: rgba(245, 158, 11, 0.15); border: 1px dashed var(--highlight); padding: 4px 8px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.1);">
+    const daysStanding = getDaysAgo(maxW.date);
+    const daysBadge = `<div style="font-size: 0.85rem; color: var(--highlight); font-weight: 800; margin-top: 5px; margin-bottom: 10px; background: rgba(245, 158, 11, 0.15); border: 1px dashed var(--highlight); padding: 4px 8px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.1);">
             ${formatDaysStanding(daysStanding)}
         </div>`;
-
-    let safeEx = escapeHTML(ex);
-    let safeCount = escapeHTML(maxW.count);
 
     html += `
             <div class="record-card">
                 <div class="record-icon">${icon}</div>
                 <div class="record-title">${safeEx}</div>
-                <div class="record-value">${safeCount}</div>
+                <div class="record-value">${escapeHTML(maxW.count)}</div>
                 ${rmBadge}
                 ${daysBadge}
-                <div class="record-date">${maxW.date}</div>
+                <div class="record-date">${escapeHTML(formatDate(maxW.date))}</div>
                 <div class="goal-container">${goalHTML}</div>
             </div>
         `;
   });
 
-  container.innerHTML = controlHtml + html;
-
-  // Обробники кнопок керування
-  if (isAdmin) {
-    document.getElementById("pedestalSettingsBtn")?.addEventListener("click", () => {
-      const ctrl = document.getElementById("pedestalControls");
-      if (ctrl) ctrl.style.display = ctrl.style.display === "none" ? "block" : "none";
-    });
-
-    container.querySelectorAll(".pedestal-toggle-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const ex = btn.dataset.ex;
-        if (hiddenSet.has(ex)) hiddenSet.delete(ex);
-        else hiddenSet.add(ex);
-        localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenSet]));
-        renderPedestal();
-      });
-    });
+  if (!html) {
+    html = isAdmin
+      ? '<div class="empty-state" style="grid-column: 1 / -1;">Усі рекорди сховані. ⚙️ «Налаштувати» — вибрати, що показувати.</div>'
+      : '<div class="empty-state" style="grid-column: 1 / -1;">Рекорди приховані.</div>';
   }
+  container.innerHTML = controlHtml + html;
 }
 
 // Функція рендеру Глобальної Статистики
@@ -1138,81 +1221,128 @@ function renderGlobalStats() {
 }
 
 // --- ФУНКЦІЯ: СПОРТИВНИЙ СТАТУС ---
+// Відносна сила в підтягуваннях за останні 90 днів: найкращий підхід,
+// 1ПМ (Еплі, повтори понад 10 = 10) / вага тіла на дату підходу.
+// Перестав тренуватись — звання падає; рекорд за весь час — у «Абсолютних рекордах».
+const STATUS_DAYS = 90;
+const STATUS_LEVELS = [
+  { name: "Рекрут", from: 1.0, to: 1.2, color: "var(--text-muted)" },
+  { name: "Атлет", from: 1.2, to: 1.5, color: "var(--success)" },
+  { name: "КМС", from: 1.5, to: 1.8, color: "var(--highlight)" },
+  { name: "Еліта", from: 1.8, to: Infinity, color: "var(--danger)" },
+];
+let _statusWorkouts = null; // усі записи за 90 днів (null — ще не завантажено)
+let _statusUnsub = null;
+
+function _statusSince() {
+  const d = new Date();
+  d.setDate(d.getDate() - STATUS_DAYS);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+// Окремий запит на 90 днів: журнал вантажить лише 50 останніх записів,
+// і найкращий підхід міг би туди не потрапити
+function listenToStatusWindow() {
+  if (_statusUnsub) return;
+  _statusUnsub = onSnapshot(
+    query(colRef, where("date", ">=", _statusSince())),
+    (snap) => {
+      _statusWorkouts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderSportStatus();
+    },
+    (err) => console.warn("Статус (90 днів):", err),
+  );
+}
+
+function _pluralRaz(n) {
+  const a = Math.abs(n) % 100;
+  const b = a % 10;
+  if (a > 10 && a < 20) return "разів";
+  if (b === 1) return "раз";
+  if (b > 1 && b < 5) return "рази";
+  return "разів";
+}
+
 function renderSportStatus() {
   const card = document.getElementById("sportStatusCard");
   if (!card) return;
+  const elLevel = document.getElementById("statusLevelName");
+  const elCoef = document.getElementById("statusCoefValue");
+  const elFill = document.getElementById("statusBarFill");
+  const elHint = document.getElementById("statusHint");
+  const elBest = document.getElementById("statusBest");
 
-  // Беремо останню вагу
-  let bodyWeight =
-    typeof allWeights !== "undefined" && allWeights.length > 0
-      ? allWeights[0].weight
-      : 0;
+  const hasWeight = typeof allWeights !== "undefined" && allWeights.length > 0;
+  const since = _statusSince();
+  // Поки запит на 90 днів не відповів — рахуємо з того, що вже є в журналі
+  const source = _statusWorkouts || allWorkouts;
+  const sets = source.filter(
+    (w) => w.exercise === EX.PULLUPS && w.date >= since && parseValue(w.count) > 0,
+  );
 
-  // Шукаємо найкращий 1ПМ для Підтягувань
-  const pullups = allWorkouts.filter((w) => w.exercise === EX.PULLUPS);
+  if (!hasWeight || sets.length === 0) {
+    // Гостям порожню картку не показуємо; власнику — підказку, що робити
+    if (!isAdmin) {
+      card.style.display = "none";
+      return;
+    }
+    elLevel.innerText = "—";
+    elLevel.style.color = "var(--text-muted)";
+    elCoef.innerText = "Коефіцієнт відносної сили: —";
+    elFill.style.width = "0%";
+    elHint.innerText = !hasWeight
+      ? "Додай вагу у вкладці «Вага» — без неї коефіцієнт не порахувати."
+      : `За ${STATUS_DAYS} днів немає підтягувань — запиши підхід, і звання оновиться.`;
+    if (elBest) elBest.innerText = "";
+    card.style.display = "block";
+    return;
+  }
 
-  // Якщо ваги немає або підтягувань ще не було, ховаємо картку
-  if (bodyWeight === 0 || pullups.length === 0) {
+  // Найкращий підхід за відносною силою: (вага тіла + обтяження) × Еплі / вага тіла
+  let best = null;
+  sets.forEach((w) => {
+    const str = String(w.count).replace(/,/g, ".");
+    const reps = parseValue(str);
+    const m = str.match(/\(\s*\+?\s*([\d.]+)\s*к?г?\s*\)/i);
+    const added = m ? parseFloat(m[1]) || 0 : 0;
+    const bw = getWeightAtDate(w.date);
+    if (!(bw > 0)) return;
+    const rel = ((bw + added) * rmFactor(reps)) / bw;
+    if (!best || rel > best.rel) best = { rel, reps, added, date: w.date };
+  });
+  if (!best) {
     card.style.display = "none";
     return;
   }
 
-  let max1RM_added = 0;
-  pullups.forEach((w) => {
-    let rm = calculate1RM(w.count, w.date);
-    if (rm > max1RM_added) max1RM_added = rm;
-  });
+  const coef = Math.round(best.rel * 100) / 100;
+  let li = STATUS_LEVELS.findIndex((l) => coef < l.to);
+  if (li < 0) li = STATUS_LEVELS.length - 1;
+  const lvl = STATUS_LEVELS[li];
+  const next = STATUS_LEVELS[li + 1];
+  let percent = next ? ((coef - lvl.from) / (lvl.to - lvl.from)) * 100 : 100;
+  percent = Math.max(0, Math.min(100, percent));
 
-  // Загальний 1ПМ = власна вага + додаткова вага на 1 раз
-  let total1RM = bodyWeight + max1RM_added;
-  let coef = total1RM / bodyWeight;
-  coef = Math.round(coef * 100) / 100;
+  elLevel.innerText = lvl.name;
+  elLevel.style.color = lvl.color;
+  elCoef.innerText = `Коефіцієнт відносної сили: ${coef.toFixed(2)}`;
+  elFill.style.width = `${percent}%`;
+  elFill.style.background = lvl.color;
 
-  let level = "";
-  let nextCoef = 0;
-  let percent = 0;
-  let color = "";
-
-  // Математична модель рангів
-  if (coef < 1.2) {
-    level = "Рекрут";
-    nextCoef = 1.2;
-    percent = ((coef - 1.0) / (1.2 - 1.0)) * 100;
-    color = "var(--text-muted)";
-  } else if (coef < 1.5) {
-    level = "Атлет";
-    nextCoef = 1.5;
-    percent = ((coef - 1.2) / (1.5 - 1.2)) * 100;
-    color = "var(--success)";
-  } else if (coef < 1.8) {
-    level = "КМС";
-    nextCoef = 1.8;
-    percent = ((coef - 1.5) / (1.8 - 1.5)) * 100;
-    color = "var(--highlight)";
+  const bwNow = allWeights[0].weight;
+  if (next) {
+    const kg = Math.max(1, Math.ceil((next.from - coef) * bwNow));
+    elHint.innerText = `До «${next.name}»: +${kg} кг до 1ПМ`;
   } else {
-    level = "Еліта";
-    nextCoef = 2.0;
-    percent = 100;
-    color = "var(--danger)";
+    elHint.innerText = `Найвище звання. Рахується за ${STATUS_DAYS} днів — тримай форму.`;
   }
 
-  if (percent > 100) percent = 100;
-  if (percent < 0) percent = 0;
-
-  document.getElementById("statusLevelName").innerText = level;
-  document.getElementById("statusLevelName").style.color = color;
-  document.getElementById("statusCoefValue").innerText =
-    `Коефіцієнт відносної сили: ${coef}`;
-  document.getElementById("statusBarFill").style.width = `${percent}%`;
-  document.getElementById("statusBarFill").style.background = color;
-
-  let kgToNext = Math.round(nextCoef * bodyWeight - total1RM);
-  if (coef >= 1.8) {
-    document.getElementById("statusHint").innerText =
-      "Ти досяг абсолютного максимуму! Справжня машина.";
-  } else {
-    document.getElementById("statusHint").innerText =
-      `До наступного звання: +${kgToNext} кг до 1ПМ`;
+  if (elBest) {
+    const what = best.added > 0
+      ? `${best.reps} × +${best.added} кг`
+      : `${best.reps} ${_pluralRaz(best.reps)}`;
+    const capNote = best.reps > RM_REPS_CAP ? ` (рахується як ${RM_REPS_CAP})` : "";
+    elBest.innerText = `Найкращий підхід за ${STATUS_DAYS} днів: ${what}${capNote} · ${formatDate(best.date)}`;
   }
 
   card.style.display = "block";
@@ -1562,13 +1692,9 @@ window.listenToWorkouts = () => {
         loadMoreBtn.style.display = "none";
       }
     }
-    // Завантаження Абсолютних Рекордів (П'єдестал)
-    onSnapshot(doc(db, "stats", "pedestal"), (docSnapshot) => {
-      if (docSnapshot.exists()) {
-        pedestalData = docSnapshot.data();
-        renderPedestal(); // Малюємо П'єдестал миттєво!
-      }
-    });
+    // П'єдестал і вікно статусу — окремі підписки, створюються один раз
+    listenToPedestal();
+    listenToStatusWindow();
 
     document.getElementById("status").innerText = "Хмара синхронізована ✅";
   });
@@ -2224,7 +2350,7 @@ async function processWorkoutDB(workoutData, currentEditId) {
     shouldUpdatePedestal = true; // Силові: більше повторень, хоча індекс нижчий
   }
 
-  if (shouldUpdatePedestal) {
+  if (shouldUpdatePedestal && !currentEditId && _pedestalLoaded) {
     const pedestalRef = doc(db, "stats", "pedestal");
     batch.set(
       pedestalRef,
@@ -2285,19 +2411,44 @@ async function processWorkoutDB(workoutData, currentEditId) {
       { merge: true },
     ); // Збільшуємо статистику
 
-    if (isRecord || isGoalReached) {
-      confetti({
-        particleCount: 150,
-        spread: 80,
-        origin: { y: 0.6 },
-        zIndex: 9999,
-      });
-    }
   }
 
-  // 3. Відправляємо весь пакет на сервер ОДНИМ запитом
-  await batch.commit();
-  syncGlobalStats();
+  // 3. Відправляємо весь пакет ОДНИМ запитом. Без мережі commit чекає сервер
+  //    нескінченно, хоча запис уже в локальному кеші й піде сам, — тож форму
+  //    тримаємо не довше 2,5 с.
+  const res = await _commitFast(batch);
+
+  // Конфеті — лише після збереження і лише якщо бібліотека завантажилась
+  // (без мережі її немає, і раніше через це новий рекорд не зберігався взагалі)
+  if (!currentEditId && (isRecord || isGoalReached) && typeof window.confetti === "function") {
+    try {
+      window.confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, zIndex: 9999 });
+    } catch (e) { /* не критично */ }
+  }
+
+  // Редагування може зменшити рекорд або перенести запис в іншу вправу —
+  // перераховуємо зачеплені вправи точно, з бази. Новий запис рахується вище
+  // інкрементально; перерахунок потрібен, лише якщо п'єдестал ще не завантажився.
+  if (currentEditId) {
+    const oldW = allWorkouts.find((w) => w.id === currentEditId);
+    _recomputePedestal([exerciseName, oldW && oldW.exercise]);
+  } else if (!_pedestalLoaded) {
+    _recomputePedestal([exerciseName]);
+  }
+  return res;
+}
+
+// "ok" — сервер прийняв; "slow" — немає мережі: запис у кеші, синхронізується сам
+async function _commitFast(batch) {
+  const p = batch.commit();
+  const res = await Promise.race([
+    p.then(() => "ok"),
+    new Promise((r) => setTimeout(() => r("slow"), 2500)),
+  ]);
+  if (res === "slow") {
+    p.catch((e) => showToast("База не прийняла запис: " + (e.code || e.message), "err"));
+  }
+  return res;
 }
 
 // === 3. THE CONTROLLER: Логіка кліку на кнопку збереження ===
@@ -2350,7 +2501,7 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
     document.getElementById("status").innerText = "Збереження...";
 
     // 5. Делегуємо роботу з базою даних
-    await processWorkoutDB(
+    const commitRes = await processWorkoutDB(
       { exerciseName, date, finalResult, noteValue, videoValue, resultValue },
       editingId,
     );
@@ -2364,7 +2515,8 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
     clearForm();
 
     document.getElementById("status").innerText = "Рекорд збережено 🏆";
-    showToast("Збережено: " + exerciseName + " — " + finalResult);
+    showToast("Збережено: " + exerciseName + " — " + finalResult +
+      (commitRes === "slow" ? " · офлайн: синхронізується, коли буде мережа" : ""));
     setTimeout(() => {
       document.getElementById("status").innerText = "Хмара синхронізована ✅";
     }, 3000);
@@ -2417,10 +2569,13 @@ window.deleteEntry = async (id) => {
       batch.set(statRef, { [stat.key]: increment(-stat.val) }, { merge: true });
       batch.delete(workoutRef);
 
-      // Виконуємо пакет одним махом
-      await batch.commit();
+      // Виконуємо пакет одним махом (без мережі — не чекаємо сервер довше 2,5 с)
+      const res = await _commitFast(batch);
 
-      document.getElementById("status").innerText = "Видалено 🗑️";
+      // Видалений запис міг бути рекордом — перераховуємо цю вправу
+      _recomputePedestal([workout.exercise]);
+
+      document.getElementById("status").innerText = res === "slow" ? "Видалено (офлайн) 🗑️" : "Видалено 🗑️";
       setTimeout(() => {
         document.getElementById("status").innerText = "Хмара синхронізована ✅";
       }, 2000);
@@ -2435,60 +2590,128 @@ window.deleteEntry = async (id) => {
   }
 };
 
-// === ФІНАЛЬНИЙ СКРИПТ СИНХРОНІЗАЦІЇ (Глобальна стата + П'єдестал) ===
-window.syncGlobalStats = async () => {
+// === П'ЄДЕСТАЛ: ТОЧНИЙ ПЕРЕРАХУНОК ===
+// Найкращий запис за Силовим індексом + максимум повторів (для силових) або
+// найкращий час (для бігових) — незалежно від порядку записів.
+function _pedestalEntryFrom(list, exerciseName) {
+  const isRunning = isRunningExercise(exerciseName);
+  let best = null;
+  let maxReps = 0;
+  list.forEach((w) => {
+    const idx = calculateIndex(w.count, w.date, w.exercise);
+    const val = isRunning ? parseTimeFromCount(w.count) : parseValue(w.count);
+    if (!isRunning && val > maxReps) maxReps = val;
+    if (!best || idx > best.index) best = { w, index: idx, val };
+  });
+  if (!best) return null;
+  return {
+    count: best.w.count,
+    date: best.w.date,
+    index: best.index,
+    absoluteMaxReps: isRunning ? best.val : maxReps,
+    max1RM: isRunning ? 0 : calculate1RM(best.w.count, best.w.date),
+  };
+}
+
+// Старі бігові записи лежать у базі як «Біг» / «Спринт» / «Човниковий біг»,
+// а в застосунку стають «Біг 5 км» тощо (migrateWorkout)
+function _legacyNameFor(name) {
+  if (/^Біг /.test(name)) return EX.RUN;
+  if (/^Спринт /.test(name)) return EX.SPRINT;
+  if (/^Човниковий біг /.test(name)) return EX.SHUTTLE;
+  return null;
+}
+
+const PEDESTAL_DIRTY_LS = "pedestalDirty";
+function _pedestalDirty() {
   try {
-    document.getElementById("status").innerText =
-      "Аналіз всієї історії (це може зайняти час)...";
+    const a = JSON.parse(localStorage.getItem(PEDESTAL_DIRTY_LS) || "[]");
+    return Array.isArray(a) ? a : [];
+  } catch (e) {
+    return [];
+  }
+}
+function _setPedestalDirty(list) {
+  try {
+    if (list.length) localStorage.setItem(PEDESTAL_DIRTY_LS, JSON.stringify(list));
+    else localStorage.removeItem(PEDESTAL_DIRTY_LS);
+  } catch (e) { /* noop */ }
+}
 
-    // Витягуємо ВСІ тренування без лімітів (тільки для цього скрипта)
-    const querySnapshot = await getDocs(collection(db, "workouts"));
-    let allW = querySnapshot.docs.map((d) => migrateWorkout({ id: d.id, ...d.data() }));
-
-    let totals = {
-      Підтягування: 0,
-      Відтискання: 0,
-      Бруси: 0,
-      Біг: 0,
-      otherSets: 0,
-    };
-    let newPedestal = {};
-
-    allW.forEach((w) => {
-      // 1. Рахуємо Зал Слави
-      let s = getStatUpdateData(w.exercise, w.count);
-      if (totals[s.key] !== undefined) totals[s.key] += s.val;
-      else totals[s.key] = s.val;
-
-      // 2. Рахуємо П'єдестал
-      let isRunning = isRunningExercise(w.exercise);
-      let wIndex = calculateIndex(w.count, w.date, w.exercise);
-      let wReps = isRunning ? parseTimeFromCount(w.count) : parseValue(w.count);
-      let w1RM = isRunning ? 0 : calculate1RM(w.count, w.date);
-
-      if (!newPedestal[w.exercise] || wIndex > newPedestal[w.exercise].index) {
-        newPedestal[w.exercise] = {
-          count: w.count,
-          date: w.date,
-          index: wIndex,
-          absoluteMaxReps: wReps,
-          max1RM: w1RM,
-        };
-      } else {
-        if (!isRunning && wReps > newPedestal[w.exercise].absoluteMaxReps) {
-          newPedestal[w.exercise].absoluteMaxReps = wReps;
-        }
+// Перерахунок лише названих вправ — читає з сервера тільки їхні записи.
+// Без мережі не рахуємо з кешу (там лише частина історії й можна зіпсувати
+// рекорд) — запам'ятовуємо й доробляємо при наступному відкритті з мережею.
+let _pedestalRecalcBusy = null;
+async function _recomputePedestal(names) {
+  const want = [...new Set([...(names || []), ..._pedestalDirty()].filter(Boolean))];
+  if (!want.length || !isAdmin) return;
+  if (_pedestalRecalcBusy) {
+    await _pedestalRecalcBusy.catch(() => {});
+  }
+  _pedestalRecalcBusy = (async () => {
+    try {
+      const update = {};
+      for (const name of want) {
+        const legacy = _legacyNameFor(name);
+        const q = legacy
+          ? query(colRef, where("exercise", "in", [name, legacy]))
+          : query(colRef, where("exercise", "==", name));
+        const snap = await getDocsFromServer(q);
+        const list = snap.docs
+          .map((d) => migrateWorkout({ id: d.id, ...d.data() }))
+          .filter((w) => w.exercise === name);
+        update[name] = _pedestalEntryFrom(list, name) || deleteField();
       }
+      await setDoc(doc(db, "stats", "pedestal"), update, { merge: true });
+      _setPedestalDirty(_pedestalDirty().filter((n) => !want.includes(n)));
+    } catch (e) {
+      console.warn("Перерахунок п'єдесталу відкладено:", e);
+      _setPedestalDirty([...new Set([..._pedestalDirty(), ...want])]);
+    }
+  })();
+  return _pedestalRecalcBusy;
+}
+
+// Відкладений перерахунок: власник відкрив сайт або з'явилась мережа
+onAuthStateChanged(auth, (user) => {
+  if (user && _pedestalDirty().length) setTimeout(() => _recomputePedestal([]), 1500);
+});
+window.addEventListener("online", () => {
+  if (isAdmin && _pedestalDirty().length) _recomputePedestal([]);
+});
+
+// === ПОВНИЙ ПЕРЕРАХУНОК (кнопка в ⚙️ «Налаштувати») ===
+// Зал Слави + П'єдестал з усієї історії. Без alert і без перезавантаження.
+window.syncGlobalStats = async () => {
+  if (!isAdmin) return;
+  const statusEl = document.getElementById("status");
+  try {
+    statusEl.innerText = "Перерахунок усієї історії…";
+    const querySnapshot = await getDocsFromServer(collection(db, "workouts"));
+    const allW = querySnapshot.docs.map((d) => migrateWorkout({ id: d.id, ...d.data() }));
+
+    const totals = { Підтягування: 0, Відтискання: 0, Бруси: 0, Біг: 0, otherSets: 0 };
+    const byEx = {};
+    allW.forEach((w) => {
+      const st = getStatUpdateData(w.exercise, w.count);
+      totals[st.key] = (totals[st.key] || 0) + st.val;
+      (byEx[w.exercise] = byEx[w.exercise] || []).push(w);
+    });
+    const newPedestal = {};
+    Object.keys(byEx).forEach((ex) => {
+      const entry = _pedestalEntryFrom(byEx[ex], ex);
+      if (entry) newPedestal[ex] = entry;
     });
 
-    await setDoc(doc(db, "stats", "global"), totals);
+    await setDoc(doc(db, "stats", "global"), totals, { merge: true });
     await setDoc(doc(db, "stats", "pedestal"), newPedestal);
-
-    alert("✅ Зал Слави та П'єдестал успішно оптимізовано та оновлено!");
-    location.reload();
+    _setPedestalDirty([]);
+    statusEl.innerText = "Хмара синхронізована ✅";
+    showToast("Рекорди перераховано: " + allW.length + " записів");
   } catch (e) {
-    console.error("Помилка:", e);
-    alert("Помилка доступу. Можливо, ви не авторизовані як власник.");
+    console.error("Перерахунок:", e);
+    statusEl.innerText = "Хмара синхронізована ✅";
+    showToast(e && e.code === "unavailable" ? "Потрібна мережа для перерахунку" : "Помилка перерахунку: " + (e.code || e.message), "err");
   }
 };
 // SERVICE WORKER
@@ -3045,6 +3268,9 @@ window.listenToWeight = () => {
 
     renderWeightUI();
     if (window.autofillWeightForm) window.autofillWeightForm();
+    // Статус і 1ПМ на п'єдесталі залежать від ваги тіла
+    renderSportStatus();
+    renderPedestal();
 
     // Логіка показу кнопки "Завантажити ще"
     const loadMoreBtn = document.getElementById("loadMoreWeightBtn");
