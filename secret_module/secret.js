@@ -6,7 +6,8 @@
 import { getApps, getApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
-  getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, limit,
+  getFirestore, collection, onSnapshot, query, orderBy, deleteDoc, doc, limit,
+  setDoc, updateDoc, deleteField,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const MEDIA_FILES = [
@@ -21,10 +22,22 @@ const MEDIA_FILES = [
 ];
 
 const MEDIA_PASS = "555";   // код на вкладку «Медіа»
-var _mediaUnlocked = false; // скидається при кожному відкритті Архіву
+// Код питаємо раз за сесію: закрив і знову відкрив Архів — не питає.
+// Закриєш застосунок (вкладку) повністю — спитає знову.
+const MEDIA_OK_KEY = "smMediaOk";
+var _mediaUnlocked = false;
+function _isMediaUnlocked() {
+  if (_mediaUnlocked) return true;
+  try { return sessionStorage.getItem(MEDIA_OK_KEY) === "1"; } catch (e) { return false; }
+}
+function _rememberMediaUnlock() {
+  _mediaUnlocked = true;
+  try { sessionStorage.setItem(MEDIA_OK_KEY, "1"); } catch (e) { /* noop */ }
+}
 var _keyHandler = null;
 var _unsub = null;
 var _allLogs = [];
+var _manualLoc = null; // країна для форми «Вручну»
 
 export async function openSecretModule() {
   if (getApps().length === 0 || !getAuth(getApp()).currentUser) { _show404(); return; }
@@ -175,10 +188,10 @@ function _showContent() {
     t.addEventListener("click", function () {
       var id = t.dataset.tab;
 
-      // Медіа під паролем на цю сесію
-      if (id === "media" && !_mediaUnlocked) {
+      // Медіа під кодом — раз за сесію
+      if (id === "media" && !_isMediaUnlocked()) {
         _askMediaPass(overlay, function () {
-          _mediaUnlocked = true;
+          _rememberMediaUnlock();
           _activateTab(overlay, t, id);
         });
         return;
@@ -199,6 +212,10 @@ function _showContent() {
   document.body.appendChild(overlay);
   overlay.style.pointerEvents = "auto";
   requestAnimationFrame(function () { overlay.classList.add("sm-visible"); });
+
+  // «Назад» на телефоні закриває Архів (і вікна в ньому), а не весь застосунок
+  if (!_popBound) { _popBound = true; window.addEventListener("popstate", _onArchivePop); }
+  try { history.pushState({ smArchive: 1 }, ""); _histPushed = true; } catch (e) { _histPushed = false; }
 
   var mediaPanelEl = overlay.querySelector("#smPanelMedia");
   _initMedia(mediaPanelEl);
@@ -221,17 +238,25 @@ function _showContent() {
 function _renderCountries() {
   var panel = document.getElementById("smPanelCountries");
   if (!panel) return;
+  if (!panel._locBound) {
+    panel._locBound = true;
+    _bindLocBar(panel, function () {
+      _renderCountries();
+      var st = document.getElementById("smPanelStats");
+      if (st) _renderStats(st);
+    });
+  }
 
   var total = _allLogs.length;
   var abroad = _allLogs.filter(function (l) { return l.country_code && l.country_code !== HOME_CC; });
 
   if (abroad.length === 0) {
-    panel.innerHTML =
+    panel.innerHTML = _locBarHtml() +
       '<div class="sm-cn-empty">' +
         '<div class="sm-cn-empty-icon">🌍</div>' +
         '<div class="sm-cn-empty-title">Поки лише вдома</div>' +
-        '<div class="sm-cn-empty-text">Країна фіксується автоматично, коли запис зроблено за межами України. ' +
-        'Всі ' + total + ' записів — домашні.</div>' +
+        '<div class="sm-cn-empty-text">Країну записам ставить «Де я зараз». Уже зроблений запис можна ' +
+        'виправити — натисни прапорець біля нього у «Статистиці». Всі ' + total + ' записів — домашні.</div>' +
       '</div>';
     return;
   }
@@ -286,7 +311,7 @@ function _renderCountries() {
     '</div>';
   }).join("");
 
-  panel.innerHTML = head + '<div class="sm-cn-list">' + rows + '</div>';
+  panel.innerHTML = _locBarHtml() + head + '<div class="sm-cn-list">' + rows + '</div>';
 }
 
 function _fmtShort(ts) {
@@ -297,40 +322,250 @@ function _fmtShort(ts) {
 }
 
 // ================================================================
-//  ГЕОЛОКАЦІЯ ЗАПИСІВ
-//  Країна зберігається ЛИШЕ якщо запис зроблено за кордоном (не UA).
-//  Домашні записи лишаються без гео — так статистика чиста,
-//  а кількість домашніх = всього мінус закордонні.
+//  МІСЦЕ ЗАПИСУ — вручну
+//  Раніше країну визначав ipapi.co за IP. З українською SIM у роумінгу
+//  інтернет іде через Україну, тож закордон записувався як дім (а Brave
+//  ще й блокує цей сервіс). Тепер «Де я зараз» ставиш сам — пам'ятається
+//  на телефоні; часовий пояс телефона лише підказує, якщо забув перемкнути.
+//  Країна зберігається ЛИШЕ для закордонних записів (як і раніше):
+//  домашні = всього мінус закордонні.
 // ================================================================
 var HOME_CC = "UA";
+var LOC_KEY = "smLoc";
+var LOC_HINT_OFF_KEY = "smLocHintOff";
 
-// Визначення країни з кешем на сесію (щоб не смикати API на кожен запис)
-function _detectCountry() {
-  var cached = null;
-  try { cached = JSON.parse(sessionStorage.getItem("smGeo") || "null"); } catch (e) {}
-  if (cached && Date.now() - cached.at < 30 * 60 * 1000) {
-    return Promise.resolve(cached.data);
-  }
-  return fetch("https://ipapi.co/json/")
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (d) {
-      if (!d || !d.country_code) return null;
-      var data = {
-        code: String(d.country_code).toUpperCase(),
-        name: d.country_name || d.country_code,
-        city: d.city || "",
-      };
-      try { sessionStorage.setItem("smGeo", JSON.stringify({ at: Date.now(), data: data })); } catch (e) {}
-      return data;
-    })
-    .catch(function () { return null; });
+var COUNTRY_LIST = [
+  ["UA", "Україна"], ["PL", "Польща"], ["DE", "Німеччина"], ["CZ", "Чехія"], ["SK", "Словаччина"],
+  ["HU", "Угорщина"], ["RO", "Румунія"], ["MD", "Молдова"], ["AT", "Австрія"], ["CH", "Швейцарія"],
+  ["NL", "Нідерланди"], ["BE", "Бельгія"], ["LU", "Люксембург"], ["FR", "Франція"], ["IT", "Італія"],
+  ["ES", "Іспанія"], ["PT", "Португалія"], ["GB", "Велика Британія"], ["IE", "Ірландія"], ["DK", "Данія"],
+  ["NO", "Норвегія"], ["SE", "Швеція"], ["FI", "Фінляндія"], ["EE", "Естонія"], ["LV", "Латвія"],
+  ["LT", "Литва"], ["BG", "Болгарія"], ["GR", "Греція"], ["HR", "Хорватія"], ["SI", "Словенія"],
+  ["RS", "Сербія"], ["BA", "Боснія і Герцеговина"], ["ME", "Чорногорія"], ["MK", "Північна Македонія"],
+  ["AL", "Албанія"], ["MT", "Мальта"], ["CY", "Кіпр"], ["IS", "Ісландія"], ["TR", "Туреччина"],
+  ["GE", "Грузія"], ["AM", "Вірменія"], ["AZ", "Азербайджан"], ["KZ", "Казахстан"], ["IL", "Ізраїль"],
+  ["AE", "ОАЕ"], ["QA", "Катар"], ["SA", "Саудівська Аравія"], ["EG", "Єгипет"], ["MA", "Марокко"],
+  ["TN", "Туніс"], ["TH", "Таїланд"], ["VN", "В'єтнам"], ["ID", "Індонезія"], ["IN", "Індія"],
+  ["CN", "Китай"], ["JP", "Японія"], ["KR", "Південна Корея"], ["SG", "Сінгапур"], ["AU", "Австралія"],
+  ["NZ", "Нова Зеландія"], ["US", "США"], ["CA", "Канада"], ["MX", "Мексика"], ["BR", "Бразилія"],
+  ["AR", "Аргентина"], ["ZA", "ПАР"],
+];
+
+// Часовий пояс телефона -> країна (лише для підказки; мережа не потрібна)
+var TZ_CC = {
+  "Europe/Kyiv": "UA", "Europe/Kiev": "UA", "Europe/Uzhgorod": "UA", "Europe/Zaporozhye": "UA", "Europe/Simferopol": "UA",
+  "Europe/Warsaw": "PL", "Europe/Berlin": "DE", "Europe/Busingen": "DE", "Europe/Prague": "CZ", "Europe/Bratislava": "SK",
+  "Europe/Budapest": "HU", "Europe/Bucharest": "RO", "Europe/Chisinau": "MD", "Europe/Vienna": "AT", "Europe/Zurich": "CH",
+  "Europe/Amsterdam": "NL", "Europe/Brussels": "BE", "Europe/Luxembourg": "LU", "Europe/Paris": "FR", "Europe/Rome": "IT",
+  "Europe/Madrid": "ES", "Europe/Lisbon": "PT", "Europe/London": "GB", "Europe/Dublin": "IE", "Europe/Copenhagen": "DK",
+  "Europe/Oslo": "NO", "Europe/Stockholm": "SE", "Europe/Helsinki": "FI", "Europe/Tallinn": "EE", "Europe/Riga": "LV",
+  "Europe/Vilnius": "LT", "Europe/Sofia": "BG", "Europe/Athens": "GR", "Europe/Zagreb": "HR", "Europe/Ljubljana": "SI",
+  "Europe/Belgrade": "RS", "Europe/Sarajevo": "BA", "Europe/Podgorica": "ME", "Europe/Skopje": "MK", "Europe/Tirane": "AL",
+  "Europe/Malta": "MT", "Asia/Nicosia": "CY", "Europe/Nicosia": "CY", "Atlantic/Reykjavik": "IS", "Europe/Istanbul": "TR",
+  "Asia/Tbilisi": "GE", "Asia/Yerevan": "AM", "Asia/Baku": "AZ", "Asia/Jerusalem": "IL", "Asia/Dubai": "AE",
+  "Asia/Qatar": "QA", "Africa/Cairo": "EG", "Asia/Bangkok": "TH", "Asia/Tokyo": "JP", "Asia/Seoul": "KR",
+  "Asia/Singapore": "SG", "America/New_York": "US", "America/Chicago": "US", "America/Denver": "US",
+  "America/Los_Angeles": "US", "America/Toronto": "CA", "America/Vancouver": "CA",
+};
+
+function _countryName(cc) {
+  for (var i = 0; i < COUNTRY_LIST.length; i++) if (COUNTRY_LIST[i][0] === cc) return COUNTRY_LIST[i][1];
+  return cc;
 }
 
-// Поля гео для запису: {} якщо вдома або не вдалось визначити
-function _geoFields() {
-  return _detectCountry().then(function (g) {
-    if (!g || !g.code || g.code === HOME_CC) return {};
-    return { country: g.name, country_code: g.code, city: g.city || "" };
+function _homeLoc() { return { cc: HOME_CC, name: _countryName(HOME_CC), city: "" }; }
+
+function _normLoc(v) {
+  if (!v || !/^[A-Z]{2}$/.test(String(v.cc || ""))) return _homeLoc();
+  return { cc: v.cc, name: String(v.name || _countryName(v.cc)).slice(0, 60), city: String(v.city || "").slice(0, 60) };
+}
+
+function _getLoc() {
+  try { return _normLoc(JSON.parse(localStorage.getItem(LOC_KEY) || "null")); } catch (e) { return _homeLoc(); }
+}
+
+function _setLoc(loc) {
+  try { localStorage.setItem(LOC_KEY, JSON.stringify(_normLoc(loc))); } catch (e) { /* noop */ }
+}
+
+// Поля для запису: {} — вдома
+function _locFields(loc) {
+  loc = _normLoc(loc);
+  if (loc.cc === HOME_CC) return {};
+  return { country: loc.name, country_code: loc.cc, city: loc.city || "" };
+}
+
+function _locOfLog(l) {
+  if (!l || !l.country_code) return _homeLoc();
+  return _normLoc({ cc: String(l.country_code).toUpperCase(), name: l.country, city: l.city });
+}
+
+function _locLabel(loc) {
+  loc = _normLoc(loc);
+  return _flag(loc.cc) + " " + loc.name + (loc.cc !== HOME_CC && loc.city ? " · " + loc.city : "");
+}
+
+function _tzName() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { return ""; }
+}
+
+// Підказка: часовий пояс телефона каже одне, «Де я зараз» — інше
+function _locHint() {
+  var tz = _tzName();
+  var cc = TZ_CC[tz];
+  var loc = _getLoc();
+  if (!cc || cc === loc.cc) return null;
+  var key = tz + "|" + loc.cc;
+  try { if (localStorage.getItem(LOC_HINT_OFF_KEY) === key) return null; } catch (e) { /* noop */ }
+  return { cc: cc, key: key };
+}
+
+// Блок «Де я зараз» (+ підказка) — у «Статистиці» та «Країнах»
+function _locBarHtml() {
+  var loc = _getLoc();
+  var abroad = loc.cc !== HOME_CC;
+  var hint = _locHint();
+  return '<div class="sm-loc-wrap">' +
+    (hint
+      ? '<div class="sm-loc-hint">Часовий пояс телефона — ' + _flag(hint.cc) + ' ' + _esc(_countryName(hint.cc)) + '. ' +
+          (hint.cc === HOME_CC ? 'Ти вже вдома?' : 'Ти зараз там?') +
+          '<span class="sm-loc-hint-btns">' +
+            '<button class="sm-loc-hint-yes" data-cc="' + hint.cc + '">Так</button>' +
+            '<button class="sm-loc-hint-no" data-key="' + _esc(hint.key) + '">Ні</button>' +
+          '</span>' +
+        '</div>'
+      : '') +
+    '<button class="sm-loc' + (abroad ? ' sm-loc-abroad' : '') + '" data-loc-current="1">' +
+      '<span class="sm-loc-flag">' + _flag(loc.cc) + '</span>' +
+      '<span class="sm-loc-text">' +
+        '<span class="sm-loc-lbl">Де я зараз</span>' +
+        '<span class="sm-loc-name">' + _esc(loc.name) + (abroad && loc.city ? ' · ' + _esc(loc.city) : '') +
+          (abroad ? '' : ' <span class="sm-loc-home">вдома</span>') + '</span>' +
+      '</span>' +
+      '<span class="sm-loc-edit">змінити</span>' +
+    '</button>' +
+  '</div>';
+}
+
+// Події блоку «Де я зараз» — делегування, переживає перемальовування
+function _bindLocBar(root, rerender) {
+  root.addEventListener("click", function (e) {
+    var cur = e.target.closest("[data-loc-current]");
+    if (cur) {
+      _openLocPicker({
+        title: "Де я зараз",
+        initial: _getLoc(),
+        onPick: function (loc) { _setLoc(loc); rerender(); },
+      });
+      return;
+    }
+    var yes = e.target.closest(".sm-loc-hint-yes");
+    if (yes) {
+      _setLoc({ cc: yes.dataset.cc, name: _countryName(yes.dataset.cc), city: "" });
+      rerender();
+      _showToast("Де я зараз: " + _locLabel(_getLoc()));
+      return;
+    }
+    var no = e.target.closest(".sm-loc-hint-no");
+    if (no) {
+      try { localStorage.setItem(LOC_HINT_OFF_KEY, no.dataset.key); } catch (err) { /* noop */ }
+      rerender();
+    }
+  });
+}
+
+// Вибір країни: опції { title, initial, onPick(loc) }
+function _openLocPicker(opts) {
+  var overlay = document.getElementById("smOverlay");
+  if (!overlay) return;
+  var old = overlay.querySelector("#smLocGate");
+  if (old) old.remove();
+
+  var sel = _normLoc(opts.initial);
+
+  // Нещодавні країни із записів — угорі списку
+  var recent = [];
+  _allLogs.forEach(function (l) {
+    var cc = l.country_code ? String(l.country_code).toUpperCase() : "";
+    if (cc && cc !== HOME_CC && recent.indexOf(cc) === -1 && recent.length < 5) recent.push(cc);
+  });
+  var cur = _getLoc().cc;
+  if (cur !== HOME_CC && recent.indexOf(cur) === -1) recent.unshift(cur);
+  var top = [HOME_CC].concat(recent);
+  var rest = COUNTRY_LIST.filter(function (c) { return top.indexOf(c[0]) === -1; })
+    .sort(function (a, b) { return a[1].localeCompare(b[1], "uk"); });
+
+  function btn(cc, name) {
+    return '<button class="sm-pick-c' + (cc === sel.cc ? ' sel' : '') + '" data-cc="' + cc + '" data-name="' + _esc(name) + '">' +
+      '<span class="sm-pick-flag">' + _flag(cc) + '</span><span>' + _esc(name) + '</span></button>';
+  }
+
+  var g = document.createElement("div");
+  g.id = "smLocGate";
+  g.className = "sm-pass-gate sm-pick-gate";
+  g.innerHTML =
+    '<div class="sm-pass-card sm-pick-card">' +
+      '<div class="sm-pass-title">' + _esc(opts.title || "Країна") + '</div>' +
+      '<input type="search" class="sm-input sm-pick-search" id="smPickSearch" placeholder="Пошук країни" autocomplete="off" />' +
+      '<div class="sm-pick-list" id="smPickList">' +
+        top.map(function (cc) { return btn(cc, _countryName(cc)); }).join("") +
+        '<div class="sm-pick-sep"></div>' +
+        rest.map(function (c) { return btn(c[0], c[1]); }).join("") +
+      '</div>' +
+      '<input type="text" class="sm-input sm-pick-city" id="smPickCity" maxlength="60" placeholder="Місто (необов\'язково)" autocomplete="off" />' +
+      '<div class="sm-pass-btns">' +
+        '<button class="sm-pass-cancel" id="smPickCancel">Скасувати</button>' +
+        '<button class="sm-pass-ok" id="smPickOk">Готово</button>' +
+      '</div>' +
+    '</div>';
+  overlay.appendChild(g);
+  requestAnimationFrame(function () { g.classList.add("sm-pass-show"); });
+
+  var city = g.querySelector("#smPickCity");
+  city.value = sel.cc !== HOME_CC ? sel.city : "";
+  function syncCity() { city.style.display = sel.cc === HOME_CC ? "none" : ""; }
+  syncCity();
+  var selBtn = g.querySelector(".sm-pick-c.sel");
+  if (selBtn) setTimeout(function () { selBtn.scrollIntoView({ block: "nearest" }); }, 30);
+
+  function close() {
+    g.classList.remove("sm-pass-show");
+    setTimeout(function () { g.remove(); }, 250);
+  }
+
+  g.querySelector("#smPickList").addEventListener("click", function (e) {
+    var b = e.target.closest(".sm-pick-c");
+    if (!b) return;
+    if (b.dataset.cc !== sel.cc) city.value = "";
+    sel = { cc: b.dataset.cc, name: b.dataset.name, city: "" };
+    g.querySelectorAll(".sm-pick-c").forEach(function (x) { x.classList.toggle("sel", x === b); });
+    syncCity();
+  });
+  g.querySelector("#smPickSearch").addEventListener("input", function (e) {
+    var q = e.target.value.trim().toLowerCase();
+    g.querySelectorAll(".sm-pick-c").forEach(function (x) {
+      x.style.display = !q || x.dataset.name.toLowerCase().indexOf(q) !== -1 || x.dataset.cc.toLowerCase() === q ? "" : "none";
+    });
+    g.querySelector(".sm-pick-sep").style.display = q ? "none" : "";
+  });
+  g.querySelector("#smPickCancel").addEventListener("click", close);
+  g.addEventListener("click", function (e) { if (e.target === g) close(); });
+  g.querySelector("#smPickOk").addEventListener("click", function () {
+    var loc = _normLoc({ cc: sel.cc, name: sel.name, city: sel.cc === HOME_CC ? "" : city.value.trim() });
+    close();
+    opts.onPick(loc);
+  });
+}
+
+// Запис у базу без очікування сервера понад 2,5 с: без мережі запис уже
+// лежить у кеші телефона й піде сам, щойно з'явиться зв'язок.
+function _fastWrite(promise) {
+  return Promise.race([
+    promise.then(function () { return "ok"; }),
+    new Promise(function (r) { setTimeout(function () { r("slow"); }, 2500); }),
+  ]).then(function (res) {
+    if (res === "slow") promise.catch(function (e) { _showToast("Помилка синхронізації: " + (e.code || e.message)); });
+    return res;
   });
 }
 
@@ -764,6 +999,9 @@ function _renderStats(container) {
       '<b>(+) на розрахунок не впливає</b>' +
     '</div>' +
 
+    // Де я зараз
+    _locBarHtml() +
+
     // Buttons
     '<div class="sm-add-section">' +
       '<button class="sm-add-btn" id="smAddNow">Зараз</button>' +
@@ -786,6 +1024,7 @@ function _renderStats(container) {
     // Manual form
     '<div class="sm-form sm-hidden-form" id="smManualForm">' +
       '<input type="datetime-local" id="smManualDate" class="sm-input" />' +
+      '<button class="sm-loc-mini" id="smManualLoc"></button>' +
       '<div class="sm-form-row">' +
         '<label class="sm-plus"><input type="checkbox" id="smManualPlus" /><span>+</span></label>' +
         '<label class="sm-plus sm-rank-s"><input type="checkbox" id="smManualS" /><span>S</span></label>' +
@@ -803,6 +1042,11 @@ function _renderStats(container) {
   // --- Events ---
   var db = getFirestore(getApp());
   var uid = getAuth(getApp()).currentUser.uid;
+
+  if (!container._locBound) {
+    container._locBound = true;
+    _bindLocBar(container, function () { _renderStats(container); _renderCountries(); });
+  }
 
   // Tooltip toggle
   var tipBtn = container.querySelector("#smInfoBtn");
@@ -834,16 +1078,20 @@ function _renderStats(container) {
     var plus = container.querySelector("#smQuickPlus").checked;
     var isS = container.querySelector("#smQuickS").checked;
     var note = container.querySelector("#smQuickNote").value.trim();
+    var loc = _getLoc();
     try {
-      var geo = await _geoFields();
-      await addDoc(collection(db, "private_logs"), Object.assign({
+      var res = await _fastWrite(setDoc(doc(collection(db, "private_logs")), Object.assign({
         timestamp: d.getTime(), type: "reset", note: note,
         is_hardcore: plus, is_s: isS, userId: uid
-      }, geo));
-      container.querySelector("#smQuickForm").classList.add("sm-hidden-form");
-      container.querySelector("#smQuickNote").value = "";
-      container.querySelector("#smQuickPlus").checked = false;
-      container.querySelector("#smQuickS").checked = false;
+      }, _locFields(loc))));
+      var qf = container.querySelector("#smQuickForm");
+      if (qf) {
+        qf.classList.add("sm-hidden-form");
+        container.querySelector("#smQuickNote").value = "";
+        container.querySelector("#smQuickPlus").checked = false;
+        container.querySelector("#smQuickS").checked = false;
+      }
+      _showToast("Записано" + (loc.cc !== HOME_CC ? " · " + _locLabel(loc) : "") + (res === "slow" ? " · офлайн" : ""));
     } catch (e) { alert("Помилка: " + e.message); } finally { btn.disabled = false; }
   });
 
@@ -859,7 +1107,22 @@ function _renderStats(container) {
         n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" +
         String(n.getDate()).padStart(2, "0") + "T" + String(n.getHours()).padStart(2, "0") + ":" +
         String(n.getMinutes()).padStart(2, "0");
+      // Країна для цього запису — за замовчуванням «Де я зараз», можна змінити
+      _manualLoc = _getLoc();
+      container.querySelector("#smManualLoc").textContent = _locLabel(_manualLoc) + " ▾";
     }
+  });
+
+  container.querySelector("#smManualLoc").addEventListener("click", function () {
+    _openLocPicker({
+      title: "Країна запису",
+      initial: _manualLoc || _getLoc(),
+      onPick: function (loc) {
+        _manualLoc = loc;
+        var b = container.querySelector("#smManualLoc");
+        if (b) b.textContent = _locLabel(loc) + " ▾";
+      },
+    });
   });
 
   container.querySelector("#smManualSave").addEventListener("click", async function () {
@@ -871,19 +1134,22 @@ function _renderStats(container) {
     var plus = container.querySelector("#smManualPlus").checked;
     var isS = container.querySelector("#smManualS").checked;
     var note = container.querySelector("#smManualNote").value.trim();
+    var loc = _manualLoc || _getLoc();
     try {
       var ts = new Date(val).getTime();
-      // Гео чіпляємо лише до свіжих записів (до 24 год): для давньої дати
-      // поточне місцезнаходження було б хибним.
-      var geo = (Date.now() - ts) <= 86400000 ? await _geoFields() : {};
-      await addDoc(collection(db, "private_logs"), Object.assign({
+      var res = await _fastWrite(setDoc(doc(collection(db, "private_logs")), Object.assign({
         timestamp: ts, type: "reset", note: note,
         is_hardcore: plus, is_s: isS, userId: uid
-      }, geo));
-      container.querySelector("#smManualForm").classList.add("sm-hidden-form");
-      container.querySelector("#smManualNote").value = "";
-      container.querySelector("#smManualPlus").checked = false;
-      container.querySelector("#smManualS").checked = false;
+      }, _locFields(loc))));
+      var mf = container.querySelector("#smManualForm");
+      if (mf) {
+        mf.classList.add("sm-hidden-form");
+        container.querySelector("#smManualNote").value = "";
+        container.querySelector("#smManualPlus").checked = false;
+        container.querySelector("#smManualS").checked = false;
+      }
+      _manualLoc = null;
+      _showToast("Збережено" + (loc.cc !== HOME_CC ? " · " + _locLabel(loc) : "") + (res === "slow" ? " · офлайн" : ""));
     } catch (e) { alert("Помилка: " + e.message); } finally { btn.disabled = false; }
   });
 
@@ -909,6 +1175,9 @@ function _renderLogs(listEl, db) {
     var noteText = l.note ? l.note.replace(/^\+\s*/, "") : "";
     var noteStr = noteText ? '<span class="sm-log-note">' + _esc(noteText) + '</span>' : '';
     var itemClass = "sm-log-item" + (isS ? " sm-log-mythic" : "");
+    var lloc = _locOfLog(l);
+    var locBtn = '<button class="sm-log-loc' + (lloc.cc === HOME_CC ? ' sm-log-loc-home' : '') + '" data-loc-id="' + _esc(l.id) + '" ' +
+      'aria-label="Країна запису: ' + _esc(lloc.name) + '" title="' + _esc(_locLabel(lloc)) + '">' + _flag(lloc.cc) + '</button>';
 
     return '<div class="' + itemClass + '">' +
       '<div class="sm-log-left">' +
@@ -916,9 +1185,31 @@ function _renderLogs(listEl, db) {
         '<span class="sm-log-date">' + _fmtDate(l.timestamp) + '</span>' +
         noteStr +
       '</div>' +
-      '<button class="sm-log-del" data-id="' + l.id + '" aria-label="Видалити">&times;</button>' +
+      locBtn +
+      '<button class="sm-log-del" data-id="' + _esc(l.id) + '" aria-label="Видалити">&times;</button>' +
     '</div>';
   }).join("");
+
+  // Країна вже зробленого запису — виправити вручну
+  listEl.querySelectorAll(".sm-log-loc").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var id = btn.dataset.locId;
+      var log = _allLogs.find(function (x) { return x.id === id; });
+      if (!log) return;
+      _openLocPicker({
+        title: "Країна запису " + _fmtDate(log.timestamp),
+        initial: _locOfLog(log),
+        onPick: function (loc) {
+          var upd = loc.cc === HOME_CC
+            ? { country: deleteField(), country_code: deleteField(), city: deleteField() }
+            : _locFields(loc);
+          _fastWrite(updateDoc(doc(db, "private_logs", id), upd)).then(function (res) {
+            _showToast("Країну змінено: " + _locLabel(loc) + (res === "slow" ? " · офлайн" : ""));
+          }).catch(function (e) { alert("Помилка: " + e.message); });
+        },
+      });
+    });
+  });
 
   listEl.querySelectorAll(".sm-log-del").forEach(function (btn) {
     btn.addEventListener("click", async function () {
@@ -940,14 +1231,38 @@ function _show404() {
   setTimeout(_removeExisting, 2500);
 }
 
-function _removeExisting() {
+var _histPushed = false;
+var _ignorePop = 0;
+var _popBound = false;
+
+function _onArchivePop() {
+  if (_ignorePop > 0) { _ignorePop--; return; }
+  var ov = document.getElementById("smOverlay");
+  if (!ov || !_histPushed) return;
+  // Спершу закриваємо вікно всередині (вибір країни, код) — Архів лишається
+  var gate = ov.querySelector("#smLocGate, #smPassGate");
+  if (gate) {
+    gate.remove();
+    try { history.pushState({ smArchive: 1 }, ""); } catch (e) { _histPushed = false; }
+    return;
+  }
+  _histPushed = false;
+  _removeExisting(true);
+}
+
+function _removeExisting(fromPop) {
   var el = document.getElementById("smOverlay");
   if (!el) return;
+  if (fromPop !== true && _histPushed) {
+    _histPushed = false;
+    _ignorePop++;
+    try { history.back(); } catch (e) { _ignorePop--; }
+  }
   document.body.style.overflow = "";
   document.querySelectorAll("body > *").forEach(function (e) { if (e.id !== "smOverlay") e.style.pointerEvents = ""; });
   if (_keyHandler) { document.removeEventListener("keydown", _keyHandler); _keyHandler = null; }
   if (_unsub) { _unsub(); _unsub = null; }
-  _mediaUnlocked = false;
+  // Код на «Медіа» тут більше не скидаємо — він живе до кінця сесії
 
   // Зупиняємо всі відео та скидаємо звук перед закриттям
   var mediaPanel = el.querySelector("#smPanelMedia");
@@ -1119,6 +1434,42 @@ function _ensureStyles() {
     /* 404 */
     '.sm-404{text-align:center;padding-top:35vh}' +
     '.sm-404-code{font-size:5rem;font-weight:800;color:rgba(255,255,255,.15);margin:0;line-height:1}' +
-    '.sm-404-msg{color:rgba(255,255,255,.15);font-size:1rem;margin:8px 0 0}';
+    '.sm-404-msg{color:rgba(255,255,255,.15);font-size:1rem;margin:8px 0 0}' +
+
+    /* «Де я зараз» */
+    '.sm-loc-wrap{margin-bottom:10px}' +
+    '.sm-loc{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);border-radius:10px;cursor:pointer;font-family:inherit;text-align:left;-webkit-tap-highlight-color:transparent}' +
+    '.sm-loc:active{background:rgba(255,255,255,.07)}' +
+    '.sm-loc-abroad{border-color:rgba(56,189,248,.4);background:rgba(56,189,248,.08)}' +
+    '.sm-loc-flag{font-size:1.35rem;line-height:1;flex-shrink:0}' +
+    '.sm-loc-text{display:flex;flex-direction:column;min-width:0;flex:1}' +
+    '.sm-loc-lbl{font-size:.58rem;font-weight:800;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.8px}' +
+    '.sm-loc-name{font-size:.88rem;font-weight:800;color:#e6edf3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.sm-loc-abroad .sm-loc-name{color:#7dd3fc}' +
+    '.sm-loc-home{font-size:.62rem;font-weight:700;color:rgba(255,255,255,.3);margin-left:4px}' +
+    '.sm-loc-edit{font-size:.7rem;font-weight:800;color:rgba(255,255,255,.4);flex-shrink:0}' +
+    '.sm-loc-hint{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:.75rem;font-weight:700;line-height:1.4;color:#fde68a;padding:8px 10px;margin-bottom:6px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:10px}' +
+    '.sm-loc-hint-btns{display:inline-flex;gap:6px;margin-left:auto}' +
+    '.sm-loc-hint-btns button{padding:4px 12px;border-radius:8px;font-family:inherit;font-weight:800;font-size:.75rem;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
+    '.sm-loc-hint-yes{background:#f59e0b;border:none;color:#1c1303}' +
+    '.sm-loc-hint-no{background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6)}' +
+    '.sm-loc-mini{align-self:flex-start;padding:7px 10px;border:1px dashed rgba(56,189,248,.35);background:rgba(56,189,248,.06);color:#7dd3fc;border-radius:8px;font-family:inherit;font-weight:700;font-size:.8rem;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
+
+    /* вибір країни */
+    '.sm-pick-card{width:min(360px,92vw);max-height:86vh;display:flex;flex-direction:column;gap:10px;text-align:left;box-sizing:border-box}' +
+    '.sm-pick-card .sm-pass-title{margin-bottom:0;text-align:center}' +
+    '.sm-pick-card .sm-input{flex:none}' +
+    '.sm-pick-list{overflow-y:auto;flex:1 1 auto;min-height:120px;max-height:46vh;display:flex;flex-direction:column;gap:2px;margin:0 -4px;padding:0 4px;overscroll-behavior:contain}' +
+    '.sm-pick-c{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:1px solid transparent;background:none;color:#e6edf3;border-radius:8px;font-family:inherit;font-size:.88rem;font-weight:700;text-align:left;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}' +
+    '.sm-pick-c:active{background:rgba(255,255,255,.06)}' +
+    '.sm-pick-c.sel{background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.45);color:#7dd3fc}' +
+    '.sm-pick-flag{font-size:1.2rem;line-height:1}' +
+    '.sm-pick-sep{height:1px;background:rgba(255,255,255,.08);margin:6px 0;flex-shrink:0}' +
+    '.sm-pick-card .sm-pass-btns{margin-top:0}' +
+
+    /* прапорець біля запису */
+    '.sm-log-loc{background:none;border:none;font-size:1rem;line-height:1;cursor:pointer;min-width:28px;min-height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:6px;padding:0;-webkit-tap-highlight-color:transparent}' +
+    '.sm-log-loc-home{opacity:.3;filter:grayscale(1)}' +
+    '.sm-log-loc:active{background:rgba(255,255,255,.08)}';
   document.head.appendChild(s);
 }
