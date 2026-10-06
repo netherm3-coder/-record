@@ -290,18 +290,21 @@
       <audio id="bgMusic" loop preload="auto"></audio>
       <div id="menuOverlay" class="menu-overlay"></div>
 
-      <div id="loginSection" class="card login-card">
+      <!-- form + autocomplete: менеджер паролів браузера пропонує зберегти й сам підставляє -->
+      <form id="loginSection" class="card login-card" autocomplete="on" novalidate>
         <div class="section-title login-title">Вхід адміністратора</div>
-        <input type="email" id="loginEmail" placeholder="Ваш Email" />
+        <input type="email" id="loginEmail" name="email" autocomplete="username" inputmode="email" placeholder="Ваш Email" />
         <input
           type="password"
           id="loginPass"
+          name="password"
+          autocomplete="current-password"
           placeholder="Пароль"
           class="login-input-mt"
         />
-        <button id="loginBtn" class="primary-btn login-btn">Увійти</button>
+        <button type="submit" id="loginBtn" class="primary-btn login-btn">Увійти</button>
         <div id="loginError" class="login-error"></div>
-      </div>
+      </form>
 
       <div id="status" class="status-bar">Підключення...</div>
 

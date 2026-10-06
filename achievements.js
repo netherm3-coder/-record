@@ -264,10 +264,6 @@ const MILESTONES = [
     condition: () => cansCountries() >= 5,
     progress: () => Math.min(1, cansCountries() / 5) },
 
-  { id: "cans_full_series", name: "Повна серія", description: "Закрити весь «Хочу» одного бренду (5+ банок, з них 3+ з «Хочу»)", icon: "🏁", category: "cans", reward: 60,
-    condition: () => cansFullSeriesProgress() >= 1,
-    progress: () => cansFullSeriesProgress() },
-
   { id: "cans_zone", name: "Зона відчуження", description: "3 різні банки серії S.T.A.L.K.E.R.", icon: "☢️", category: "cans", reward: 50,
     condition: () => cansStalker() >= 3,
     progress: () => Math.min(1, cansStalker() / 3) },
@@ -390,25 +386,6 @@ function cansRated() {
 function cansDupes() {
   return _cansHaveList().reduce((s, c) => s + Math.max(0, (parseInt(c.qty) || 1) - 1), 0);
 }
-// Повна серія: бренд без відкритих «Хочу», 5+ банок у колекції, 3+ з них закрито з «Хочу»
-function cansFullSeriesProgress() {
-  const by = {};
-  _cansAll().forEach((c) => {
-    const k = String(c.brand || "").trim().toLowerCase();
-    if (!k) return;
-    if (!by[k]) by[k] = { have: 0, want: 0, wish: 0 };
-    if (c.status === "have") { by[k].have++; if (c.fromWish) by[k].wish++; }
-    else if (c.status === "want") by[k].want++;
-  });
-  let best = 0;
-  Object.values(by).forEach((b) => {
-    if (b.want === 0 && b.wish === 0) return; // бренд без бажань не рахується
-    const p = (b.have / (b.have + b.want)) * Math.min(1, b.have / 5) * Math.min(1, b.wish / 3);
-    if (p > best) best = p;
-  });
-  return Math.min(1, best);
-}
-
 // Максимальна додаткова вага для вправи ("1 (+90 кг)" -> 90)
 function maxWeightFor(workouts, exName) {
   const needle = String(exName).toLowerCase();
@@ -598,14 +575,22 @@ function getSobrietyDays() {
   return Math.floor((Date.now() - start.getTime()) / 86400000);
 }
 
+// Архів, стрільба й банки — приватні дані: гість їх не бачить узагалі
+// (раніше бачив заблокованими, а архівні — ще й з описами).
+const PRIVATE_CATEGORIES = ["archive", "shooting", "cans"];
+function _visibleMilestones() {
+  return window.__isAdmin ? MILESTONES : MILESTONES.filter((m) => !PRIVATE_CATEGORIES.includes(m.category));
+}
+
 window.computeAchievements = (workouts) => {
   const sd = getSobrietyDays();
-  const logs = window.allPrivateLogs || [];
+  const logs = window.__isAdmin ? (window.allPrivateLogs || []) : [];
   const w = workouts || [];
+  const list = _visibleMilestones();
 
   // 1-й прохід — усі, крім мета-досягнень
   const base = {};
-  MILESTONES.forEach((m) => {
+  list.forEach((m) => {
     if (m.meta) return;
     base[m.id] = {
       isUnlocked: m.condition(w, sd, logs),
@@ -614,11 +599,11 @@ window.computeAchievements = (workouts) => {
   });
 
   // Сума зароблених очок (без мета) — для мета-досягнень
-  const earned = MILESTONES
+  const earned = list
     .filter((m) => !m.meta && base[m.id] && base[m.id].isUnlocked)
     .reduce((sum, m) => sum + m.reward, 0);
 
-  return MILESTONES.map((m) => {
+  return list.map((m) => {
     const r = m.meta
       ? { isUnlocked: m.condition(w, sd, logs, earned), progress: m.progress(w, sd, logs, earned) }
       : base[m.id];
@@ -630,13 +615,21 @@ window.renderAchievementsTab = () => {
   const container = document.getElementById("achievementsContainer");
   if (!container) return;
 
-  const workouts = window.allWorkouts || [];
+  // Рахуємо з усієї історії; поки вона вантажиться — не показуємо неповні цифри
+  if (!window.allWorkoutsFull) {
+    if (window.listenToAllWorkouts) window.listenToAllWorkouts();
+    container.innerHTML = '<div class="empty-state">Рахую досягнення…</div>';
+    return;
+  }
+  const workouts = window.allWorkoutsFull;
   const achievements = window.computeAchievements(workouts);
   const unlockedCount = achievements.filter((a) => a.isUnlocked).length;
   const totalReward = achievements.filter((a) => a.isUnlocked).reduce((s, a) => s + a.reward, 0);
   const maxReward = achievements.reduce((s, a) => s + a.reward, 0);
 
-  const filter = container.dataset.filter || "all";
+  const cats = Object.keys(CATEGORIES).filter((k) => window.__isAdmin || !PRIVATE_CATEGORIES.includes(k));
+  let filter = container.dataset.filter || "all";
+  if (!cats.includes(filter)) filter = "all";
   let list = filter === "all" ? achievements : achievements.filter((a) => a.category === filter);
 
   // --- Групуємо рівні в одну картку ---
@@ -725,7 +718,7 @@ window.renderAchievementsTab = () => {
   // Розблоковані — зверху; далі за близькістю до отримання
   cards.sort((x, y) => (y.unlocked - x.unlocked) || (x.sortKey - y.sortKey));
 
-  const filterBtns = Object.keys(CATEGORIES).map((k) =>
+  const filterBtns = cats.map((k) =>
     '<button class="ach-filter-btn ' + (k === filter ? "active" : "") + '" data-filter="' + k + '">' + CATEGORIES[k] + "</button>"
   ).join("");
 
@@ -749,11 +742,25 @@ window.renderAchievementsTab = () => {
 };
 
 // Toast при розблокуванні
-window._lastUnlockedIds = JSON.parse(localStorage.getItem("unlockedAch") || "[]");
+let _hasAchBaseline = false;
+try { _hasAchBaseline = localStorage.getItem("unlockedAch") !== null; } catch (e) { /* noop */ }
+window._lastUnlockedIds = (() => {
+  try { return JSON.parse(localStorage.getItem("unlockedAch") || "[]"); } catch (e) { return []; }
+})();
 
 window.checkNewAchievements = (workouts) => {
   const achievements = window.computeAchievements(workouts);
   const currentlyUnlocked = achievements.filter(a => a.isUnlocked).map(a => a.id);
+
+  // Перший запуск на цьому пристрої: запам'ятовуємо стан мовчки, а не
+  // показуємо «Розблоковано!» за все, що відкрито давно
+  if (!_hasAchBaseline) {
+    _hasAchBaseline = true;
+    window._lastUnlockedIds = currentlyUnlocked;
+    try { localStorage.setItem("unlockedAch", JSON.stringify(currentlyUnlocked)); } catch (e) { /* noop */ }
+    return;
+  }
+
   const newly = currentlyUnlocked.filter(id => !window._lastUnlockedIds.includes(id));
 
   newly.forEach(id => {
@@ -762,8 +769,10 @@ window.checkNewAchievements = (workouts) => {
   });
 
   if (newly.length > 0) {
-    window._lastUnlockedIds = currentlyUnlocked;
-    localStorage.setItem("unlockedAch", JSON.stringify(currentlyUnlocked));
+    // Об'єднуємо, а не замінюємо: якщо якісь дані ще не підвантажились,
+    // уже відкриті досягнення не «забуваються» й не вискакують знову
+    window._lastUnlockedIds = [...new Set([...window._lastUnlockedIds, ...currentlyUnlocked])];
+    try { localStorage.setItem("unlockedAch", JSON.stringify(window._lastUnlockedIds)); } catch (e) { /* noop */ }
   }
 };
 

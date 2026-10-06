@@ -503,7 +503,10 @@ body {
   backdrop-filter: var(--glass-blur);
   border-top: 1px solid var(--border);
   border-radius: 24px 24px 0 0;
-  padding: 10px 5px calc(15px + env(safe-area-inset-bottom)) 5px;
+  /* border-box: інакше width:100% + padding виходить за екран на 10 px
+     і остання кнопка (активна «Досягнення») обрізається справа */
+  box-sizing: border-box;
+  padding: 10px 4px calc(15px + env(safe-area-inset-bottom)) 4px;
   position: fixed;
   bottom: 0;
   left: 0 !important;
@@ -521,8 +524,9 @@ body {
   border: none;
   color: var(--text-muted);
   font-size: 1.5rem;
+  font-family: inherit;
   cursor: pointer;
-  padding: 10px 8px;
+  padding: 10px 4px;
   border-radius: 16px;
   transition: var(--transition);
   display: flex;
@@ -534,13 +538,22 @@ body {
 }
 
 .nav-btn span {
-  font-size: 0.7rem;
+  /* 5 кнопок на вузькому екрані: «Тренування» / «Досягнення» без «…» */
+  font-size: clamp(0.62rem, 2.75vw, 0.7rem);
+  letter-spacing: -0.01em;
   font-weight: 800;
   font-family: inherit;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+}
+/* 🏆 — теж span, тож правило вище робило його крихітним */
+.nav-btn .nav-icon-emoji {
+  font-size: 1.15rem;
+  letter-spacing: 0;
+  overflow: visible;
+  max-width: none;
 }
 
 .nav-btn.active {

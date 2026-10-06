@@ -24,11 +24,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
   getAuth,
+  initializeAuth,
   signInWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
-  setPersistence,
   browserLocalPersistence,
+  indexedDBLocalPersistence,
+  browserSessionPersistence,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 // === ЛОГІКА ПЕРЕМИКАННЯ ВКЛАДОК (Сучасний підхід) ===
@@ -56,6 +58,7 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
 
     // 5. Рендеримо вкладку Досягнень при її відкритті
     if (tabId === "tab-achievements" && window.renderAchievementsTab) {
+      listenToAllWorkouts();
       window.renderAchievementsTab();
     }
   });
@@ -72,11 +75,18 @@ try {
   db = initializeFirestore(app, {});
 }
 
-const auth = getAuth(app); // Підключаємо Auth
-
-setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.error("Помилка збереження сесії:", error);
-});
+// Сесія входу — у localStorage на ВСІХ сторінках (так само в банках, стрільбі,
+// фонді, відвідувачах). Раніше головна тримала її в localStorage, а модулі
+// переносили в IndexedDB — і коли браузер чистив IndexedDB, вхід зникав.
+// Сесію, що лежить в IndexedDB, Firebase сам перенесе в localStorage.
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: [browserLocalPersistence, indexedDBLocalPersistence, browserSessionPersistence],
+  });
+} catch (e) {
+  auth = getAuth(app);
+}
 const colRef = collection(db, "workouts");
 
 let isAdmin = false; // Глобальна змінна для перевірки власника
@@ -125,12 +135,14 @@ document.getElementById("workoutDate").valueAsDate = new Date();
   const loginSection = document.getElementById("loginSection");
   const adminLoginBtn = document.getElementById("adminLoginBtn");
   if (adminLoginBtn && loginSection) {
-    adminLoginBtn.addEventListener("click", () => {
+    adminLoginBtn.addEventListener("click", async () => {
       // Закриваємо меню
       document.getElementById("sideMenu")?.classList.remove("open");
       document.getElementById("menuOverlay")?.classList.remove("active");
       document.getElementById("menuTrigger")?.classList.remove("active");
       document.body.style.overflow = "";
+      // Збережений у браузері вхід — одним дотиком, без введення пароля
+      if (await _loginWithSavedCredential("optional")) return;
       // Показуємо форму
       loginSection.style.display = "block";
       setTimeout(() => {
@@ -157,6 +169,10 @@ onAuthStateChanged(auth, (user) => {
   const navPhotos = document.getElementById("nav-photos");
   const weightPanel = document.getElementById("weightAdminPanel");
   const adminSecretBtn = document.getElementById("adminSecretBtn");
+  window.__isAdmin = !!user; // для досягнень: гостям приватні категорії не показуємо
+
+  // Сесія зникла, а на цьому телефоні входив адмін — входимо зі збереженого в браузері
+  if (!user) _trySilentLogin();
 
   if (user) {
     isAdmin = true;
@@ -212,6 +228,12 @@ onAuthStateChanged(auth, (user) => {
   renderUI();
   listenToWorkouts();
   listenToMeta();
+  // Досягнення рахуються з УСІЄЇ історії (журнал вантажить лише 50 останніх).
+  // Власнику — одразу (щоб «Розблоковано!» було чесним), гостям — коли відкриють вкладку.
+  if (user) listenToAllWorkouts();
+  if (window.renderAchievementsTab && document.getElementById("tab-achievements")?.classList.contains("active")) {
+    window.renderAchievementsTab();
+  }
   if (window.listenToWeight) window.listenToWeight();
   if (window.listenToPrivateWeight) window.listenToPrivateWeight();
   if (window.listenToPhotos) window.listenToPhotos();
@@ -229,19 +251,63 @@ onAuthStateChanged(auth, (user) => {
   }
 }
 
-// Кнопка Увійти
-document.getElementById("loginBtn").addEventListener("click", async () => {
+// === ВХІД БЕЗ ВВЕДЕННЯ ПАРОЛЯ ===
+// Пароль зберігає менеджер паролів браузера (зашифровано), а не сайт.
+// Якщо сесія Firebase колись зникне, на цьому телефоні застосунок увійде
+// сам («тихий» вхід), а кнопка «Увійти» покаже збережений акаунт —
+// один дотик замість email і пароля.
+const AUTO_LOGIN_KEY = "adminAutoLogin";
+const _credApi = () =>
+  typeof window.PasswordCredential === "function" && navigator.credentials && navigator.credentials.get;
+
+async function _rememberLogin(email, pass) {
+  try { localStorage.setItem(AUTO_LOGIN_KEY, "1"); } catch (e) { /* noop */ }
+  if (!_credApi()) return;
+  try {
+    await navigator.credentials.store(new window.PasswordCredential({ id: email, password: pass, name: "Кімната Рекордів — адмін" }));
+  } catch (e) { /* браузер відмовився — лишається автозаповнення форми */ }
+}
+
+// mediation: "silent" — без жодного вікна; "optional" — вибір збереженого акаунта
+async function _loginWithSavedCredential(mediation) {
+  if (!_credApi() || auth.currentUser) return false;
+  try {
+    const cred = await navigator.credentials.get({ password: true, mediation });
+    if (!cred || !cred.id || !cred.password || auth.currentUser) return false;
+    await signInWithEmailAndPassword(auth, cred.id, cred.password);
+    try { localStorage.setItem(AUTO_LOGIN_KEY, "1"); } catch (e) { /* noop */ }
+    return true;
+  } catch (e) {
+    console.warn("Вхід зі збереженого акаунта не вдався:", e && (e.code || e.message));
+    return false;
+  }
+}
+
+let _silentLoginTried = false;
+function _trySilentLogin() {
+  if (_silentLoginTried) return;
+  _silentLoginTried = true;
+  let allowed = false;
+  try { allowed = localStorage.getItem(AUTO_LOGIN_KEY) === "1"; } catch (e) { /* noop */ }
+  if (allowed) _loginWithSavedCredential("silent");
+}
+
+// Кнопка Увійти (форма — щоб менеджер паролів запропонував зберегти й підставляв)
+document.getElementById("loginSection").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
   const email = document.getElementById("loginEmail").value.trim();
   const pass = document.getElementById("loginPass").value;
   const loginBtn = document.getElementById("loginBtn");
   const errorMsg = document.getElementById("loginError");
+  if (loginBtn.disabled) return;
+  loginBtn.disabled = true;
 
   loginBtn.innerText = "Завантаження...";
   errorMsg.innerText = "";
 
   try {
-    // Сесію зберігає сам Firebase (browserLocalPersistence) — пароль ніде не зберігаємо
     await signInWithEmailAndPassword(auth, email, pass);
+    _rememberLogin(email, pass);
   } catch (error) {
     console.error("Помилка авторизації Firebase:", error.code, error.message);
 
@@ -259,6 +325,7 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
     errorMsg.innerText = userMessage;
   } finally {
     loginBtn.innerText = "Увійти";
+    loginBtn.disabled = false;
   }
 });
 
@@ -278,6 +345,9 @@ if (logoutBtn) {
       localStorage.removeItem("adminEmail");
       localStorage.removeItem("adminPass");
       localStorage.removeItem("isAdmin"); // Знімаємо прапор секретного модуля
+      // Вийшов сам — не входимо назад автоматично
+      localStorage.removeItem(AUTO_LOGIN_KEY);
+      try { if (navigator.credentials && navigator.credentials.preventSilentAccess) await navigator.credentials.preventSilentAccess(); } catch (e) { /* noop */ }
       await signOut(auth);
       location.reload();
     } catch (error) {
@@ -1681,7 +1751,7 @@ window.listenToWorkouts = () => {
   unsubscribeWorkouts = onSnapshot(q, (snapshot) => {
     allWorkouts = snapshot.docs.map((d) => migrateWorkout({ id: d.id, ...d.data() }));
     window.allWorkouts = allWorkouts;
-    if (window.checkNewAchievements) window.checkNewAchievements(allWorkouts);
+    _achCheck();
     if (window.renderAchievementsTab && document.getElementById("tab-achievements")?.classList.contains("active")) {
       window.renderAchievementsTab();
     }
@@ -1706,6 +1776,38 @@ window.listenToWorkouts = () => {
     document.getElementById("status").innerText = "Хмара синхронізована ✅";
   });
 };
+
+// === УСЯ ІСТОРІЯ — ДЛЯ ДОСЯГНЕНЬ ===
+// «Архіватор», «Історик», «Одіссея», серії тощо рахуються з усіх записів,
+// а не з 50 останніх, що вантажить журнал. Інакше досягнення з'являлись
+// і зникали залежно від того, скільки записів підвантажено.
+let _allWorkoutsUnsub = null;
+window.allWorkoutsFull = null;
+function listenToAllWorkouts() {
+  if (_allWorkoutsUnsub) return;
+  _allWorkoutsUnsub = onSnapshot(
+    colRef,
+    (snap) => {
+      window.allWorkoutsFull = snap.docs.map((d) => migrateWorkout({ id: d.id, ...d.data() }));
+      _achCheck();
+      if (window.renderAchievementsTab && document.getElementById("tab-achievements")?.classList.contains("active")) {
+        window.renderAchievementsTab();
+      }
+    },
+    (err) => console.warn("Досягнення (уся історія):", err),
+  );
+}
+window.listenToAllWorkouts = listenToAllWorkouts;
+
+// «Розблоковано!» — лише власнику і лише коли прийшли ВСІ дані (історія,
+// банки, стрільба, архів). З неповними даними старі досягнення вискакували
+// як нові.
+const _achLoaded = { cans: false, shooting: false, logs: false };
+function _achCheck() {
+  if (!isAdmin || !window.allWorkoutsFull || !window.checkNewAchievements) return;
+  if (!_achLoaded.cans || !_achLoaded.shooting || !_achLoaded.logs) return;
+  window.checkNewAchievements(window.allWorkoutsFull);
+}
 
 window.loadMoreWorkouts = () => {
   workoutLimit += 50;
@@ -1835,15 +1937,16 @@ function listenToMeta() {
         collection(db, "cans"),
         (snap) => {
           window.allCans = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          if (window.checkNewAchievements) window.checkNewAchievements(window.allWorkouts || []);
+          _achLoaded.cans = true;
+          _achCheck();
           if (window.renderAchievementsTab &&
               document.getElementById("tab-achievements")?.classList.contains("active")) {
             window.renderAchievementsTab();
           }
         },
-        () => {},
+        () => { _achLoaded.cans = true; _achCheck(); },
       );
-    } catch (e) { /* noop */ }
+    } catch (e) { _achLoaded.cans = true; }
   } else {
     window.allCans = [];
   }
@@ -1873,41 +1976,43 @@ function listenToMeta() {
           window.allShootingLogs = snap.docs
             .map((d) => ({ id: d.id, ...d.data() }))
             .filter((x) => x.userId === uidS);
-          if (window.checkNewAchievements) window.checkNewAchievements(window.allWorkouts || []);
+          _achLoaded.shooting = true;
+          _achCheck();
           if (window.renderAchievementsTab &&
               document.getElementById("tab-achievements")?.classList.contains("active")) {
             window.renderAchievementsTab();
           }
         },
-        () => {},
+        () => { _achLoaded.shooting = true; _achCheck(); },
       );
-    } catch (e) { /* noop */ }
+    } catch (e) { _achLoaded.shooting = true; }
   }
 
   // Архів — для досягнень. Доступний лише адміну.
   if (auth.currentUser) {
     try {
       const uid = auth.currentUser.uid;
-      console.log("🔵 Starting private_logs listener for user:", uid);
       _privateLogsUnsub = onSnapshot(
         query(collection(db, "private_logs"), orderBy("timestamp", "desc"), limit(500)),
         (snap) => {
           window.allPrivateLogs = snap.docs
             .map(d => ({ id: d.id, ...d.data() }))
             .filter(l => l.userId === uid);
-          console.log("✅ private_logs loaded:", window.allPrivateLogs.length, "записів");
-          console.log("📊 S-records:", window.allPrivateLogs.filter(l => l.is_s === true).length);
-          if (window.checkNewAchievements) window.checkNewAchievements(window.allWorkouts || []);
+          _achLoaded.logs = true;
+          _achCheck();
           if (window.renderAchievementsTab && document.getElementById("tab-achievements")?.classList.contains("active")) {
             window.renderAchievementsTab();
           }
         },
         (err) => {
           console.error("❌ private_logs listener error:", err);
+          _achLoaded.logs = true;
+          _achCheck();
         }
       );
     } catch (e) {
       console.error("❌ private_logs setup failed:", e);
+      _achLoaded.logs = true;
     }
   } else {
     console.log("⚠️ Not authenticated, skipping private_logs listener");
