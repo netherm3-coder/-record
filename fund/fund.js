@@ -5,12 +5,22 @@ import {
   initializeFirestore, persistentLocalCache, limit, updateDoc,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
-  getAuth, onAuthStateChanged,
+  getAuth, initializeAuth, onAuthStateChanged,
+  browserLocalPersistence, indexedDBLocalPersistence, browserSessionPersistence,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp(firebaseConfig);
 const db = initializeFirestore(app, { localCache: persistentLocalCache() });
-const auth = getAuth(app);
+// Сесія входу — у localStorage, як на головній (див. app.js): інакше модуль
+// переносив її в IndexedDB, а той браузер іноді чистить — і вхід зникав
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: [browserLocalPersistence, indexedDBLocalPersistence, browserSessionPersistence],
+  });
+} catch (e) {
+  auth = getAuth(app);
+}
 const colRef = collection(db, "fund_deposits");
 
 let isAdmin = false;
