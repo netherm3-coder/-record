@@ -161,6 +161,13 @@ onAuthStateChanged(auth, (user) => {
   if (user) {
     isAdmin = true;
     localStorage.setItem("isAdmin", "true"); // Прапор для секретного модуля
+    // Просимо браузер не стирати дані сайту при нестачі місця на телефоні:
+    // разом із ними зникає й сесія входу, і доводиться знову вводити пароль
+    try {
+      if (navigator.storage && navigator.storage.persist) {
+        navigator.storage.persisted().then((p) => (p ? true : navigator.storage.persist())).catch(() => {});
+      }
+    } catch (e) { /* noop */ }
     document.getElementById("adminPanel").style.display = "block";
     document.getElementById("logoutBtn").style.display = "block";
     document.getElementById("loginSection").style.display = "none";
