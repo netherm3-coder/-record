@@ -339,7 +339,9 @@ function hasNightEntry(workouts, logs) {
 }
 
 // --- Стрільба (дані з window.allShootingLogs) ---
-function _shots() { return window.allShootingLogs || []; }
+// Лише набої: записи гранат (kind: "grenade") не додаються ні до набоїв,
+// ні до зразків зброї, ні до калібрів
+function _shots() { return (window.allShootingLogs || []).filter((x) => x.kind !== "grenade"); }
 function totalRounds() {
   return _shots().reduce((s, x) => s + (parseInt(x.count) || 0), 0);
 }
