@@ -99,6 +99,40 @@
 .sh-form-split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
 .sh-form-split .sh-form-row { margin-bottom: 0; }
 
+/* ---------- НАБОЇ / ГРАНАТИ ---------- */
+.sh-kind {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .sh-kind { background: rgba(0, 0, 0, 0.03); }
+.sh-kind-btn {
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, color 0.2s;
+}
+.sh-kind-btn.active {
+  background: var(--sh-accent-dim);
+  color: var(--sh-accent);
+  box-shadow: inset 0 0 0 1px var(--sh-accent-border);
+}
+/* У гранат немає калібру — поле ховаємо, «Тип» на всю ширину */
+.sh-mode-grenade .sh-cal-row { display: none; }
+.sh-mode-grenade .sh-form-split { grid-template-columns: 1fr; }
+
 .sh-label {
   display: block;
   font-size: 0.7rem;
@@ -553,6 +587,9 @@ html.sh-bg-on .sh-day-header {
 }
 .sh-weapon-card-top { align-items: center; }
 .sh-weapon-card-name { flex: 1; min-width: 0; }
+/* Граната квадратна — по центру клітинки, а не притиснута до краю */
+.sh-entry-icon.sh-icon-grenade,
+.sh-card-icon.sh-icon-grenade { object-position: center; }
 
 /* ---------- КНОПКА «ПОВТОРИТИ ОСТАННІЙ» ---------- */
 .sh-repeat-btn {

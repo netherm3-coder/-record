@@ -1,15 +1,17 @@
 // ================================================================
 //  shooting_module/shooting.js — Стрільба (облік боєприпасів)
 //  Firestore:
-//    shooting_logs  { date, weapon, caliber, ammo_type, count, timestamp, userId }
-//    shooting_specs { type: 'weapon'|'ammo', key, userId, updatedAt, ...fields }
+//    shooting_logs  { date, weapon, caliber, ammo_type, count, timestamp, userId,
+//                     kind? }  kind: "grenade" — гранати (weapon = назва гранати,
+//                     ammo_type = тип, caliber порожній); без kind — набої
+//    shooting_specs { type: 'weapon'|'ammo'|'grenade', key, userId, updatedAt, ...fields }
 // ================================================================
 
 import { firebaseConfig } from "../firebase-config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getFirestore, collection, addDoc, updateDoc, setDoc, onSnapshot,
-  query, orderBy, deleteDoc, doc, limit,
+  query, orderBy, deleteDoc, doc, limit, deleteField,
   initializeFirestore, persistentLocalCache,
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
@@ -70,6 +72,18 @@ const AMMO_TTX_FIELDS = [
   ["v0_ms", "V0, м/с"],
   ["e0_j", "E0, Дж"],
 ];
+const GRENADE_TTX_FIELDS = [
+  ["mass_g", "Маса гранати, г"],
+  ["explosive_g", "Маса вибухової речовини, г"],
+  ["lethal_radius_m", "Радіус вбивчої дії, м"],
+  ["throw_range_m", "Дальність кидка, м"],
+  ["fuse_delay_s", "Час горіння запалу, с"],
+];
+function _ttxFields(kind) {
+  if (kind === "weapon") return WEAPON_TTX_FIELDS;
+  if (kind === "grenade") return GRENADE_TTX_FIELDS;
+  return AMMO_TTX_FIELDS;
+}
 
 // ================================================================
 //  ХЕЛПЕРИ
@@ -94,6 +108,19 @@ function _specDocId(type, key) {
     .replace(/[^a-zа-яёіїєґ0-9]+/gi, "_")
     .replace(/^_+|_+$/g, "");
   return type + "__" + clean;
+}
+// Запис про гранати (решта — набої, зокрема всі старі записи без kind)
+function _isGrenade(s) { return !!s && s.kind === "grenade"; }
+function _kindOf(s) { return _isGrenade(s) ? "grenade" : "rounds"; }
+function _sumCount(list) { return list.reduce((s, x) => s + (parseInt(x.count) || 0), 0); }
+// 1 граната, 2 гранати, 5 гранат
+function _plural(n, forms) {
+  const a = Math.abs(n) % 100;
+  const b = a % 10;
+  if (a > 10 && a < 20) return forms[2];
+  if (b === 1) return forms[0];
+  if (b > 1 && b < 5) return forms[1];
+  return forms[2];
 }
 
 // ================================================================
@@ -166,16 +193,27 @@ function _weaponIcon(weaponName) {
   return "musket_flint"; // fallback — мушкет
 }
 
+// Силует для запису: у гранат — свій значок, у зброї — за назвою
+const GRENADE_ICON = "../assets/gear/grenade.png";
+function _iconSrc(name, grenade) {
+  return grenade ? GRENADE_ICON : "../assets/weapons/" + _weaponIcon(name) + ".png";
+}
+function _iconImg(cls, name, grenade) {
+  return '<img class="' + cls + (grenade ? " sh-icon-grenade" : "") + '" src="' + _iconSrc(name, grenade) + '" alt="" ' +
+    'onerror="this.onerror=null;this.src=\'../assets/weapons/musket_flint.png\'" />';
+}
+
 // ================================================================
 //  СТАН
 // ================================================================
 let _allShots = [];
-let _specsCache = { weapon: {}, ammo: {} };
+let _specsCache = { weapon: {}, ammo: {}, grenade: {} };
 let _editingId = null;
 let _activeSubTab = "main";
 let _statsDirty = true;
 let _scrollToEndOnNextRender = false;
-let _lastEntry = null;
+let _formKind = "rounds";                       // що зараз записує форма
+let _lastEntry = { rounds: null, grenade: null }; // для «Повторити» — окремо
 
 // Довідник (вантажиться з reference.js при першому відкритті вкладки)
 let _ref = null;          // [{ id, section, title, subtitle, blocks }]
@@ -184,6 +222,7 @@ let _refLoading = false;
 let _refView = { doc: null, query: "", focus: -1 };
 let _refSheetInited = false;
 let _weaponIndex = [];    // зразки зброї з таблиць довідника
+let _grenadeIndex = [];   // ручні гранати з таблиці довідника
 let _calibers = [];       // калібри з документів
 
 // ================================================================
@@ -274,41 +313,92 @@ function _initForm() {
   document.getElementById("shSaveBtn").addEventListener("click", _handleSave);
   document.getElementById("shCancelEditBtn").addEventListener("click", _cancelEdit);
 
-  // Enter веде до наступного поля, а в останньому — зберігає
-  const chain = ["shWeapon", "shCaliber", "shAmmoType", "shCount"];
-  chain.forEach((id, i) => {
+  // Набої / Гранати. Уже введене не стирається: якщо почав писати DM51
+  // як набої — просто перемикаєш на «Гранати».
+  document.querySelectorAll(".sh-kind-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.kind !== _formKind) _setFormKind(btn.dataset.kind);
+    });
+  });
+
+  // Enter веде до наступного поля, а в останньому — зберігає.
+  // У гранат калібру немає — його пропускаємо.
+  const chain = () => _formKind === "grenade"
+    ? ["shWeapon", "shAmmoType", "shCount"]
+    : ["shWeapon", "shCaliber", "shAmmoType", "shCount"];
+  ["shWeapon", "shCaliber", "shAmmoType", "shCount"].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     el.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
       e.preventDefault();
-      if (i === chain.length - 1) _handleSave();
-      else document.getElementById(chain[i + 1])?.focus();
+      const c = chain();
+      const i = c.indexOf(id);
+      if (i === -1 || i === c.length - 1) _handleSave();
+      else document.getElementById(c[i + 1])?.focus();
     });
   });
 
+  _setFormKind(_formKind);
+}
+
+// Підписи, підказки й списки автодоповнення під тип запису
+const KIND_UI = {
+  rounds: {
+    weapon: "Зброя", weaponPh: "Напр. АКМ", weaponList: "shWeaponList",
+    ammo: "Тип набою", ammoPh: "ПС / M855", ammoList: "shAmmoList",
+  },
+  grenade: {
+    weapon: "Граната", weaponPh: "Напр. DM51 A3", weaponList: "shGrenadeList",
+    ammo: "Тип гранати", ammoPh: "Бойова / навчальна", ammoList: "shGrenadeTypeList",
+  },
+};
+
+function _setFormKind(kind) {
+  _formKind = kind === "grenade" ? "grenade" : "rounds";
+  const ui = KIND_UI[_formKind];
+  const card = document.querySelector(".sh-form-card");
+  if (card) card.classList.toggle("sh-mode-grenade", _formKind === "grenade");
+  document.querySelectorAll(".sh-kind-btn").forEach((b) => {
+    const on = b.dataset.kind === _formKind;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  const weaponEl = document.getElementById("shWeapon");
+  const ammoEl = document.getElementById("shAmmoType");
+  document.getElementById("shWeaponLabel").textContent = ui.weapon;
+  document.getElementById("shAmmoLabel").textContent = ui.ammo;
+  weaponEl.placeholder = ui.weaponPh;
+  weaponEl.setAttribute("list", ui.weaponList);
+  ammoEl.placeholder = ui.ammoPh;
+  ammoEl.setAttribute("list", ui.ammoList);
+  _updatePreview();
   _updateRepeatBtn();
 }
 
 function _onWeaponChange() {
   const weaponEl = document.getElementById("shWeapon");
-  const caliberEl = document.getElementById("shCaliber");
-  const suggestion = _suggestCaliber(weaponEl.value);
-  if (suggestion) caliberEl.value = suggestion;
-
-  // Живе прев'ю силуету
-  const prev = document.getElementById("shWeaponPreview");
-  if (prev) {
-    const icon = _weaponIcon(weaponEl.value);
-    const src = "../assets/weapons/" + icon + ".png";
-    if (!prev.src.endsWith(src.replace("../", ""))) prev.src = src;
-    prev.classList.toggle("sh-preview-dim", !weaponEl.value.trim());
+  if (_formKind !== "grenade") {
+    const suggestion = _suggestCaliber(weaponEl.value);
+    if (suggestion) document.getElementById("shCaliber").value = suggestion;
   }
+  _updatePreview();
+}
+
+// Живе прев'ю силуету
+function _updatePreview() {
+  const prev = document.getElementById("shWeaponPreview");
+  if (!prev) return;
+  const name = document.getElementById("shWeapon").value;
+  const src = _iconSrc(name, _formKind === "grenade");
+  if (!prev.src.endsWith(src.replace("../", ""))) prev.src = src;
+  prev.classList.toggle("sh-preview-dim", !name.trim());
 }
 
 function _buildHistoryCaliberMap() {
   const map = {};
   _allShots.forEach((s) => {
+    if (_isGrenade(s)) return;
     const norm = _norm(s.weapon);
     if (norm && !map[norm] && s.caliber) map[norm] = s.caliber;
   });
@@ -381,7 +471,7 @@ function _listenShootingSpecs() {
   const uid = auth.currentUser.uid;
   const q = query(collection(db, "shooting_specs"));
   onSnapshot(q, (snap) => {
-    const cache = { weapon: {}, ammo: {} };
+    const cache = { weapon: {}, ammo: {}, grenade: {} };
     snap.docs.forEach((d) => {
       const data = d.data();
       if (data.userId !== uid) return;
@@ -419,32 +509,42 @@ function _renderList() {
   let html = "";
   dates.forEach((date) => {
     const items = groups[date].slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-    const dayTotal = items.reduce((s, x) => s + (parseInt(x.count) || 0), 0);
+    // Набої й гранати не складаємо: «120 шт. · 2 гранати»
+    const dayRounds = _sumCount(items.filter((x) => !_isGrenade(x)));
+    const dayGrenades = _sumCount(items.filter(_isGrenade));
+    const totals = [];
+    if (dayRounds || !dayGrenades) totals.push(dayRounds + " шт.");
+    if (dayGrenades) totals.push(dayGrenades + " " + _plural(dayGrenades, ["граната", "гранати", "гранат"]));
 
     html += '<div class="sh-day-group">' +
       '<div class="sh-day-header">' +
-        '<span class="sh-day-date">' + _fmtDate(date) + '</span>' +
-        '<span class="sh-day-total">' + dayTotal + ' шт.</span>' +
+        '<span class="sh-day-date">' + _esc(_fmtDate(date)) + '</span>' +
+        '<span class="sh-day-total">' + totals.join(" · ") + '</span>' +
       '</div>';
 
     items.forEach((it) => {
-      const ammoSeg = it.ammo_type
-        ? ' <span class="sh-sep">|</span> <span class="sh-ammo sh-ammo-link" data-ammotype="' +
-          _escAttr(it.ammo_type) + '" data-caliber="' + _escAttr(it.caliber) + '">' + _esc(it.ammo_type) + '</span>'
-        : '';
-      const icon = _weaponIcon(it.weapon);
-      html += '<div class="sh-entry">' +
-        '<img class="sh-entry-icon" src="../assets/weapons/' + icon + '.png" alt="" ' +
-          'onerror="this.onerror=null;this.src=\'../assets/weapons/musket_flint.png\'" />' +
+      const grenade = _isGrenade(it);
+      let mid;
+      if (grenade) {
+        // Граната: без калібру; тип — просто текст (ТТХ набою до нього не прив'язане)
+        mid = it.ammo_type ? ' <span class="sh-sep">|</span> <span class="sh-ammo">' + _esc(it.ammo_type) + '</span>' : '';
+      } else {
+        mid = ' <span class="sh-sep">|</span> <span class="sh-caliber">' + _esc(it.caliber) + '</span>' +
+          (it.ammo_type
+            ? ' <span class="sh-sep">|</span> <span class="sh-ammo sh-ammo-link" data-ammotype="' +
+              _escAttr(it.ammo_type) + '" data-caliber="' + _escAttr(it.caliber) + '">' + _esc(it.ammo_type) + '</span>'
+            : '');
+      }
+      html += '<div class="sh-entry' + (grenade ? ' sh-entry-grenade' : '') + '">' +
+        _iconImg("sh-entry-icon", it.weapon, grenade) +
         '<div class="sh-entry-text">' +
-          '<span class="sh-weapon sh-weapon-link" data-weapon="' + _escAttr(it.weapon) + '">' + _esc(it.weapon) + '</span>' +
-          ' <span class="sh-sep">|</span> <span class="sh-caliber">' + _esc(it.caliber) + '</span>' +
-          ammoSeg +
+          '<span class="sh-weapon sh-weapon-link" data-weapon="' + _escAttr(it.weapon) + '" data-kind="' + _kindOf(it) + '">' + _esc(it.weapon) + '</span>' +
+          mid +
           ' <span class="sh-dash">—</span> <span class="sh-count">' + (parseInt(it.count) || 0) + ' шт.</span>' +
         '</div>' +
         '<div class="sh-entry-actions">' +
-          '<button class="sh-mini-btn sh-edit" data-id="' + it.id + '" title="Редагувати">✎</button>' +
-          '<button class="sh-mini-btn sh-del" data-id="' + it.id + '" title="Видалити">✕</button>' +
+          '<button class="sh-mini-btn sh-edit" data-id="' + _escAttr(it.id) + '" title="Редагувати">✎</button>' +
+          '<button class="sh-mini-btn sh-del" data-id="' + _escAttr(it.id) + '" title="Видалити">✕</button>' +
         '</div>' +
       '</div>';
     });
@@ -457,7 +557,7 @@ function _renderList() {
   container.querySelectorAll(".sh-edit").forEach((btn) => btn.addEventListener("click", () => _editEntry(btn.dataset.id)));
   container.querySelectorAll(".sh-del").forEach((btn) => btn.addEventListener("click", () => _deleteEntry(btn.dataset.id)));
   container.querySelectorAll(".sh-weapon-link").forEach((el) => {
-    el.addEventListener("click", () => _openTtxModal("weapon", el.dataset.weapon, el.dataset.weapon));
+    el.addEventListener("click", () => _openTtxModal(el.dataset.kind === "grenade" ? "grenade" : "weapon", el.dataset.weapon, el.dataset.weapon));
   });
   container.querySelectorAll(".sh-ammo-link").forEach((el) => {
     el.addEventListener("click", () => _openAmmoTtx(el.dataset.ammotype, el.dataset.caliber));
@@ -476,27 +576,34 @@ function _rebuildDatalists() {
   const weaponFreq = {};
   const caliberSet = new Set();
   const ammoFreq = {};
+  const grenadeFreq = {};
+  const grenadeTypeFreq = {};
+  const bump = (m, k) => { m[k] = (m[k] || 0) + 1; };
 
   _allShots.forEach((s) => {
-    if (s.weapon) weaponFreq[s.weapon] = (weaponFreq[s.weapon] || 0) + 1;
+    if (_isGrenade(s)) {
+      if (s.weapon) bump(grenadeFreq, s.weapon);
+      if (s.ammo_type) bump(grenadeTypeFreq, s.ammo_type);
+      return;
+    }
+    if (s.weapon) bump(weaponFreq, s.weapon);
     if (s.caliber) caliberSet.add(s.caliber);
-    if (s.ammo_type) ammoFreq[s.ammo_type] = (ammoFreq[s.ammo_type] || 0) + 1;
+    if (s.ammo_type) bump(ammoFreq, s.ammo_type);
   });
 
-  const weapons = Object.keys(weaponFreq).sort((a, b) => weaponFreq[b] - weaponFreq[a]);
+  const byFreq = (m) => Object.keys(m).sort((a, b) => m[b] - m[a]);
+  const weapons = byFreq(weaponFreq);
   const calibers = Array.from(caliberSet).sort();
-  const ammoTypes = Object.keys(ammoFreq).sort((a, b) => ammoFreq[b] - ammoFreq[a]);
+  const grenades = byFreq(grenadeFreq);
 
   // Спочатку — те, що вже є у твоєму журналі, далі — зразки з довідника
-  const refWeapons = _weaponIndex.map((w) => w.name);
-  const weaponsAll = weapons.concat(
-    refWeapons.filter((n) => !weapons.some((w) => _refKey(w) === _refKey(n))));
-  const calibersAll = calibers.concat(
-    _calibers.filter((c) => !calibers.some((x) => _refKey(x) === _refKey(c))));
+  const withRef = (own, ref) => own.concat(ref.filter((n) => !own.some((w) => _refKey(w) === _refKey(n))));
 
-  _fillDatalist("shWeaponList", weaponsAll);
-  _fillDatalist("shCaliberList", calibersAll);
-  _fillDatalist("shAmmoList", ammoTypes);
+  _fillDatalist("shWeaponList", withRef(weapons, _weaponIndex.map((w) => w.name)));
+  _fillDatalist("shCaliberList", withRef(calibers, _calibers));
+  _fillDatalist("shAmmoList", byFreq(ammoFreq));
+  _fillDatalist("shGrenadeList", withRef(grenades, _grenadeIndex.map((g) => g.name)));
+  _fillDatalist("shGrenadeTypeList", byFreq(grenadeTypeFreq));
 }
 
 function _fillDatalist(id, values) {
@@ -523,6 +630,25 @@ function _toast(msg, kind) {
   }, 2200);
 }
 
+function _toastErr(err) {
+  console.error(err);
+  if (err && err.code === "permission-denied") _toast("Доступ заборонено — перевір Firestore rules", "err");
+  else _toast("Помилка: " + (err && err.message ? err.message : err), "err");
+}
+
+// Запис у базу: сервер чекаємо не довше 2,5 с. Без мережі (полігон) запис
+// уже лежить у кеші телефона й сам піде в хмару, коли з'явиться зв'язок, —
+// форма не висить на «Збереження...». "ok" — сервер прийняв, "slow" — офлайн.
+const OFFLINE_NOTE = " · офлайн, синхронізується пізніше";
+async function _commit(promise) {
+  const res = await Promise.race([
+    promise.then(() => "ok"),
+    new Promise((r) => setTimeout(() => r("slow"), 2500)),
+  ]);
+  if (res === "slow") promise.catch(_toastErr);
+  return res;
+}
+
 // ================================================================
 //  ЗБЕРЕЖЕННЯ / РЕДАГУВАННЯ / ВИДАЛЕННЯ ЗАПИСІВ
 // ================================================================
@@ -534,16 +660,17 @@ async function _handleSave() {
   const countEl = document.getElementById("shCount");
   const saveBtn = document.getElementById("shSaveBtn");
 
+  const grenade = _formKind === "grenade";
   const date = dateEl.value || _todayLocal();
   const weapon = weaponEl.value.trim();
-  const caliber = caliberEl.value.trim();
+  const caliber = grenade ? "" : caliberEl.value.trim();
   const ammo_type = ammoEl.value.trim();
   const count = parseInt(countEl.value);
 
-  if (!weapon) { _toast("Вкажи зброю", "err"); weaponEl.focus(); return; }
-  if (!caliber) { _toast("Вкажи калібр", "err"); caliberEl.focus(); return; }
-  if (!count || count <= 0) { _toast("Вкажи кількість набоїв", "err"); countEl.focus(); return; }
-  if (count > 100000) { _toast("Забагато — перевір кількість", "err"); countEl.focus(); return; }
+  if (!weapon) { _toast(grenade ? "Вкажи гранату" : "Вкажи зброю", "err"); weaponEl.focus(); return; }
+  if (!grenade && !caliber) { _toast("Вкажи калібр", "err"); caliberEl.focus(); return; }
+  if (!count || count <= 0) { _toast(grenade ? "Вкажи кількість гранат" : "Вкажи кількість набоїв", "err"); countEl.focus(); return; }
+  if (count > (grenade ? 1000 : 100000)) { _toast("Забагато — перевір кількість", "err"); countEl.focus(); return; }
   if (date > _todayLocal()) {
     if (!confirm("Дата у майбутньому (" + _fmtDate(date) + "). Все одно зберегти?")) { dateEl.focus(); return; }
   }
@@ -554,48 +681,58 @@ async function _handleSave() {
 
   try {
     if (_editingId) {
-      await updateDoc(doc(db, "shooting_logs", _editingId), {
+      // Тип можна змінити й у старому записі (набої → гранати і навпаки)
+      const res = await _commit(updateDoc(doc(db, "shooting_logs", _editingId), {
         date, weapon, caliber, ammo_type, count, updatedAt: Date.now(),
-      });
+        kind: grenade ? "grenade" : deleteField(),
+      }));
       _editingId = null;
       document.getElementById("shCancelEditBtn").style.display = "none";
-      _toast("Запис оновлено");
+      _toast("Запис оновлено" + (res === "slow" ? OFFLINE_NOTE : ""));
     } else {
-      await addDoc(collection(db, "shooting_logs"), {
-        date, weapon, caliber, ammo_type, count,
-        timestamp: Date.now(), userId: uid, createdAt: Date.now(),
-      });
+      const data = { date, weapon, caliber, ammo_type, count, timestamp: Date.now(), userId: uid, createdAt: Date.now() };
+      if (grenade) data.kind = "grenade";
       _scrollToEndOnNextRender = true;
-      _toast("Записано: " + weapon + " — " + count + " шт.");
+      let res;
+      try {
+        res = await _commit(addDoc(collection(db, "shooting_logs"), data));
+      } catch (err) {
+        _scrollToEndOnNextRender = false;
+        throw err;
+      }
+      _toast("Записано: " + weapon + " — " + count + " шт." + (res === "slow" ? OFFLINE_NOTE : ""));
     }
-    // Запам'ятовуємо для кнопки «Повторити останній»
-    _lastEntry = { date, weapon, caliber, ammo_type, count };
+    // Запам'ятовуємо для кнопки «Повторити останній» — окремо для набоїв і гранат
+    _lastEntry[grenade ? "grenade" : "rounds"] = { date, weapon, caliber, ammo_type, count };
     _resetFormFields();
     _updateRepeatBtn();
   } catch (err) {
-    if (err.code === "permission-denied") {
-      _toast("Доступ заборонено — перевір Firestore rules", "err");
-    } else {
-      _toast("Помилка: " + err.message, "err");
-    }
+    _toastErr(err);
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = _editingId ? "💾 Оновити запис" : "Записати";
   }
 }
 
+// Останній запис того типу, що зараз у формі
+function _lastOfKind(kind) {
+  return _lastEntry[kind] || _allShots.find((s) => _kindOf(s) === kind) || null;
+}
+
 // Кнопка «Повторити останній» — швидке додавання однотипних записів
 function _updateRepeatBtn() {
   const btn = document.getElementById("shRepeatBtn");
   if (!btn) return;
-  const src = _lastEntry || _allShots[0];
+  const kind = _formKind;
+  const src = _lastOfKind(kind);
   if (!src || !src.weapon) { btn.style.display = "none"; return; }
   btn.style.display = "block";
   btn.textContent = "↻ Повторити: " + src.weapon +
     (src.ammo_type ? " · " + src.ammo_type : "") + " · " + src.count + " шт.";
   btn.onclick = () => {
+    if (_formKind !== kind) _setFormKind(kind);
     document.getElementById("shWeapon").value = src.weapon || "";
-    document.getElementById("shCaliber").value = src.caliber || "";
+    document.getElementById("shCaliber").value = kind === "grenade" ? "" : (src.caliber || "");
     document.getElementById("shAmmoType").value = src.ammo_type || "";
     document.getElementById("shCount").value = src.count || "";
     _onWeaponChange();
@@ -611,6 +748,7 @@ function _resetFormFields() {
   const countEl = document.getElementById("shCount");
   weaponEl.value = ""; caliberEl.value = ""; ammoEl.value = ""; countEl.value = "";
   document.getElementById("shSaveBtn").textContent = "Записати";
+  _updatePreview();
   weaponEl.focus();
 }
 
@@ -619,11 +757,13 @@ function _editEntry(id) {
   if (!entry) return;
 
   _editingId = id;
+  _setFormKind(_kindOf(entry));
   document.getElementById("shDate").value = entry.date;
-  document.getElementById("shWeapon").value = entry.weapon;
-  document.getElementById("shCaliber").value = entry.caliber;
+  document.getElementById("shWeapon").value = entry.weapon || "";
+  document.getElementById("shCaliber").value = entry.caliber || "";
   document.getElementById("shAmmoType").value = entry.ammo_type || "";
   document.getElementById("shCount").value = entry.count;
+  _updatePreview();
 
   document.getElementById("shSaveBtn").textContent = "💾 Оновити запис";
   document.getElementById("shCancelEditBtn").style.display = "inline-block";
@@ -641,14 +781,11 @@ function _cancelEdit() {
 async function _deleteEntry(id) {
   if (!confirm("Видалити цей запис?")) return;
   try {
-    await deleteDoc(doc(db, "shooting_logs", id));
+    const res = await _commit(deleteDoc(doc(db, "shooting_logs", id)));
     if (_editingId === id) _cancelEdit();
+    if (res === "slow") _toast("Видалено" + OFFLINE_NOTE);
   } catch (err) {
-    if (err.code === "permission-denied") {
-      alert("🛡️ Доступ заборонено! Перевір Firestore rules для shooting_logs.");
-    } else {
-      alert("Помилка видалення: " + err.message);
-    }
+    _toastErr(err);
   }
 }
 
@@ -664,35 +801,76 @@ function _renderStatsPanel() {
     return;
   }
 
-  panel.innerHTML =
-    _renderStatsOverview() +
-    '<div class="sh-stats-section-title">Розподіл за калібрами</div>' +
-    _renderCaliberBars() +
-    '<div class="sh-stats-section-title">По зброї</div>' +
-    '<div class="sh-weapon-cards">' + _renderWeaponCards() + '</div>';
+  // Гранати — окремим блоком: у «Загальний настріл», калібри й «По зброї» не потрапляють
+  const rounds = _allShots.filter((s) => !_isGrenade(s));
+  const grenades = _allShots.filter(_isGrenade);
+  let html = "";
+  if (rounds.length) {
+    html += _renderStatsOverview(rounds) +
+      '<div class="sh-stats-section-title">Розподіл за калібрами</div>' +
+      _renderCaliberBars(rounds) +
+      '<div class="sh-stats-section-title">По зброї</div>' +
+      '<div class="sh-weapon-cards">' + _renderWeaponCards(rounds) + '</div>';
+  }
+  if (grenades.length) {
+    html += '<div class="sh-stats-section-title">Гранати</div>' + _renderGrenadeStats(grenades);
+  }
+  panel.innerHTML = html;
 
   panel.querySelectorAll(".sh-weapon-link").forEach((el) => {
-    el.addEventListener("click", () => _openTtxModal("weapon", el.dataset.weapon, el.dataset.weapon));
+    el.addEventListener("click", () => _openTtxModal(el.dataset.kind === "grenade" ? "grenade" : "weapon", el.dataset.weapon, el.dataset.weapon));
   });
   panel.querySelectorAll(".sh-ammo-link").forEach((el) => {
     el.addEventListener("click", () => _openAmmoTtx(el.dataset.ammotype, el.dataset.caliber));
   });
 }
 
-function _renderStatsOverview() {
-  const totalRounds = _allShots.reduce((s, x) => s + (parseInt(x.count) || 0), 0);
+function _renderStatsOverview(rounds) {
   return '<div class="sh-stats-overview">' +
-    '<div class="sh-stat-box sh-stat-big"><div class="sh-stat-num">' + totalRounds + '</div><div class="sh-stat-lbl">Загальний настріл</div></div>' +
-    '<div class="sh-stat-box"><div class="sh-stat-num">' + _allShots.length + '</div><div class="sh-stat-lbl">Кількість сесій</div></div>' +
+    '<div class="sh-stat-box sh-stat-big"><div class="sh-stat-num">' + _sumCount(rounds) + '</div><div class="sh-stat-lbl">Загальний настріл</div></div>' +
+    '<div class="sh-stat-box"><div class="sh-stat-num">' + rounds.length + '</div><div class="sh-stat-lbl">Кількість сесій</div></div>' +
   '</div>';
 }
 
-function _renderCaliberBars() {
-  const totalRounds = _allShots.reduce((s, x) => s + (parseInt(x.count) || 0), 0);
+function _renderGrenadeStats(list) {
+  const byName = {};
+  list.forEach((s) => {
+    const norm = _norm(s.weapon);
+    if (!byName[norm]) byName[norm] = { name: s.weapon, sessions: 0, count: 0, types: {} };
+    const g = byName[norm];
+    const n = parseInt(s.count) || 0;
+    g.sessions += 1;
+    g.count += n;
+    const t = s.ammo_type && s.ammo_type.trim() ? s.ammo_type.trim() : "(без типу)";
+    g.types[t] = (g.types[t] || 0) + n;
+  });
+  const cards = Object.values(byName).sort((a, b) => b.count - a.count).map((g) => {
+    const chips = Object.keys(g.types).sort((a, b) => g.types[b] - g.types[a])
+      .map((t) => '<span class="sh-ammo-chip">' + g.types[t] + ' ' + _esc(t) + '</span>').join(" ");
+    return '<div class="sh-weapon-card sh-grenade-card">' +
+      '<div class="sh-weapon-card-top">' +
+        _iconImg("sh-card-icon", g.name, true) +
+        '<span class="sh-weapon-card-name sh-weapon-link" data-weapon="' + _escAttr(g.name) + '" data-kind="grenade">' + _esc(g.name) + '</span>' +
+      '</div>' +
+      '<div class="sh-weapon-card-stats">' + g.sessions + ' ' + _plural(g.sessions, ["метання", "метання", "метань"]) +
+        '<span class="sh-dot">•</span>' + g.count + ' шт.</div>' +
+      '<div class="sh-weapon-card-ammo">' + chips + '</div>' +
+    '</div>';
+  }).join("");
+
+  return '<div class="sh-stats-overview">' +
+      '<div class="sh-stat-box sh-stat-big"><div class="sh-stat-num">' + _sumCount(list) + '</div><div class="sh-stat-lbl">Кинуто гранат</div></div>' +
+      '<div class="sh-stat-box"><div class="sh-stat-num">' + list.length + '</div><div class="sh-stat-lbl">Кількість метань</div></div>' +
+    '</div>' +
+    '<div class="sh-weapon-cards">' + cards + '</div>';
+}
+
+function _renderCaliberBars(rounds) {
+  const totalRounds = _sumCount(rounds);
   if (totalRounds === 0) return "";
 
   const byCaliber = {};
-  _allShots.forEach((s) => {
+  rounds.forEach((s) => {
     const c = s.caliber || "Невідомо";
     byCaliber[c] = (byCaliber[c] || 0) + (parseInt(s.count) || 0);
   });
@@ -708,9 +886,9 @@ function _renderCaliberBars() {
   }).join("") + '</div>';
 }
 
-function _renderWeaponCards() {
+function _renderWeaponCards(rounds) {
   const byWeapon = {};
-  _allShots.forEach((s) => {
+  rounds.forEach((s) => {
     const norm = _norm(s.weapon);
     if (!byWeapon[norm]) byWeapon[norm] = { name: s.weapon, caliber: s.caliber, sessions: 0, rounds: 0, ammo: {} };
     const w = byWeapon[norm];
@@ -737,12 +915,12 @@ function _renderWeaponCards() {
 
     return '<div class="sh-weapon-card">' +
       '<div class="sh-weapon-card-top">' +
-        '<img class="sh-card-icon" src="../assets/weapons/' + _weaponIcon(w.name) + '.png" alt="" ' +
-          'onerror="this.onerror=null;this.src=\'../assets/weapons/musket_flint.png\'" />' +
-        '<span class="sh-weapon-card-name sh-weapon-link" data-weapon="' + _escAttr(w.name) + '">' + _esc(w.name) + '</span>' +
+        _iconImg("sh-card-icon", w.name, false) +
+        '<span class="sh-weapon-card-name sh-weapon-link" data-weapon="' + _escAttr(w.name) + '" data-kind="rounds">' + _esc(w.name) + '</span>' +
         '<span class="sh-weapon-card-caliber sh-ammo-link" data-ammotype="" data-caliber="' + _escAttr(w.caliber) + '">' + _esc(w.caliber) + '</span>' +
       '</div>' +
-      '<div class="sh-weapon-card-stats">' + w.sessions + ' стрільб<span class="sh-dot">•</span>' + w.rounds + ' шт.' + _bkBadge(w) + '</div>' +
+      '<div class="sh-weapon-card-stats">' + w.sessions + ' ' + _plural(w.sessions, ["стрільба", "стрільби", "стрільб"]) +
+        '<span class="sh-dot">•</span>' + w.rounds + ' шт.' + _bkBadge(w) + '</div>' +
       '<div class="sh-weapon-card-ammo">' + ammoHtml + '</div>' +
     '</div>';
   }).join("");
@@ -774,7 +952,8 @@ function _openAmmoTtx(ammoType, caliber) {
 let _ttxCurrent = null;
 function _openTtxModal(kind, key, displayName, fallbackCaliber) {
   _ttxCurrent = { kind, key, displayName, fallbackCaliber };
-  document.getElementById("shTtxTitle").textContent = (kind === "weapon" ? "🔫 " : "🧿 ") + displayName;
+  const mark = kind === "weapon" ? "🔫 " : kind === "grenade" ? "💣 " : "🧿 ";
+  document.getElementById("shTtxTitle").textContent = mark + displayName;
 
   const data = _getSpecValues(kind, key, fallbackCaliber);
   if (data) {
@@ -798,7 +977,7 @@ function _getSpecValues(kind, key, fallbackCaliber) {
 }
 
 function _renderTtxView(kind, key, data, fallbackCaliber) {
-  const fields = kind === "weapon" ? WEAPON_TTX_FIELDS : AMMO_TTX_FIELDS;
+  const fields = _ttxFields(kind);
   const body = document.getElementById("shTtxBody");
 
   const rowsHtml = fields.map((f) => {
@@ -826,12 +1005,12 @@ function _renderTtxView(kind, key, data, fallbackCaliber) {
 // Що шукати в довіднику для відкритої картки ТТХ
 function _ttxRefQuery() {
   if (!_ttxCurrent) return "";
-  if (_ttxCurrent.kind === "weapon") return _ttxCurrent.key || _ttxCurrent.displayName;
+  if (_ttxCurrent.kind !== "ammo") return _ttxCurrent.key || _ttxCurrent.displayName;
   return _ttxCurrent.fallbackCaliber || _ttxCurrent.displayName || "";
 }
 
 function _renderTtxEdit(kind, key, currentData, fallbackCaliber, isNew) {
-  const fields = kind === "weapon" ? WEAPON_TTX_FIELDS : AMMO_TTX_FIELDS;
+  const fields = _ttxFields(kind);
   const body = document.getElementById("shTtxBody");
 
   const stubNote = isNew
@@ -876,10 +1055,11 @@ async function _saveTtx(kind, key, fallbackCaliber) {
 
   try {
     const payload = Object.assign({ type: kind, key: key, userId: uid, updatedAt: Date.now() }, values);
-    await setDoc(doc(db, "shooting_specs", docId), payload);
+    const res = await _commit(setDoc(doc(db, "shooting_specs", docId), payload));
     if (!_specsCache[kind]) _specsCache[kind] = {};
     _specsCache[kind][_norm(key)] = values;
     _renderTtxView(kind, key, values, fallbackCaliber);
+    if (res === "slow") _toast("ТТХ збережено" + OFFLINE_NOTE);
   } catch (err) {
     if (err.code === "permission-denied") {
       alert("🛡️ Доступ заборонено! Перевір Firestore rules для shooting_specs.");
@@ -904,6 +1084,7 @@ function _loadRef() {
     _ref = mod.REFERENCE || [];
     _ammoLoad = mod.AMMO_LOAD || {};
     _weaponIndex = mod.WEAPON_INDEX || [];
+    _grenadeIndex = _buildGrenadeIndex(_ref);
     _calibers = mod.CALIBERS || [];
     _refLoading = null;
     return _ref;
@@ -913,6 +1094,22 @@ function _loadRef() {
     throw e;
   });
   return _refLoading;
+}
+
+// Ручні гранати з таблиці довідника: колонки «ТТХ ручних гранат · РГД-5» тощо
+function _buildGrenadeIndex(ref) {
+  const out = [];
+  (ref || []).forEach((d) => d.blocks.forEach((b, bi) => {
+    if (b.t !== "table") return;
+    if (!/ручн\S*\s+гранат/i.test((b.caption || "") + " " + (b.header[0] || ""))) return;
+    b.header.forEach((h, col) => {
+      if (col === 0) return;
+      const name = String(h).split("·").pop().trim();
+      if (!name || out.some((x) => _refKey(x.name) === _refKey(name))) return;
+      out.push({ name, doc: d.id, bi, col });
+    });
+  }));
+  return out;
 }
 
 function _openRefTab() {
@@ -1249,16 +1446,26 @@ const TTX_MAP_AMMO = [
   [/енергія/i, "e0_j"],
 ];
 
+// Таблиця «Ручні гранати»: «Маса ящика з гранатами» сюди не потрапляє
+const TTX_MAP_GRENADE = [
+  [/маса\s*заряджен|^маса\s*гранат/i, "mass_g"],
+  [/вибухов/i, "explosive_g"],
+  [/радіус/i, "lethal_radius_m"],
+  [/дальність\s*кидка/i, "throw_range_m"],
+  [/час\s*горіння|сповільн/i, "fuse_delay_s"],
+];
+
+// Перше число з клітинки. Мінус не беремо: від'ємних ТТХ немає, а «До-25»
+// чи «3,2-4,2» — це діапазони, не знак.
 function _firstNumber(text) {
-  const m = String(text).replace(/ /g, " ").match(/-?\d+(?:[.,]\d+)?/);
+  const m = String(text).replace(/ /g, " ").match(/\d+(?:[.,]\d+)?/);
   if (!m) return null;
   const v = parseFloat(m[0].replace(",", "."));
   return isFinite(v) ? v : null;
 }
 
 function _fieldLabel(kind, field) {
-  const list = kind === "weapon" ? WEAPON_TTX_FIELDS : AMMO_TTX_FIELDS;
-  const hit = list.find((f) => f[0] === field);
+  const hit = _ttxFields(kind).find((f) => f[0] === field);
   return hit ? hit[1] : field;
 }
 
@@ -1268,13 +1475,13 @@ function _refTableAt(docId, bi) {
   return b && b.t === "table" ? { doc: d, table: b } : null;
 }
 
-// Зброя: шукаємо колонку зразка в таблицях довідника
-function _refWeaponMatch(name) {
+// Зброя / граната: шукаємо колонку зразка в таблицях довідника
+function _refIndexMatch(index, name) {
   const n = _refKey(name);
-  if (!n || !_weaponIndex.length) return null;
+  if (!n || !index.length) return null;
   let exact = null;
   let partial = null;
-  _weaponIndex.forEach((w) => {
+  index.forEach((w) => {
     const k = _refKey(w.name);
     if (k === n) { if (!exact) exact = w; return; }
     if (!partial && n.length >= 3 && k.length >= 3 && (k.startsWith(n) || n.startsWith(k))) partial = w;
@@ -1282,8 +1489,8 @@ function _refWeaponMatch(name) {
   return exact || partial;
 }
 
-function _autofillWeapon(name) {
-  const hit = _refWeaponMatch(name);
+// Значення з колонки зразка: рядки таблиці → поля ТТХ за картою map
+function _autofillColumn(kind, hit, map) {
   if (!hit) return null;
   const at = _refTableAt(hit.doc, hit.bi);
   if (!at) return null;
@@ -1293,14 +1500,22 @@ function _autofillWeapon(name) {
     const label = String(r[0] || "").replace(/\n/g, " ");
     const raw = String(r[hit.col] || "").trim();
     if (!raw || raw === "-" || raw === "—") return;
-    const rule = TTX_MAP_WEAPON.find((m) => m[0].test(label));
+    const rule = map.find((m) => m[0].test(label));
     if (!rule || used[rule[1]]) return;
     const value = _firstNumber(raw);
     if (value === null) return;
     used[rule[1]] = true;
-    items.push({ field: rule[1], label: _fieldLabel("weapon", rule[1]), value, raw, srcLabel: label });
+    items.push({ field: rule[1], label: _fieldLabel(kind, rule[1]), value, raw, srcLabel: label });
   });
   return items.length ? { source: at.doc.title + " · " + hit.name, items } : null;
+}
+
+function _autofillWeapon(name) {
+  return _autofillColumn("weapon", _refIndexMatch(_weaponIndex, name), TTX_MAP_WEAPON);
+}
+
+function _autofillGrenade(name) {
+  return _autofillColumn("grenade", _refIndexMatch(_grenadeIndex, name), TTX_MAP_GRENADE);
 }
 
 // Набої: таблиця «Характеристики патронів»
@@ -1359,8 +1574,8 @@ function _openTtxAutofill(kind, key, fallbackCaliber) {
     _loadRef().then(() => _openTtxAutofill(kind, key, fallbackCaliber)).catch(() => _toast("Довідник не завантажився", "err"));
     return;
   }
-  if (kind === "weapon") {
-    const res = _autofillWeapon(key);
+  if (kind === "weapon" || kind === "grenade") {
+    const res = kind === "weapon" ? _autofillWeapon(key) : _autofillGrenade(key);
     if (!res) { _toast("У довіднику немає такого зразка", "err"); return; }
     _showAutofillSheet(kind, res);
     return;

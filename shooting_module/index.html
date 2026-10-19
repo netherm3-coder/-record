@@ -46,28 +46,35 @@
 
           <div class="card sh-form-card">
             <div class="sh-form-title">Додати запис</div>
+            <!-- Що записуємо: набої чи гранати (у гранат немає калібру) -->
+            <div class="sh-kind" role="group" aria-label="Що записуємо">
+              <button type="button" class="sh-kind-btn active" data-kind="rounds" aria-pressed="true">Набої</button>
+              <button type="button" class="sh-kind-btn" data-kind="grenade" aria-pressed="false">Гранати</button>
+            </div>
             <div class="sh-form-row">
               <label class="sh-label">Дата</label>
               <input type="date" id="shDate" class="sh-input" />
             </div>
             <div class="sh-form-row">
-              <label class="sh-label">Зброя</label>
+              <label class="sh-label" id="shWeaponLabel" for="shWeapon">Зброя</label>
               <div class="sh-weapon-input-wrap">
                 <input type="text" id="shWeapon" class="sh-input" list="shWeaponList" placeholder="Напр. АКМ" autocomplete="off" />
                 <img id="shWeaponPreview" class="sh-weapon-preview" src="../assets/weapons/musket_flint.png" alt="" />
               </div>
               <datalist id="shWeaponList"></datalist>
+              <datalist id="shGrenadeList"></datalist>
             </div>
             <div class="sh-form-split">
-              <div class="sh-form-row">
-                <label class="sh-label">Калібр</label>
+              <div class="sh-form-row sh-cal-row">
+                <label class="sh-label" for="shCaliber">Калібр</label>
                 <input type="text" id="shCaliber" class="sh-input" list="shCaliberList" placeholder="7,62×39мм" autocomplete="off" />
                 <datalist id="shCaliberList"></datalist>
               </div>
               <div class="sh-form-row">
-                <label class="sh-label">Тип набою</label>
+                <label class="sh-label" id="shAmmoLabel" for="shAmmoType">Тип набою</label>
                 <input type="text" id="shAmmoType" class="sh-input" list="shAmmoList" placeholder="ПС / M855" autocomplete="off" />
                 <datalist id="shAmmoList"></datalist>
+                <datalist id="shGrenadeTypeList"></datalist>
               </div>
             </div>
             <div class="sh-form-row">
